@@ -53,6 +53,7 @@ def app_shell(request):
         "initial_view": request.GET.get("view", "home"),
         "initial_code": request.GET.get("code", ""),
         "initial_attempt": request.GET.get("attempt", ""),
+        "bot_username": getattr(settings, "BOT_USERNAME", ""),
         "max_ball": C.MAX_BALL,
         "grade_table": [
             {"from": low, "to": high, "grade": grade} for low, high, grade in C.GRADE_TABLE
@@ -68,43 +69,11 @@ def app_shell(request):
 
 def login_page(request):
     """
-    Brauzer (kompyuter) uchun kirish sahifasi — Telegram Login Widget.
-
-    Telegram ichida bu sahifa kerak emas: ilova `initData` bilan o'zi
-    ochiladi. Brauzerda esa foydalanuvchi Telegram tugmasi orqali
-    hisobini tasdiqlaydi va sessiya ochiladi.
+    Ilova faqat Telegram ichida (Web App sifatida) ochiladi — brauzerdan
+    kelgan har qanday so'rov to'g'ridan-to'g'ri botga yo'naltiriladi.
     """
-    if request.session.get(SESSION_KEY):
-        return HttpResponseRedirect(reverse("miniapp:app"))
-
-    # Telegram OAuth sahifasiga to'g'ridan-to'g'ri havola — uchinchi tomon
-    # skriptiga bog'liq emas, shuning uchun har qanday brauzerda ishlaydi.
-    bot_token = getattr(settings, "BOT_TOKEN", "")
-    bot_id = bot_token.split(":", 1)[0] if ":" in bot_token else ""
-    origin = request.build_absolute_uri("/").rstrip("/")
-    auth_url = request.build_absolute_uri(reverse("miniapp:tg_login"))
-    oauth_link = (
-        "https://oauth.telegram.org/auth"
-        f"?bot_id={bot_id}"
-        f"&origin={quote(origin, safe='')}"
-        f"&return_to={quote(auth_url, safe='')}"
-    )
-
-    # Xato bo'lmasa — tugma ko'rsatmasdan darhol Telegram tekshiruviga
-    # yuboramiz. Oldin ruxsat bergan foydalanuvchini Telegram o'zi tanib,
-    # bir zumda qaytaradi — hech narsa bosish shart emas.
-    error = request.GET.get("xato", "")
-    if not error:
-        return HttpResponseRedirect(oauth_link)
-
-    context = {
-        "bot_username": getattr(settings, "BOT_USERNAME", ""),
-        "oauth_link": oauth_link,
-        "error": error,
-    }
-    response = render(request, "miniapp/login.html", context)
-    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    return response
+    bot_username = getattr(settings, "BOT_USERNAME", "")
+    return HttpResponseRedirect(f"https://t.me/{bot_username}")
 
 
 def tg_login(request):

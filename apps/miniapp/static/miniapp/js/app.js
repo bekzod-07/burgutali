@@ -15,6 +15,12 @@
 
   var DEBUG_USER = new URLSearchParams(location.search).get("debug_user") || "";
 
+  /* Ilova faqat Telegram ichida ishlaydi — brauzerda ochilsa botga yo'naltiramiz. */
+  if (!(tg && tg.initData) && !DEBUG_USER) {
+    location.replace("https://t.me/" + (body.dataset.bot || ""));
+    return;
+  }
+
   /* =====================================================================
      Holat
      ===================================================================== */
