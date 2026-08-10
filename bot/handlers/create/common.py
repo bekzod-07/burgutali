@@ -12,7 +12,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.keyboards import inline, reply
+from bot.keyboards import inline
 from bot.keyboards.factories import CreateCB
 from bot.states import CreateExamStates
 from bot.texts import exam as TE
@@ -55,7 +55,7 @@ async def choose_type(
     await callback.answer()
     await state.update_data(exam_type=exam_type)
     await state.set_state(CreateExamStates.waiting_title)
-    await callback.message.answer(TE.ASK_TITLE, reply_markup=reply.cancel_only())
+    await callback.message.answer(TE.ASK_TITLE, reply_markup=inline.cancel())
 
 
 # ==========================================================================

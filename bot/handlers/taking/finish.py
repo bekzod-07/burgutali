@@ -14,7 +14,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.keyboards import inline, reply
+from bot.keyboards import inline
 from bot.keyboards.factories import QuestionCB
 from bot.services import attempts as attempt_service
 from bot.states import TakingStates
@@ -117,7 +117,7 @@ async def _show_submission_result(message: Message, attempt, is_admin: bool) -> 
     snapshot = await attempt_service.result_snapshot(attempt.id)
 
     # Klaviaturani asosiy menyuga qaytaramiz.
-    await message.answer(TE.SUBMITTED, reply_markup=reply.main_menu(is_admin))
+    await message.answer(TE.SUBMITTED, reply_markup=inline.main_menu(is_admin))
 
     if not snapshot["show_results"]:
         await message.answer(TE.RESULT_HIDDEN, reply_markup=inline.back_to_menu())

@@ -59,6 +59,60 @@ def _attach_webapp(builder: InlineKeyboardBuilder, text: str, **params) -> bool:
 
 
 # ==========================================================================
+#  Asosiy menyu (to'liq inline)
+# ==========================================================================
+
+
+def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
+    """
+    Asosiy menyu — to'liq inline tugmalar.
+
+    Web ilova mavjud bo'lsa (HTTPS), har bir bo'lim ilovaning tegishli
+    ekranini to'g'ridan-to'g'ri Web App sifatida ochadi. Aks holda
+    bot ichidagi oqimlarga yo'naltiruvchi callback tugmalar beriladi.
+    """
+    config = get_config()
+    builder = InlineKeyboardBuilder()
+
+    if config.miniapp_available:
+        builder.row(
+            InlineKeyboardButton(
+                text=TC.BTN_WEB_APP, web_app=WebAppInfo(url=config.miniapp_url)
+            )
+        )
+        grid = InlineKeyboardBuilder()
+        for text, view in (
+            (TC.BTN_TAKE_EXAM, "exams"),
+            (TC.BTN_CREATE_EXAM, "create"),
+            (TC.BTN_MY_RESULTS, "results"),
+            (TC.BTN_CERTIFICATES, "certificates"),
+            (TC.BTN_MY_EXAMS, "my-exams"),
+        ):
+            grid.button(text=text, web_app=WebAppInfo(url=webapp_url(view=view)))
+        grid.button(text=TC.BTN_HELP, callback_data=MenuCB(action="help"))
+        grid.adjust(2)
+        builder.attach(grid)
+    else:
+        grid = InlineKeyboardBuilder()
+        grid.button(text=TC.BTN_TAKE_EXAM, callback_data=MenuCB(action="take"))
+        grid.button(text=TC.BTN_CREATE_EXAM, callback_data=MenuCB(action="create"))
+        grid.button(text=TC.BTN_MY_RESULTS, callback_data=MenuCB(action="results"))
+        grid.button(text=TC.BTN_CERTIFICATES, callback_data=MenuCB(action="certs"))
+        grid.button(text=TC.BTN_MY_EXAMS, callback_data=MenuCB(action="my_exams"))
+        grid.button(text=TC.BTN_HELP, callback_data=MenuCB(action="help"))
+        grid.adjust(2)
+        builder.attach(grid)
+
+    if is_admin:
+        builder.row(
+            InlineKeyboardButton(
+                text=TC.BTN_ADMIN, callback_data=MenuCB(action="admin").pack()
+            )
+        )
+    return builder.as_markup()
+
+
+# ==========================================================================
 #  Boshlanish va obuna
 # ==========================================================================
 
@@ -515,6 +569,7 @@ def url_button(text: str, url: str) -> InlineKeyboardMarkup:
 __all__ = [
     "webapp_url",
     "webapp_button",
+    "main_menu",
     "start_button",
     "subscription",
     "back_to_menu",

@@ -14,7 +14,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from bot.keyboards import reply
+from bot.keyboards import inline
 from bot.services import exams as exam_service
 from bot.states import CreateExamStates
 from bot.texts import exam as TE
@@ -36,7 +36,7 @@ async def ask_next_key_step(message: Message, state: FSMContext) -> None:
         await state.set_state(CreateExamStates.waiting_single_keys)
         await message.answer(
             TE.ASK_SINGLE_KEYS.format(count=data["single_count"]),
-            reply_markup=reply.cancel_only(),
+            reply_markup=inline.cancel(),
         )
         return
 
@@ -44,7 +44,7 @@ async def ask_next_key_step(message: Message, state: FSMContext) -> None:
         await state.set_state(CreateExamStates.waiting_multi_keys)
         await message.answer(
             TE.ASK_MULTI_KEYS.format(count=data["multi_count"]),
-            reply_markup=reply.cancel_only(),
+            reply_markup=inline.cancel(),
         )
         return
 
@@ -52,7 +52,7 @@ async def ask_next_key_step(message: Message, state: FSMContext) -> None:
         await state.set_state(CreateExamStates.waiting_open_keys)
         await message.answer(
             TE.ASK_OPEN_KEYS.format(count=data["open_count"]),
-            reply_markup=reply.cancel_only(),
+            reply_markup=inline.cancel(),
         )
         return
 

@@ -11,8 +11,9 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.keyboards import reply
 from bot.texts import common as TC
+
+from .menu import send_main_menu
 
 router = Router(name="fallback")
 
@@ -23,7 +24,7 @@ async def unknown_text(message: Message, state: FSMContext, user, is_admin: bool
     if not user.is_registered:
         await message.answer(TC.NOT_REGISTERED)
         return
-    await message.answer(TC.UNKNOWN_COMMAND, reply_markup=reply.main_menu(is_admin))
+    await send_main_menu(message, is_admin, text=TC.UNKNOWN_COMMAND)
 
 
 @router.message()
@@ -32,14 +33,14 @@ async def unknown_content(message: Message, user, is_admin: bool) -> None:
     if not user.is_registered:
         await message.answer(TC.NOT_REGISTERED)
         return
-    await message.answer(TC.UNKNOWN_COMMAND, reply_markup=reply.main_menu(is_admin))
+    await send_main_menu(message, is_admin, text=TC.UNKNOWN_COMMAND)
 
 
 @router.callback_query()
 async def unknown_callback(callback: CallbackQuery) -> None:
     """Eskirgan yoki noma'lum inline tugma."""
     await callback.answer(
-        "⏳ Bu tugma eskirgan. Iltimos, /start ni bosing.", show_alert=True
+        "Bu tugma eskirgan. Iltimos, /start ni bosing.", show_alert=True
     )
 
 

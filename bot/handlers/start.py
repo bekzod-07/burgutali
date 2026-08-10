@@ -77,11 +77,15 @@ async def show_welcome(
     message: Message, state: FSMContext, user, is_admin: bool
 ) -> None:
     """Xush kelibsiz xabari yoki asosiy menyu."""
+    from .menu import send_main_menu
+
     if user.is_registered:
+        # Eski reply-klaviaturani tozalab, inline menyu yuboramiz.
         await message.answer(
             TS.WELCOME_BACK.format(name=esc(user.display_name)),
-            reply_markup=reply.main_menu(is_admin),
+            reply_markup=reply.remove(),
         )
+        await send_main_menu(message, is_admin)
         await _open_pending_exam(message, state, user)
         return
 
@@ -117,9 +121,9 @@ async def press_start(
             return
 
     if user.is_registered:
-        await callback.message.answer(
-            TC.MAIN_MENU, reply_markup=reply.main_menu(is_admin)
-        )
+        from .menu import send_main_menu
+
+        await send_main_menu(callback.message, is_admin)
         await _open_pending_exam(callback.message, state, user)
         return
 

@@ -13,7 +13,7 @@ from aiogram.filters.callback_data import CallbackData
 class MenuCB(CallbackData, prefix="menu"):
     """Umumiy menyu harakatlari."""
 
-    action: str  # start, main, help, cancel, noop
+    action: str  # start, main, help, cancel, noop, take, create, results, certs, my_exams, admin
 
 
 class SubscriptionCB(CallbackData, prefix="sub"):

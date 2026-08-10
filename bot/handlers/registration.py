@@ -103,10 +103,14 @@ async def _finish_registration(
     user.is_registered = True
 
     await state.set_state(None)
+    # Telefon so'rash reply-klaviaturasini tozalab, inline menyu beramiz.
     await message.answer(
         TS.REGISTRATION_DONE.format(name=esc(user.full_name), phone=esc(phone)),
-        reply_markup=reply.main_menu(is_admin),
+        reply_markup=reply.remove(),
     )
+    from .menu import send_main_menu
+
+    await send_main_menu(message, is_admin)
 
     # Deep-link orqali kelingan bo'lsa — testni ochamiz.
     data = await state.get_data()

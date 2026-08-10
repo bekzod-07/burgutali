@@ -16,7 +16,7 @@ from aiogram.types import Message
 from django.utils import timezone
 
 from bot.config import get_config
-from bot.keyboards import inline, reply
+from bot.keyboards import inline
 from bot.services import exams as exam_service
 from bot.texts import exam as TE
 from bot.utils.formatting import format_datetime
@@ -59,7 +59,7 @@ async def finish_creation(message: Message, state: FSMContext, user) -> None:
         await state.clear()
         await message.answer(
             "Testni yaratib bo'lmadi. Iltimos, qaytadan urinib ko'ring.",
-            reply_markup=reply.main_menu(bool(user.is_admin)),
+            reply_markup=inline.main_menu(bool(user.is_admin)),
         )
         return
 
@@ -81,7 +81,7 @@ async def finish_creation(message: Message, state: FSMContext, user) -> None:
                 code=exam.code,
                 questions=exam.question_count,
             ),
-            reply_markup=reply.main_menu(True),
+            reply_markup=inline.main_menu(True),
         )
         await message.answer(
             "Nechta ID kod yaratilsin?",
@@ -107,7 +107,7 @@ async def finish_creation(message: Message, state: FSMContext, user) -> None:
             ends_at=format_datetime(exam.ends_at),
             link=link,
         ),
-        reply_markup=reply.main_menu(bool(user.is_admin)),
+        reply_markup=inline.main_menu(bool(user.is_admin)),
     )
 
     if not activated:

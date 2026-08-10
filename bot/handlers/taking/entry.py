@@ -45,7 +45,7 @@ async def open_take_menu(message: Message, state: FSMContext, user) -> None:
     tashkilotchi bergan kod orqali kiriladi.
     """
     await state.set_state(TakingStates.waiting_exam_code)
-    await message.answer(TE.ASK_EXAM_CODE, reply_markup=reply.cancel_only())
+    await message.answer(TE.ASK_EXAM_CODE, reply_markup=inline.cancel())
 
 
 @router.message(StateFilter(TakingStates.waiting_exam_code), F.text)
@@ -136,7 +136,7 @@ async def callback_take_exam(
     if exam.requires_access_code:
         await state.set_state(TakingStates.waiting_access_code)
         await callback.message.answer(
-            TE.ASK_ACCESS_CODE, reply_markup=reply.cancel_only()
+            TE.ASK_ACCESS_CODE, reply_markup=inline.cancel()
         )
         return
 

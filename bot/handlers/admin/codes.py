@@ -16,7 +16,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.keyboards import inline, reply
+from bot.keyboards import inline
 from bot.keyboards.factories import CodesCB, MenuCB
 from bot.services import codes as code_service
 from bot.services import exams as exam_service
@@ -107,7 +107,7 @@ async def ask_custom_quantity(
     await state.update_data(codes_exam_id=callback_data.exam_id)
     await callback.message.answer(
         TA.ASK_CUSTOM_QUANTITY.format(maximum=C.CODE_BATCH_MAX),
-        reply_markup=reply.cancel_only(),
+        reply_markup=inline.cancel(),
     )
 
 

@@ -430,10 +430,18 @@ async def scenario_registration(sim: Simulator) -> None:
     R.equal("Ism bazada", user.full_name, "Burgutali Eshquvvatov")
     R.equal("Telefon bazada", user.phone, "+998901234567")
 
-    # --- Asosiy menyu ---
+    # --- Asosiy menyu (inline) ---
     index = await sim.send(USER_ID, "/menu")
     markup = sim.session.markup_since(index)
-    labels = [button.text for row in getattr(markup, "keyboard", []) for button in row]
+    labels = [
+        button.text
+        for row in (
+            getattr(markup, "keyboard", None)
+            or getattr(markup, "inline_keyboard", None)
+            or []
+        )
+        for button in row
+    ]
     R.check("Asosiy menyuda «Testda qatnashish»", any("qatnashish" in x for x in labels))
     R.check("Asosiy menyuda «Test yaratish»", any("yaratish" in x for x in labels))
     R.check("Oddiy foydalanuvchida admin tugmasi yo'q", not any("Admin" in x for x in labels))
@@ -636,7 +644,15 @@ async def scenario_admin(sim: Simulator) -> None:
 
     index = await sim.send(ADMIN_ID, "/menu")
     markup = sim.session.markup_since(index)
-    labels = [button.text for row in getattr(markup, "keyboard", []) for button in row]
+    labels = [
+        button.text
+        for row in (
+            getattr(markup, "keyboard", None)
+            or getattr(markup, "inline_keyboard", None)
+            or []
+        )
+        for button in row
+    ]
     R.check("Adminda «Admin panel» tugmasi bor", any("Admin" in x for x in labels))
 
     # --- Admin panel ---
