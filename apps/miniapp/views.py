@@ -90,10 +90,17 @@ def login_page(request):
         f"&return_to={quote(auth_url, safe='')}"
     )
 
+    # Xato bo'lmasa — tugma ko'rsatmasdan darhol Telegram tekshiruviga
+    # yuboramiz. Oldin ruxsat bergan foydalanuvchini Telegram o'zi tanib,
+    # bir zumda qaytaradi — hech narsa bosish shart emas.
+    error = request.GET.get("xato", "")
+    if not error:
+        return HttpResponseRedirect(oauth_link)
+
     context = {
         "bot_username": getattr(settings, "BOT_USERNAME", ""),
         "oauth_link": oauth_link,
-        "error": request.GET.get("xato", ""),
+        "error": error,
     }
     response = render(request, "miniapp/login.html", context)
     response["Cache-Control"] = "no-cache, no-store, must-revalidate"
