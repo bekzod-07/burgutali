@@ -43,14 +43,6 @@
       border-radius: 8px; font-size: 14px; text-align: left;
     }
     .widget { min-height: 46px; display: flex; justify-content: center; }
-    .hint { margin: 20px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-    .hint a { color: var(--navy-600); }
-    .steps {
-      margin: 18px 0 0; padding: 14px 16px;
-      background: var(--bg); border-radius: 10px;
-      text-align: left; font-size: 13.5px; color: var(--muted);
-    }
-    .steps b { color: var(--text); }
   </style>
 </head>
 <body>
@@ -67,13 +59,6 @@
               data-size="large"
               data-userpic="false"
               data-auth-url="{{ auth_url }}"></script>
-    </div>
-
-    <div class="steps">
-      <b>Eslatma:</b> kirishdan oldin botga bir marta
-      <b>/start</b> yuborgan bo'lishingiz kerak —
-      <a href="https://t.me/{{ bot_username }}" target="_blank" rel="noopener">@{{ bot_username }}</a>.
-      Telefonda esa ilova to'g'ridan-to'g'ri bot ichida ochiladi.
     </div>
   </div>
 </body>
