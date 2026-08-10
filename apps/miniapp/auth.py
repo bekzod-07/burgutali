@@ -98,6 +98,60 @@ def validate_init_data(
 
 
 # --------------------------------------------------------------------------
+#  Telegram Login Widget (brauzerdan kirish)
+# --------------------------------------------------------------------------
+
+#: Brauzer sessiyasida Telegram ID saqlanadigan kalit.
+SESSION_KEY = "miniapp_tg_id"
+
+
+def validate_login_widget(
+    params: dict,
+    *,
+    bot_token: str | None = None,
+    max_age: int = 86400,
+) -> InitDataResult:
+    """
+    Telegram Login Widget qaytargan ma'lumot imzosini tekshiradi.
+
+    Mini App `initData` dan farqi — kalit sifatida bot token xeshi
+    to'g'ridan-to'g'ri ishlatiladi:
+
+        secret_key = SHA256(<bot_token>)
+        hash       = HMAC_SHA256(key=secret_key, msg=<data_check_string>)
+
+    Manba: https://core.telegram.org/widgets/login#checking-authorization
+    """
+    token = bot_token or getattr(settings, "BOT_TOKEN", "")
+    if not token:
+        return InitDataResult(False, "Bot tokeni sozlanmagan.")
+
+    data = {k: v for k, v in params.items() if k != "hash"}
+    received_hash = params.get("hash", "")
+    if not received_hash or "id" not in data:
+        return InitDataResult(False, "Kirish ma'lumoti to'liq emas.")
+
+    data_check_string = "\n".join(f"{key}={data[key]}" for key in sorted(data))
+    secret_key = hashlib.sha256(token.encode()).digest()
+    computed = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(computed, received_hash):
+        return InitDataResult(False, "Imzo mos kelmadi.")
+
+    if max_age:
+        try:
+            auth_date = int(data.get("auth_date", "0"))
+        except ValueError:
+            auth_date = 0
+        if not auth_date or (time.time() - auth_date) > max_age:
+            return InitDataResult(False, "Kirish ma'lumoti muddati o'tgan.")
+
+    return InitDataResult(True, "", dict(data), dict(data))
+
+
+# --------------------------------------------------------------------------
 #  So'rovdan foydalanuvchini aniqlash
 # --------------------------------------------------------------------------
 
@@ -140,6 +194,26 @@ def resolve_user(request):
             raise MiniAppAuthError("Hisobingiz bloklangan.")
         return user
 
+    # Brauzer sessiyasi (Telegram Login Widget orqali kirilgan bo'lsa).
+    session_tg_id = request.session.get(SESSION_KEY) if hasattr(request, "session") else None
+    if session_tg_id:
+        # API'lar CSRF'dan ozod, shuning uchun sessiyali o'zgartiruvchi
+        # so'rovlar faqat ilova JS'i qo'yadigan maxsus sarlavha bilan qabul
+        # qilinadi — begona sayt formasi bunday sarlavha yubora olmaydi.
+        if request.method not in ("GET", "HEAD", "OPTIONS") and (
+            request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest"
+        ):
+            raise MiniAppAuthError("So'rov manbai tasdiqlanmadi.")
+        user = BotUser.objects.filter(telegram_id=session_tg_id).first()
+        if user is None:
+            request.session.pop(SESSION_KEY, None)
+            raise MiniAppAuthError(
+                "Siz botda ro'yxatdan o'tmagansiz. Avval botga /start yuboring."
+            )
+        if user.is_blocked:
+            raise MiniAppAuthError("Hisobingiz bloklangan.")
+        return user
+
     if getattr(settings, "DEBUG", False) or getattr(settings, "MINIAPP_ALLOW_DEBUG_USER", False):
         raw = request.META.get("HTTP_X_DEBUG_USER", "")
         if raw:
@@ -161,6 +235,8 @@ __all__ = [
     "InitDataResult",
     "MiniAppAuthError",
     "INIT_DATA_HEADER",
+    "SESSION_KEY",
     "validate_init_data",
+    "validate_login_widget",
     "resolve_user",
 ]

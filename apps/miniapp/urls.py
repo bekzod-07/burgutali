@@ -17,6 +17,11 @@ urlpatterns = [
     path("", views.app_shell, name="app"),
     path("klaviatura/", views.keyboard, name="keyboard"),
 
+    # --- Brauzerdan kirish (Telegram Login Widget) ---
+    path("kirish/", views.login_page, name="login"),
+    path("tg-kirish/", views.tg_login, name="tg_login"),
+    path("chiqish/", views.logout_page, name="logout"),
+
     # --- API: umumiy ---
     path("api/boshlash/", api.bootstrap, name="api_bootstrap"),
     path("api/tekshir/", views.api_validate, name="api_validate"),

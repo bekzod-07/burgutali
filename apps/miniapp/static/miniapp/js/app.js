@@ -36,6 +36,7 @@
     subtitle: document.getElementById("app-subtitle"),
     back: document.getElementById("btn-back"),
     refresh: document.getElementById("btn-refresh"),
+    logout: document.getElementById("btn-logout"),
     tabbar: document.getElementById("tabbar"),
     toast: document.getElementById("toast"),
     modal: document.getElementById("modal"),
@@ -106,7 +107,12 @@
 
   function api(path, options) {
     options = options || {};
-    var headers = { "Content-Type": "application/json" };
+    var headers = {
+      "Content-Type": "application/json",
+      /* Sessiyali (brauzer) kirishda server o'zgartiruvchi so'rovlarni
+         faqat shu sarlavha bilan qabul qiladi (CSRF himoyasi). */
+      "X-Requested-With": "XMLHttpRequest"
+    };
     if (tg && tg.initData) { headers["X-Telegram-Init-Data"] = tg.initData; }
     if (DEBUG_USER) { headers["X-Debug-User"] = DEBUG_USER; }
 
@@ -1411,6 +1417,11 @@
 
   function handleError(error) {
     if (error && error.status === 401) {
+      /* Brauzerda (Telegram tashqarisida) — kirish sahifasiga yo'naltiramiz. */
+      if (!(tg && tg.initData) && !DEBUG_USER) {
+        location.href = "/app/kirish/";
+        return;
+      }
       el.screen.innerHTML = '<div class="empty">' + ic("lock", "icon-xl") +
         "<b>Kirish yopiq</b><p>" + esc(error.message) + "</p>" +
         '<button class="btn btn-ghost" data-act="reload">Qayta urinish</button></div>';
@@ -1518,6 +1529,14 @@
       if (tg.BackButton) { tg.BackButton.onClick(back); }
       if (tg.setHeaderColor) { tg.setHeaderColor("secondary_bg_color"); }
     } catch (e) { /* eski versiyalar */ }
+  }
+
+  /* Brauzer (sessiya) rejimida sarlavhada "Chiqish" tugmasi ko'rinadi. */
+  if (el.logout && !(tg && tg.initData)) {
+    el.logout.hidden = false;
+    el.logout.addEventListener("click", function () {
+      location.href = "/app/chiqish/";
+    });
   }
 
   var initialView = body.dataset.initialView || "home";
