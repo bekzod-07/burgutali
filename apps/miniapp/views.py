@@ -76,9 +76,23 @@ def login_page(request):
     """
     if request.session.get(SESSION_KEY):
         return HttpResponseRedirect(reverse("miniapp:app"))
+
+    # Telegram OAuth sahifasiga to'g'ridan-to'g'ri havola — uchinchi tomon
+    # skriptiga bog'liq emas, shuning uchun har qanday brauzerda ishlaydi.
+    bot_token = getattr(settings, "BOT_TOKEN", "")
+    bot_id = bot_token.split(":", 1)[0] if ":" in bot_token else ""
+    origin = request.build_absolute_uri("/").rstrip("/")
+    auth_url = request.build_absolute_uri(reverse("miniapp:tg_login"))
+    oauth_link = (
+        "https://oauth.telegram.org/auth"
+        f"?bot_id={bot_id}"
+        f"&origin={quote(origin, safe='')}"
+        f"&return_to={quote(auth_url, safe='')}"
+    )
+
     context = {
         "bot_username": getattr(settings, "BOT_USERNAME", ""),
-        "auth_url": request.build_absolute_uri(reverse("miniapp:tg_login")),
+        "oauth_link": oauth_link,
         "error": request.GET.get("xato", ""),
     }
     response = render(request, "miniapp/login.html", context)
@@ -87,13 +101,18 @@ def login_page(request):
 
 
 def tg_login(request):
-    """Telegram Login Widget qaytish manzili — imzoni tekshirib sessiya ochadi."""
+    """Telegram OAuth qaytish manzili — imzoni tekshirib sessiya ochadi."""
     from apps.users.models import BotUser
 
     def fail(reason: str):
         return HttpResponseRedirect(
             reverse("miniapp:login") + "?xato=" + quote(reason)
         )
+
+    # Telegram natijani URL fragmentida (#tgAuthResult=...) qaytarishi mumkin —
+    # fragment serverga yetib kelmaydi, uni JS query parametrlariga o'giradi.
+    if "hash" not in request.GET:
+        return render(request, "miniapp/tg_login_fragment.html")
 
     result = validate_login_widget(request.GET.dict())
     if not result.valid or result.telegram_id is None:

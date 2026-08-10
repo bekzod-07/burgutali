@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <title>Kirish...</title>
+</head>
+<body>
+<script>
+/* Telegram OAuth natijani #tgAuthResult=<base64> fragmentida qaytaradi.
+   Fragment serverga yetib bormaydi — uni query parametrlarga o'girib,
+   sahifani qayta yuklaymiz; server imzoni tekshirib sessiya ochadi. */
+(function () {
+  var kirish = "/app/kirish/?xato=" + encodeURIComponent("Kirish amalga oshmadi.");
+  var m = location.hash.match(/tgAuthResult=([A-Za-z0-9_\-]+=*)/);
+  if (!m) { location.replace(kirish); return; }
+  try {
+    var b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) { b64 += "="; }
+    var bytes = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); });
+    var data = JSON.parse(new TextDecoder("utf-8").decode(bytes));
+    var qs = [];
+    for (var k in data) {
+      if (Object.prototype.hasOwnProperty.call(data, k)) {
+        qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(data[k]));
+      }
+    }
+    location.replace(location.pathname + "?" + qs.join("&"));
+  } catch (e) {
+    location.replace(kirish);
+  }
+})();
+</script>
+</body>
+</html>
