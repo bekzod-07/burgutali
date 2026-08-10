@@ -294,6 +294,46 @@ python run_bot.py
 
 Batafsil: [docs/ORNATISH.md](docs/ORNATISH.md)
 
+### Serverga o‘rnatish (production — burgutali.uz)
+
+Ubuntu 22.04/24.04 serverda **bitta skript** hammasini ko‘taradi:
+nginx + SSL (Let's Encrypt) + Django web (gunicorn) + Telegram bot —
+ikkalasi ham systemd xizmati sifatida, server qayta yonganda avtomatik
+ishga tushadi.
+
+```bash
+# 1. Loyihani yuklab olish
+git clone https://github.com/bekzod-07/burgutali.git
+cd burgutali
+
+# 2. Skriptga ruxsat berish va ishga tushirish
+chmod +x deploy.sh
+sudo ./deploy.sh
+#  -> birinchi ishga tushirishda .env yaratiladi va skript to'xtaydi;
+#     nano .env  bilan BOT_TOKEN, BOT_USERNAME, ADMIN_IDS ni to'ldiring
+
+# 3. Qayta ishga tushirish — hammasi ko'tariladi
+sudo ./deploy.sh
+```
+
+> **Eslatma:** SSL olishdan oldin `burgutali.uz` (va ixtiyoriy `www`)
+> DNS **A-yozuvi** server IP siga qaratilgan bo‘lishi kerak.
+
+Yangilash (kod o‘zgarganda):
+
+```bash
+git pull && sudo ./deploy.sh
+```
+
+Foydali buyruqlar:
+
+```bash
+systemctl status burgutali-web      # web holati
+systemctl status burgutali-bot      # bot holati
+journalctl -u burgutali-bot -f      # bot loglari (jonli)
+tail -f logs/gunicorn-error.log     # web xato loglari
+```
+
 ---
 
 ## Loyiha tuzilmasi
