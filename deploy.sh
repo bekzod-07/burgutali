@@ -94,6 +94,14 @@ cd "$APP_DIR"
 # www-data o'qiy olishi uchun
 chown -R www-data:www-data "$APP_DIR/staticfiles" "$APP_DIR/media"
 
+# Loyiha /root ichida bo'lsa, nginx (www-data) papkalarga yetib borishi uchun
+# /root ga faqat "o'tish" (execute) ruxsatini beramiz — o'qish ruxsati emas.
+case "$APP_DIR" in
+    /root/*)
+        setfacl -m u:www-data:x /root 2>/dev/null || chmod 711 /root
+        ;;
+esac
+
 # ----------------------- 5. systemd xizmatlari ---------------------------
 log "systemd xizmatlari yozilmoqda..."
 
@@ -174,21 +182,22 @@ nginx -t || die "Nginx konfiguratsiyasi xato."
 systemctl reload nginx
 
 # ----------------------- 7. SSL (Let's Encrypt) --------------------------
-if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
-    log "SSL sertifikat olinmoqda (Let's Encrypt)..."
-    if certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" \
-        --non-interactive --agree-tos -m "$CERTBOT_EMAIL" --redirect; then
-        log "SSL o'rnatildi: https://$DOMAIN"
-    elif certbot --nginx -d "$DOMAIN" \
-        --non-interactive --agree-tos -m "$CERTBOT_EMAIL" --redirect; then
-        warn "www.$DOMAIN uchun DNS yozuvi topilmadi — faqat $DOMAIN uchun SSL o'rnatildi."
-    else
-        warn "SSL olinmadi. DNS A-yozuvi shu server IP siga qaratilganini tekshiring,"
-        warn "so'ng qo'lda ishga tushiring:  certbot --nginx -d $DOMAIN"
-        warn "Hozircha sayt http://$DOMAIN da ishlayveradi."
-    fi
+# Skript nginx konfiguratsiyasini har safar qayta yozadi, shuning uchun certbot
+# ham har safar chaqiriladi: sertifikat mavjud bo'lsa --keep-until-expiring
+# uni yangilamasdan, faqat SSL blokini konfiguratsiyaga qayta o'rnatadi.
+log "SSL sozlanmoqda (Let's Encrypt)..."
+if certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" \
+    --non-interactive --agree-tos -m "$CERTBOT_EMAIL" \
+    --redirect --keep-until-expiring; then
+    log "SSL faol: https://$DOMAIN"
+elif certbot --nginx -d "$DOMAIN" \
+    --non-interactive --agree-tos -m "$CERTBOT_EMAIL" \
+    --redirect --keep-until-expiring; then
+    warn "www.$DOMAIN uchun DNS yozuvi topilmadi — faqat $DOMAIN uchun SSL o'rnatildi."
 else
-    log "SSL sertifikat allaqachon mavjud."
+    warn "SSL olinmadi. DNS A-yozuvi shu server IP siga qaratilganini tekshiring,"
+    warn "so'ng qo'lda ishga tushiring:  certbot --nginx -d $DOMAIN"
+    warn "Hozircha sayt http://$DOMAIN da ishlayveradi."
 fi
 
 # ----------------------- 8. Xizmatlarni ishga tushirish ------------------
