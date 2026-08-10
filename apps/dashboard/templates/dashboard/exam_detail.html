@@ -1,0 +1,179 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ exam.title }}{% endblock %}
+{% block page_title %}{{ exam.title }}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <span class="code-pill">{{ exam.code }}</span> · {{ exam.get_exam_type_display }}
+{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-outline" href="{% url 'dashboard:exam_questions' exam.pk %}">Savollar</a>
+  <a class="btn btn-outline" href="{% url 'dashboard:exam_results' exam.pk %}">Natijalar</a>
+  {% if exam.requires_access_code %}
+    <a class="btn btn-outline" href="{% url 'dashboard:exam_codes' exam.pk %}">ID kodlar</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- ============================ Amallar ============================ -->
+<section class="card mb">
+  <div class="card-head">
+    <h2>Test boshqaruvi</h2>
+    <span class="sub">Joriy holat: <b>{{ exam.get_status_display }}</b></span>
+  </div>
+  <div class="card-body">
+    <div class="chip-row">
+      <a class="btn btn-green" href="{% url 'dashboard:exam_action' exam.pk 'faollashtirish' %}">
+        <svg class="icon"><use href="#i-play"></use></svg> Faollashtirish
+      </a>
+      <a class="btn btn-outline" href="{% url 'dashboard:exam_action' exam.pk 'yopish' %}">
+        <svg class="icon"><use href="#i-stop"></use></svg> Yopish
+      </a>
+      <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">
+        <svg class="icon"><use href="#i-sigma"></use></svg> Natijalarni hisoblash
+      </a>
+      <a class="btn btn-gold" href="{% url 'dashboard:exam_action' exam.pk 'elon' %}">
+        <svg class="icon"><use href="#i-send"></use></svg> Natijalarni e’lon qilish
+      </a>
+      {% if exam.can_issue_certificate %}
+        <a class="btn btn-outline" href="{% url 'dashboard:exam_action' exam.pk 'sertifikatlar' %}">
+          <svg class="icon"><use href="#i-award"></use></svg> Sertifikatlarni yaratish
+        </a>
+      {% endif %}
+      <a class="btn btn-outline" href="{% url 'dashboard:export_results_excel' exam.pk %}">
+        <svg class="icon"><use href="#i-sheet"></use></svg> Natijalar (Excel)
+      </a>
+      <a class="btn btn-outline" href="{% url 'dashboard:export_results_pdf' exam.pk %}">
+        <svg class="icon"><use href="#i-file"></use></svg> Natijalar (PDF)
+      </a>
+      <a class="btn btn-outline" href="{% url 'dashboard:export_participants' exam.pk %}">
+        <svg class="icon"><use href="#i-users"></use></svg> Ishtirokchilar
+      </a>
+      <a class="btn btn-outline" href="{% url 'dashboard:exam_duplicate' exam.pk %}">
+        <svg class="icon"><use href="#i-copy"></use></svg> Nusxa yaratish
+      </a>
+      <a class="btn btn-red" href="{% url 'dashboard:exam_delete' exam.pk %}">
+        <svg class="icon"><use href="#i-trash"></use></svg> Testni o‘chirish
+      </a>
+    </div>
+
+    {% if missing_keys %}
+      <div class="message message-warning mt">
+        Javob kaliti kiritilmagan savollar:
+        {% for order in missing_keys|slice:":25" %}{{ order }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        {% if missing_keys|length > 25 %} …{% endif %}
+      </div>
+    {% else %}
+      <div class="message message-success mt">Barcha savollarning javob kaliti kiritilgan.</div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="grid grid-2 mb">
+
+  <!-- ============================ Ma'lumot ============================ -->
+  <section class="card">
+    <div class="card-head"><h2>Test haqida</h2></div>
+    <div class="card-body">
+      <div class="kv"><span class="k">Test kodi</span><span class="v"><span class="code-pill">{{ exam.code }}</span></span></div>
+      <div class="kv"><span class="k">Turi</span><span class="v">{{ exam.get_exam_type_display }}</span></div>
+      <div class="kv"><span class="k">Yaratuvchi</span><span class="v">{{ exam.owner.display_name }}</span></div>
+      <div class="kv"><span class="k">Savollar soni</span><span class="v">{{ exam.question_count }}</span></div>
+      <div class="kv"><span class="k">Maksimal xom ball</span><span class="v">{{ summary.max_raw_score }}</span></div>
+      <div class="kv"><span class="k">Qatnashchilar</span><span class="v">{{ summary.participants }}</span></div>
+      <div class="kv"><span class="k">Tugash vaqti</span><span class="v">{% if exam.ends_at %}{{ exam.ends_at|date:"d.m.Y H:i" }}{% else %}cheklanmagan{% endif %}</span></div>
+      <div class="kv"><span class="k">Sertifikat</span><span class="v">{% if exam.can_issue_certificate %}<span class="badge badge-gold">Yoqilgan</span>{% else %}<span class="badge badge-gray">Yo‘q</span>{% endif %}</span></div>
+      {% if exam.deep_link %}
+        <div class="kv"><span class="k">Botga havola</span><span class="v"><a href="{{ exam.deep_link }}" target="_blank">{{ exam.deep_link }}</a></span></div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ============================ Statistika ============================ -->
+  <section class="card">
+    <div class="card-head"><h2>Statistika</h2></div>
+    <div class="card-body">
+      {% if statistics and statistics.participants %}
+        <div class="kv"><span class="k">Qatnashchilar</span><span class="v">{{ statistics.participants }}</span></div>
+        <div class="kv"><span class="k">O‘rtacha xom ball</span><span class="v">{{ statistics.avg_raw_score|floatformat:2 }}</span></div>
+        <div class="kv"><span class="k">O‘rtacha foiz</span><span class="v">{{ statistics.avg_percent|floatformat:1 }}%</span></div>
+        {% if exam.uses_rasch %}
+          <div class="kv"><span class="k">O‘rtacha ball</span><span class="v">{{ statistics.avg_ball|floatformat:2 }}</span></div>
+          <div class="kv"><span class="k">Eng yuqori ball</span><span class="v">{{ statistics.max_ball_achieved|floatformat:2 }}</span></div>
+          <div class="kv"><span class="k">Eng past ball</span><span class="v">{{ statistics.min_ball_achieved|floatformat:2 }}</span></div>
+          <div class="kv"><span class="k">Standart og‘ish</span><span class="v">{{ statistics.std_ball|floatformat:2 }}</span></div>
+        {% endif %}
+        <div class="kv"><span class="k">Ishonchlilik (KR-20)</span><span class="v">{{ statistics.reliability|floatformat:3 }}</span></div>
+      {% else %}
+        <div class="empty">Statistika hali hisoblanmagan.</div>
+      {% endif %}
+
+      {% if code_stats %}
+        <h3 class="mt" style="font-size:14px;">ID kodlar</h3>
+        <div class="kv"><span class="k">Jami</span><span class="v">{{ code_stats.total }}</span></div>
+        <div class="kv"><span class="k">Ishlatilmagan</span><span class="v">{{ code_stats.unused }}</span></div>
+        <div class="kv"><span class="k">Faollashtirilgan</span><span class="v">{{ code_stats.activated }}</span></div>
+        <div class="kv"><span class="k">Ishlatilgan</span><span class="v">{{ code_stats.used }}</span></div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================ Javob kalitlari ============================ -->
+<section class="card mb">
+  <div class="card-head">
+    <h2>Javob kalitlarini kiritish</h2>
+    <span class="sub">Kalitlar matn ko‘rinishida import qilinadi</span>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form" value="keys">
+      {% for field in key_form %}
+        <div class="form-row">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-primary" type="submit">Kalitlarni saqlash</button>
+    </form>
+  </div>
+</section>
+
+<!-- ============================ Sozlamalar ============================ -->
+<section class="card">
+  <div class="card-head">
+    <h2>Test sozlamalari</h2>
+    <span class="sub">Rasch parametrlari va sertifikat qoidalari</span>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form" value="settings">
+      <div class="form-grid">
+        {% for field in form %}
+          {% if field.field.widget.input_type == 'checkbox' %}
+            <div class="check-row">
+              {{ field }}
+              <label for="{{ field.id_for_label }}" style="margin:0">{{ field.label }}</label>
+            </div>
+          {% else %}
+            <div class="form-row">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <button class="btn btn-primary mt" type="submit">Sozlamalarni saqlash</button>
+    </form>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,8 @@
+# ngrok traffic policy — bepul tarifdagi "ogohlantirish sahifasi"ni chetlab o'tish
+# uchun har bir so'rovga `ngrok-skip-browser-warning` sarlavhasini qo'shadi.
+on_http_request:
+  - actions:
+      - type: add-headers
+        config:
+          headers:
+            ngrok-skip-browser-warning: "true"

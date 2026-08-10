@@ -1,0 +1,139 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ attempt.full_name }} — natija{% endblock %}
+{% block page_title %}{{ attempt.full_name|default:attempt.user.display_name }}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:attempt_list' %}">Natijalar</a> /
+  <a href="{% url 'dashboard:exam_results' attempt.exam.pk %}">{{ attempt.exam.title }}</a> /
+  urinish #{{ attempt.pk }}
+{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-primary" href="{% url 'dashboard:attempt_action' attempt.pk 'qayta-baholash' %}">
+    <svg class="icon"><use href="#i-refresh"></use></svg> Qayta baholash
+  </a>
+  {% if attempt.exam.can_issue_certificate and attempt.is_submitted %}
+    <a class="btn btn-gold" href="{% url 'dashboard:attempt_action' attempt.pk 'sertifikat' %}">
+      <svg class="icon"><use href="#i-award"></use></svg> Sertifikat
+    </a>
+  {% endif %}
+  <a class="btn btn-red" href="{% url 'dashboard:attempt_action' attempt.pk 'ochirish' %}"
+     onclick="return confirm('Urinish butunlay o‘chiriladi. Davom etilsinmi?')">
+    <svg class="icon"><use href="#i-trash"></use></svg> O‘chirish
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-2 mb">
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-user"></use></svg>
+      <h2>Ishtirokchi</h2>
+    </div>
+    <div class="card-body">
+      <div class="kv"><span class="k">Ism-familiya</span><span class="v">{{ attempt.full_name|default:"—" }}</span></div>
+      <div class="kv"><span class="k">Telefon</span><span class="v">{{ attempt.phone|default:"—" }}</span></div>
+      <div class="kv">
+        <span class="k">Telegram</span>
+        <span class="v"><a href="{% url 'dashboard:user_detail' attempt.user.pk %}">{{ attempt.user.telegram_id }}</a></span>
+      </div>
+      <div class="kv"><span class="k">Boshlangan</span><span class="v">{{ attempt.started_at|date:"d.m.Y H:i" }}</span></div>
+      <div class="kv"><span class="k">Topshirgan</span><span class="v">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"—" }}</span></div>
+      <div class="kv"><span class="k">Sarflangan vaqt</span><span class="v">{{ attempt.duration_seconds }} sek</span></div>
+      {% if access_code %}
+        <div class="kv"><span class="k">ID kod</span><span class="v"><span class="code-pill">{{ access_code.code }}</span></span></div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-chart"></use></svg>
+      <h2>Natija</h2>
+      <span class="sub">{{ attempt.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv"><span class="k">To‘g‘ri javoblar</span><span class="v">{{ attempt.raw_score|floatformat:"-2" }} / {{ attempt.max_raw_score|floatformat:"-2" }}</span></div>
+      <div class="kv"><span class="k">Xato javoblar</span><span class="v">{{ attempt.wrong_count }}</span></div>
+      <div class="kv"><span class="k">Javobsiz</span><span class="v">{{ attempt.empty_count }}</span></div>
+      <div class="kv"><span class="k">Foiz</span><span class="v">{{ attempt.percent|floatformat:1 }}%</span></div>
+      {% if attempt.exam.uses_rasch %}
+        <div class="kv"><span class="k">theta (θ)</span><span class="v">{{ attempt.theta|floatformat:4|default:"—" }}</span></div>
+        <div class="kv"><span class="k">theta xatosi</span><span class="v">{{ attempt.theta_se|floatformat:4|default:"—" }}</span></div>
+        <div class="kv"><span class="k">Standart ball</span><span class="v"><b>{{ attempt.display_ball }}</b></span></div>
+        <div class="kv"><span class="k">Daraja</span><span class="v">
+          {% if attempt.grade %}<span class="badge badge-gold">{{ attempt.grade }}</span>{% else %}—{% endif %}
+        </span></div>
+      {% endif %}
+      <div class="kv"><span class="k">Reyting o‘rni</span><span class="v">{{ attempt.rank|default:"—" }}</span></div>
+      {% if certificate %}
+        <div class="kv">
+          <span class="k">Sertifikat</span>
+          <span class="v"><span class="code-pill">{{ certificate.number }}</span></span>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+{% if attempt.section_scores %}
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-grid"></use></svg>
+      <h2>Bo‘limlar bo‘yicha</h2>
+    </div>
+    <div class="card-body">
+      <div class="chip-row">
+        {% for name, value in attempt.section_scores.items %}
+          <span class="badge badge-navy">{{ name }}: {{ value.correct|floatformat:"-2" }}/{{ value.total|floatformat:"-2" }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+{% endif %}
+
+<section class="card">
+  <div class="card-head">
+    <svg class="icon"><use href="#i-list"></use></svg>
+    <h2>Javoblar</h2>
+    <span class="sub">{{ rows|length }} ta savol</span>
+  </div>
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="num">№</th>
+            <th class="num">Holat</th>
+            <th>Berilgan javob</th>
+            <th>To‘g‘ri javob</th>
+            <th class="num">Ball</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td class="num rank">{{ row.order }}</td>
+              <td class="num">
+                {% if row.icon == "✓" %}<span class="badge badge-green">to‘g‘ri</span>
+                {% elif row.icon == "✗" %}<span class="badge badge-red">xato</span>
+                {% elif row.icon == "±" %}<span class="badge badge-orange">qisman</span>
+                {% else %}<span class="badge badge-gray">javobsiz</span>{% endif %}
+              </td>
+              <td class="small mono">{{ row.given }}</td>
+              <td class="small mono muted">{{ row.correct }}</td>
+              <td class="num">{{ row.score|floatformat:"-2" }} / {{ row.max_score }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5"><div class="empty">Javoblar yo‘q.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,127 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Matematik klaviatura</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="{% static 'miniapp/css/keyboard.css' %}">
+</head>
+<body
+  data-question="{{ question_order }}"
+  data-exam="{{ exam_code }}"
+  data-parts="{{ parts }}"
+  data-api="{% url 'miniapp:api_validate' %}">
+
+  <header class="app-header">
+    <div class="app-title">
+      <span class="app-badge">{% if question_order %}{{ question_order }}-savol{% else %}Javob{% endif %}</span>
+      <h1>Matematik javob kiritish</h1>
+    </div>
+    {% if question_text %}<p class="question-text">{{ question_text }}</p>{% endif %}
+  </header>
+
+  <main class="app-main">
+
+    <!-- ================= Javob maydonlari ================= -->
+    <section class="fields" id="fields">
+      <div class="field is-active" data-field="a">
+        <label for="answer-a">a) javob</label>
+        <input type="text" id="answer-a" inputmode="none" autocomplete="off"
+               spellcheck="false" placeholder="masalan: 1/2 yoki sqrt(3)"
+               value="{{ prefill_a }}">
+        <div class="field-hint" id="hint-a"></div>
+      </div>
+
+      <div class="field" data-field="b" id="field-b">
+        <label for="answer-b">b) javob</label>
+        <input type="text" id="answer-b" inputmode="none" autocomplete="off"
+               spellcheck="false" placeholder="masalan: pi/6"
+               value="{{ prefill_b }}">
+        <div class="field-hint" id="hint-b"></div>
+      </div>
+    </section>
+
+    <!-- ================= Klaviatura ================= -->
+    <section class="keyboard" id="keyboard">
+
+      <div class="key-group" data-group="funksiyalar">
+        <div class="group-title">Funksiyalar</div>
+        <div class="key-row">
+          <button class="key key-fn" data-insert="/"            data-caret="0">a⁄b</button>
+          <button class="key key-fn" data-insert="sqrt()"       data-caret="-1">√</button>
+          <button class="key key-fn" data-insert="^2"           data-caret="0">x²</button>
+          <button class="key key-fn" data-insert="^"            data-caret="0">xⁿ</button>
+        </div>
+        <div class="key-row">
+          <button class="key key-fn" data-insert="pi"           data-caret="0">π</button>
+          <button class="key key-fn" data-insert="e"            data-caret="0">e</button>
+          <button class="key key-fn" data-insert="abs()"        data-caret="-1">|x|</button>
+          <button class="key key-fn" data-insert="root(,3)"     data-caret="-3">∛</button>
+        </div>
+        <div class="key-row">
+          <button class="key key-fn" data-insert="sin()"        data-caret="-1">sin</button>
+          <button class="key key-fn" data-insert="cos()"        data-caret="-1">cos</button>
+          <button class="key key-fn" data-insert="tg()"         data-caret="-1">tg</button>
+          <button class="key key-fn" data-insert="ctg()"        data-caret="-1">ctg</button>
+        </div>
+        <div class="key-row">
+          <button class="key key-fn" data-insert="ln()"         data-caret="-1">ln</button>
+          <button class="key key-fn" data-insert="log(,10)"     data-caret="-4">log</button>
+          <button class="key key-fn" data-insert="log(,2)"      data-caret="-3">log₂</button>
+          <button class="key key-fn" data-insert="!"            data-caret="0">n!</button>
+        </div>
+      </div>
+
+      <div class="key-group" data-group="taqqoslash">
+        <div class="group-title">Taqqoslash va qavslar</div>
+        <div class="key-row">
+          <button class="key key-op" data-insert="≤" data-caret="0">≤</button>
+          <button class="key key-op" data-insert="≥" data-caret="0">≥</button>
+          <button class="key key-op" data-insert="≠" data-caret="0">≠</button>
+          <button class="key key-op" data-insert="=" data-caret="0">=</button>
+          <button class="key key-op" data-insert="(" data-caret="0">(</button>
+          <button class="key key-op" data-insert=")" data-caret="0">)</button>
+        </div>
+      </div>
+
+      <div class="key-group" data-group="raqamlar">
+        <div class="group-title">Raqamlar va amallar</div>
+        <div class="keypad">
+          <button class="key key-num" data-insert="7">7</button>
+          <button class="key key-num" data-insert="8">8</button>
+          <button class="key key-num" data-insert="9">9</button>
+          <button class="key key-op"  data-insert="÷">÷</button>
+
+          <button class="key key-num" data-insert="4">4</button>
+          <button class="key key-num" data-insert="5">5</button>
+          <button class="key key-num" data-insert="6">6</button>
+          <button class="key key-op"  data-insert="×">×</button>
+
+          <button class="key key-num" data-insert="1">1</button>
+          <button class="key key-num" data-insert="2">2</button>
+          <button class="key key-num" data-insert="3">3</button>
+          <button class="key key-op"  data-insert="−">−</button>
+
+          <button class="key key-num" data-insert="0">0</button>
+          <button class="key key-num" data-insert=".">,</button>
+          <button class="key key-num" data-insert="x">x</button>
+          <button class="key key-op"  data-insert="+">+</button>
+        </div>
+      </div>
+
+      <div class="key-row action-row">
+        <button class="key key-danger" id="btn-clear">Tozalash</button>
+        <button class="key key-warn" id="btn-backspace">⌫</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="preview" id="preview">Javobingizni kiriting</div>
+    <button class="submit" id="btn-submit">Javobni yuborish</button>
+  </footer>
+
+  <script src="{% static 'miniapp/js/keyboard.js' %}"></script>
+</body>
+</html>

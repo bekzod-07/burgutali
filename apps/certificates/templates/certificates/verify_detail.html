@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if is_valid %}Sertifikat {{ certificate.number }}{% else %}Sertifikat topilmadi{% endif %} — {{ SITE_NAME }}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="verify-wrap">
+
+    <div class="verify-card">
+
+      {% if is_valid %}
+        <div class="verify-banner is-valid">
+          <div class="icon"><svg class="icon icon-xl"><use href="#i-check-circle"></use></svg></div>
+          <div>
+            <h1>Sertifikat haqiqiy</h1>
+            <p>Ushbu sertifikat platformamiz bazasida ro‘yxatdan o‘tgan.</p>
+          </div>
+        </div>
+      {% elif certificate %}
+        <div class="verify-banner is-invalid">
+          <div class="icon"><svg class="icon icon-xl"><use href="#i-alert"></use></svg></div>
+          <div>
+            <h1>Sertifikat bekor qilingan</h1>
+            <p>{{ certificate.revoke_reason|default:"Ushbu sertifikat kuchini yo‘qotgan." }}</p>
+          </div>
+        </div>
+      {% else %}
+        <div class="verify-banner is-invalid">
+          <div class="icon"><svg class="icon icon-xl"><use href="#i-x-circle"></use></svg></div>
+          <div>
+            <h1>Sertifikat topilmadi</h1>
+            <p>«{{ number }}» raqamli sertifikat bazada mavjud emas.</p>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if certificate %}
+        <div class="verify-body">
+          <dl style="margin:0">
+            <div class="detail-row">
+              <dt>Sertifikat raqami</dt>
+              <dd>{{ certificate.number }}</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Ism-familiya</dt>
+              <dd>{{ certificate.full_name }}</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Test nomi</dt>
+              <dd>{{ certificate.exam_title }}</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Test sanasi</dt>
+              <dd>{{ certificate.exam_date|date:"d.m.Y" }}</dd>
+            </div>
+            <div class="detail-row">
+              <dt>RASH balli</dt>
+              <dd>{{ certificate.display_ball }} / {{ certificate.max_ball|floatformat:2 }}</dd>
+            </div>
+            {% if certificate.grade %}
+            <div class="detail-row">
+              <dt>Daraja</dt>
+              <dd><span class="badge badge-gold">{{ certificate.grade }}</span></dd>
+            </div>
+            {% endif %}
+            {% if certificate.percent %}
+            <div class="detail-row">
+              <dt>Foiz</dt>
+              <dd>{{ certificate.percent|floatformat:1 }}%</dd>
+            </div>
+            {% endif %}
+            <div class="detail-row">
+              <dt>Reyting</dt>
+              <dd>{{ certificate.display_rank }}</dd>
+            </div>
+            {% if certificate.section_rows %}
+            <div class="detail-row">
+              <dt>Bo‘limlar bo‘yicha</dt>
+              <dd>
+                {% for name, value in certificate.section_rows %}
+                  <span class="badge badge-navy">{{ name }}: {{ value }}</span>
+                {% endfor %}
+              </dd>
+            </div>
+            {% endif %}
+            <div class="detail-row">
+              <dt>Berilgan sana</dt>
+              <dd>{{ certificate.issued_at|date:"d.m.Y" }}</dd>
+            </div>
+            {% if certificate.organizer_name %}
+            <div class="detail-row">
+              <dt>Tashkilotchi</dt>
+              <dd>{{ certificate.organizer_name }}</dd>
+            </div>
+            {% endif %}
+          </dl>
+
+          {% if is_valid and certificate.file %}
+            <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+              <a class="btn btn-primary"
+                 href="{% url 'certificates:download' certificate.number %}{% if token %}?t={{ token }}{% endif %}">
+                PDF ni yuklab olish
+              </a>
+              <a class="btn btn-outline" href="{% url 'certificates:form' %}">Boshqa sertifikat</a>
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="verify-body">
+          <p style="color:var(--muted);">
+            Raqamni to‘g‘ri kiritganingizni tekshiring. Sertifikat raqami
+            <b>RM-YYYY-NNNNNN</b> ko‘rinishida bo‘ladi.
+          </p>
+          <a class="btn btn-ghost" href="{% url 'certificates:form' %}">Qayta urinish</a>
+        </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+</div>
+{% endblock %}

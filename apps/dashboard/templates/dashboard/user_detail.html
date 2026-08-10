@@ -1,0 +1,185 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ bot_user.display_name }}{% endblock %}
+{% block page_title %}{{ bot_user.display_name }}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:user_list' %}">Foydalanuvchilar</a> / Telegram ID {{ bot_user.telegram_id }}
+{% endblock %}
+
+{% block actions %}
+  {% if bot_user.is_blocked %}
+    <a class="btn btn-green" href="{% url 'dashboard:user_action' bot_user.pk 'blokdan-chiqarish' %}">
+      <svg class="icon"><use href="#i-unlock"></use></svg> Blokdan chiqarish
+    </a>
+  {% else %}
+    <a class="btn btn-red" href="{% url 'dashboard:user_action' bot_user.pk 'bloklash' %}"
+       onclick="return confirm('Foydalanuvchi bloklansinmi?')">
+      <svg class="icon"><use href="#i-lock"></use></svg> Bloklash
+    </a>
+  {% endif %}
+  {% if bot_user.is_admin %}
+    <a class="btn btn-outline" href="{% url 'dashboard:user_action' bot_user.pk 'admin-emas' %}">
+      <svg class="icon"><use href="#i-user"></use></svg> Adminlikdan olish
+    </a>
+  {% else %}
+    <a class="btn btn-outline" href="{% url 'dashboard:user_action' bot_user.pk 'admin' %}">
+      <svg class="icon"><use href="#i-shield"></use></svg> Admin qilish
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-2 mb">
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-user"></use></svg>
+      <h2>Ma’lumotlar</h2>
+    </div>
+    <div class="card-body">
+      <div class="kv"><span class="k">Ism-familiya</span><span class="v">{{ bot_user.full_name|default:"—" }}</span></div>
+      <div class="kv"><span class="k">Telefon</span><span class="v">{{ bot_user.phone|default:"—" }}</span></div>
+      <div class="kv"><span class="k">Telegram ID</span><span class="v">{{ bot_user.telegram_id }}</span></div>
+      <div class="kv">
+        <span class="k">Username</span>
+        <span class="v">
+          {% if bot_user.username %}
+            <a href="https://t.me/{{ bot_user.username }}" target="_blank" rel="noopener">@{{ bot_user.username }}</a>
+          {% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="kv"><span class="k">Ro‘yxatdan o‘tgan</span><span class="v">{{ bot_user.registered_at|date:"d.m.Y H:i"|default:"—" }}</span></div>
+      <div class="kv"><span class="k">Oxirgi faollik</span><span class="v">{{ bot_user.last_seen_at|date:"d.m.Y H:i"|default:"—" }}</span></div>
+      <div class="kv">
+        <span class="k">Holati</span>
+        <span class="v">
+          {% if bot_user.is_admin %}<span class="badge badge-gold">Admin</span>{% endif %}
+          {% if bot_user.is_blocked %}<span class="badge badge-red">Bloklangan</span>
+          {% elif bot_user.is_registered %}<span class="badge badge-green">Ro‘yxatdan o‘tgan</span>
+          {% else %}<span class="badge badge-gray">Yangi</span>{% endif %}
+        </span>
+      </div>
+      {% if bot_user.block_reason %}
+        <div class="kv"><span class="k">Bloklash sababi</span><span class="v">{{ bot_user.block_reason }}</span></div>
+      {% endif %}
+      <div class="kv">
+        <span class="k">Kanalga a’zo</span>
+        <span class="v">{% if bot_user.is_subscribed %}ha{% else %}yo‘q{% endif %}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-award"></use></svg>
+      <h2>Sertifikatlar va ID kodlar</h2>
+    </div>
+    <div class="card-body">
+      {% for certificate in certificates %}
+        <div class="kv">
+          <span class="k"><span class="code-pill">{{ certificate.number }}</span></span>
+          <span class="v">{{ certificate.display_ball }} · {{ certificate.grade|default:"—" }}</span>
+        </div>
+      {% empty %}
+        <p class="muted small">Sertifikatlar yo‘q.</p>
+      {% endfor %}
+
+      {% if codes %}
+        <h3 class="mt" style="font-size:14px">Ishlatilgan ID kodlar</h3>
+        {% for code in codes %}
+          <div class="kv">
+            <span class="k"><span class="code-pill">{{ code.code }}</span></span>
+            <span class="v small">{{ code.exam.title }} · {{ code.get_status_display }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<div class="grid grid-2">
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-chart"></use></svg>
+      <h2>Topshirgan testlari</h2>
+    </div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Test</th><th class="num">Ball</th><th class="num">Daraja</th><th>Sana</th></tr></thead>
+          <tbody>
+            {% for attempt in attempts %}
+              <tr>
+                <td><a href="{% url 'dashboard:attempt_detail' attempt.pk %}">{{ attempt.exam.title }}</a></td>
+                <td class="num"><b>{{ attempt.display_ball }}</b></td>
+                <td class="num">{{ attempt.grade|default:"—" }}</td>
+                <td class="small">{{ attempt.submitted_at|date:"d.m.Y"|default:"—" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4"><div class="empty">Natijalar yo‘q.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-book"></use></svg>
+      <h2>Yaratgan testlari</h2>
+    </div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Test</th><th>Holati</th><th class="num">Savol</th></tr></thead>
+          <tbody>
+            {% for exam in owned %}
+              <tr>
+                <td>
+                  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a><br>
+                  <span class="code-pill">{{ exam.code }}</span>
+                </td>
+                <td class="small">{{ exam.get_status_display }}</td>
+                <td class="num">{{ exam.question_count }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3"><div class="empty">Testlar yo‘q.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<section class="card mt">
+  <div class="card-head">
+    <svg class="icon"><use href="#i-clock"></use></svg>
+    <h2>Amallar tarixi</h2>
+  </div>
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Vaqt</th><th>Amal</th><th>Tavsif</th></tr></thead>
+        <tbody>
+          {% for action in actions %}
+            <tr>
+              <td class="small nowrap">{{ action.created_at|date:"d.m.Y H:i" }}</td>
+              <td class="small">{{ action.get_kind_display }}</td>
+              <td class="small muted">{{ action.description }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3"><div class="empty">Amallar yo‘q.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

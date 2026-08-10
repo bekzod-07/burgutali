@@ -1,0 +1,76 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Rasch Math</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="{% static 'miniapp/css/app.css' %}?v={{ asset_version }}">
+</head>
+<body
+  data-initial-view="{{ initial_view }}"
+  data-initial-code="{{ initial_code }}"
+  data-initial-attempt="{{ initial_attempt }}"
+  data-debug="{{ debug_mode|yesno:'1,0' }}">
+
+{% include "partials/icons.html" %}
+
+<!-- ======================== Sarlavha ======================== -->
+<header class="app-bar" id="app-bar">
+  <button class="app-bar-back" id="btn-back" hidden aria-label="Orqaga">
+    <svg class="icon"><use href="#i-chevron-left"></use></svg>
+  </button>
+  <div class="app-bar-title">
+    <h1 id="app-title">Rasch Math</h1>
+    <p id="app-subtitle"></p>
+  </div>
+  <button class="app-bar-action" id="btn-refresh" aria-label="Yangilash">
+    <svg class="icon"><use href="#i-refresh"></use></svg>
+  </button>
+</header>
+
+<!-- ======================== Ekran ======================== -->
+<main class="screen" id="screen">
+  <div class="loader"><span class="spinner"></span>Yuklanmoqda...</div>
+</main>
+
+<!-- ======================== Pastki navigatsiya ======================== -->
+<nav class="tabbar" id="tabbar">
+  <button class="tab" data-tab="home">
+    <svg class="icon"><use href="#i-home"></use></svg><span>Bosh sahifa</span>
+  </button>
+  <button class="tab" data-tab="exams">
+    <svg class="icon"><use href="#i-book"></use></svg><span>Testlar</span>
+  </button>
+  <button class="tab" data-tab="results">
+    <svg class="icon"><use href="#i-chart"></use></svg><span>Natijalar</span>
+  </button>
+  <button class="tab" data-tab="certificates">
+    <svg class="icon"><use href="#i-award"></use></svg><span>Sertifikat</span>
+  </button>
+  <button class="tab" data-tab="my-exams">
+    <svg class="icon"><use href="#i-list"></use></svg><span>Testlarim</span>
+  </button>
+</nav>
+
+<!-- ======================== Toast ======================== -->
+<div class="toast" id="toast" hidden></div>
+
+<!-- ======================== Modal ======================== -->
+<div class="modal-backdrop" id="modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <svg class="icon icon-lg" id="modal-icon"><use href="#i-alert"></use></svg>
+      <h2 id="modal-title">Tasdiqlang</h2>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-cancel">Bekor qilish</button>
+      <button class="btn btn-danger" id="modal-ok">Tasdiqlash</button>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'miniapp/js/app.js' %}?v={{ asset_version }}"></script>
+</body>
+</html>

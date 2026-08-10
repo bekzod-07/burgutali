@@ -1,0 +1,81 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Boshqaruv paneli — kirish</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="{% static 'dashboard/css/dashboard.css' %}">
+</head>
+<body>
+{% include "partials/icons.html" %}
+
+<div class="login-page">
+  <div class="login-card" style="text-align:center">
+    <div class="mark">R</div>
+    <h1>Boshqaruv paneli</h1>
+    <p class="sub" id="status">Telegram orqali tekshirilmoqda...</p>
+
+    <div id="spinner" style="margin:18px 0">
+      <svg class="icon icon-xl" style="color:var(--navy-600)"><use href="#i-hourglass"></use></svg>
+    </div>
+
+    <div id="error" hidden>
+      <div class="message message-error" id="error-text"></div>
+      <a class="btn btn-outline" href="{% url 'dashboard:login' %}">Login va parol bilan kirish</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    var nextUrl = "{{ next_url|escapejs }}";
+    var status = document.getElementById("status");
+    var spinner = document.getElementById("spinner");
+    var errorBox = document.getElementById("error");
+    var errorText = document.getElementById("error-text");
+
+    function fail(message) {
+      spinner.hidden = true;
+      status.textContent = "Kirish amalga oshmadi";
+      errorText.textContent = message;
+      errorBox.hidden = false;
+    }
+
+    if (tg) {
+      try { tg.ready(); tg.expand(); } catch (e) { /* eski versiyalar */ }
+    }
+
+    var headers = { "Content-Type": "application/json" };
+    if (tg && tg.initData) { headers["X-Telegram-Init-Data"] = tg.initData; }
+
+    var debugUser = new URLSearchParams(location.search).get("debug_user");
+    if (debugUser) { headers["X-Debug-User"] = debugUser; }
+
+    if (!headers["X-Telegram-Init-Data"] && !debugUser) {
+      fail("Bu sahifa Telegram ilovasi orqali ochilishi kerak.");
+      return;
+    }
+
+    fetch("{% url 'dashboard:telegram_login' %}", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ next: nextUrl })
+    })
+      .then(function (response) {
+        return response.json().catch(function () { return { ok: false, error: "Server javobi noto‘g‘ri." }; })
+          .then(function (data) {
+            if (!response.ok || !data.ok) { throw new Error(data.error || "Kirish rad etildi."); }
+            return data;
+          });
+      })
+      .then(function (data) {
+        status.textContent = "Kirildi, panel ochilmoqda...";
+        location.replace(data.next || "/panel/");
+      })
+      .catch(function (error) { fail(error.message); });
+  })();
+</script>
+</body>
+</html>

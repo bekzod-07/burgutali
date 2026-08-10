@@ -1,0 +1,145 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Yangi test{% endblock %}
+{% block page_title %}Yangi test yaratish{% endblock %}
+{% block crumbs %}<a href="{% url 'dashboard:exam_list' %}">Testlar</a> / Yangi test{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-outline" href="{% url 'dashboard:exam_list' %}">
+    <svg class="icon"><use href="#i-arrow-left"></use></svg> Ro‘yxatga qaytish
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<form method="post" id="exam-form">
+  {% csrf_token %}
+
+  <div class="grid grid-2">
+
+    <!-- ===================== Asosiy ===================== -->
+    <section class="card">
+      <div class="card-head">
+        <svg class="icon"><use href="#i-file"></use></svg>
+        <h2>Asosiy ma’lumotlar</h2>
+      </div>
+      <div class="card-body">
+        {% for field in form %}
+          {% if field.name in "title,exam_type,structure,question_count,duration_hours,description" %}
+            <div class="form-row">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <div class="message message-info small">
+          <b>Milliy sertifikat shabloni</b> — {{ national_total }} ta savol:
+          1–32 (A–D), 33–35 (A–F, ko‘p javobli), 36–45 (ochiq: a va b).
+          Bu shablon faqat RASH testlarida ishlatiladi.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Sozlamalar ===================== -->
+    <section class="card">
+      <div class="card-head">
+        <svg class="icon"><use href="#i-settings"></use></svg>
+        <h2>Sozlamalar</h2>
+      </div>
+      <div class="card-body">
+        <div class="check-row">
+          {{ form.show_results }}
+          <label for="{{ form.show_results.id_for_label }}" style="margin:0">{{ form.show_results.label }}</label>
+        </div>
+        <div class="check-row">
+          {{ form.certificate }}
+          <label for="{{ form.certificate.id_for_label }}" style="margin:0">{{ form.certificate.label }}</label>
+        </div>
+        <div class="check-row">
+          {{ form.activate }}
+          <label for="{{ form.activate.id_for_label }}" style="margin:0">{{ form.activate.label }}</label>
+        </div>
+
+        <div class="message message-warning small mt">
+          <b>Pullik RASH testi</b> darhol faollashmaydi — avval ID kodlar
+          yaratilishi kerak. Testni yaratgach «ID kodlar» bo‘limiga o‘ting.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===================== Javob kalitlari ===================== -->
+  <section class="card mt">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-key"></use></svg>
+      <h2>Javob kalitlari</h2>
+      <span class="sub">Kalitsiz test faollashtirilmaydi</span>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        {% for field in form %}
+          {% if field.name in "single_keys,multi_keys,open_keys" %}
+            <div class="form-row">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <div class="message message-info small">
+        <b>Ochiq javoblar</b> SymPy orqali matematik ekvivalentlikka tekshiriladi:
+        <code>1/2</code>, <code>0.5</code>, <code>2^-1</code> — bir xil javob.
+        Muqobil javoblarni <code>;</code> emas, alohida maydonda ko‘rsating.
+      </div>
+
+      <button class="btn btn-primary mt" type="submit">
+        <svg class="icon"><use href="#i-check"></use></svg> Testni yaratish
+      </button>
+      <a class="btn btn-outline mt" href="{% url 'dashboard:exam_list' %}">Bekor qilish</a>
+    </div>
+  </section>
+
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var type = document.getElementById("id_exam_type");
+    var structure = document.getElementById("id_structure");
+    var count = document.getElementById("id_question_count");
+    var multi = document.getElementById("id_multi_keys");
+    var open = document.getElementById("id_open_keys");
+
+    function rowOf(field) { return field ? field.closest(".form-row") : null; }
+
+    function sync() {
+      var isSimple = type.value === "simple";
+      var national = structure.value === "national" && !isSimple;
+
+      var structureRow = rowOf(structure);
+      if (structureRow) { structureRow.style.display = isSimple ? "none" : ""; }
+
+      var countRow = rowOf(count);
+      if (countRow) { countRow.style.display = national ? "none" : ""; }
+
+      var multiRow = rowOf(multi);
+      var openRow = rowOf(open);
+      if (multiRow) { multiRow.style.display = national ? "" : "none"; }
+      if (openRow) { openRow.style.display = national ? "" : "none"; }
+    }
+
+    if (type && structure) {
+      type.addEventListener("change", sync);
+      structure.addEventListener("change", sync);
+      sync();
+    }
+  })();
+</script>
+{% endblock %}

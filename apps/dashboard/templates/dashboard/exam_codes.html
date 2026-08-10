@@ -1,0 +1,155 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ exam.title }} — ID kodlar{% endblock %}
+{% block page_title %}ID kodlar{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a> / ID kodlar
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-4 mb">
+  <div class="stat">
+    <div class="ico"><svg class="icon"><use href="#i-key"></use></svg></div>
+    <div><div class="value">{{ stats.total }}</div><div class="label">Jami kodlar</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico green"><svg class="icon"><use href="#i-circle"></use></svg></div>
+    <div><div class="value">{{ stats.unused }}</div><div class="label">Ishlatilmagan</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico gold"><svg class="icon"><use href="#i-hourglass"></use></svg></div>
+    <div><div class="value">{{ stats.activated }}</div><div class="label">Faollashtirilgan</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico red"><svg class="icon"><use href="#i-check-circle"></use></svg></div>
+    <div><div class="value">{{ stats.used }}</div><div class="label">Ishlatilgan</div></div>
+  </div>
+</div>
+
+<div class="grid grid-2 mb">
+
+  <section class="card">
+    <div class="card-head"><h2>Yangi ID kodlar yaratish</h2></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="form-row">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+        <div class="chip-row mb">
+          <button class="btn btn-outline btn-sm" type="button" onclick="document.getElementById('id_quantity').value=500">500</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="document.getElementById('id_quantity').value=1000">1000</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="document.getElementById('id_quantity').value=1500">1500</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="document.getElementById('id_quantity').value=2000">2000</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="document.getElementById('id_quantity').value=3000">3000</button>
+        </div>
+        <button class="btn btn-primary" type="submit">Kodlarni yaratish</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Partiyalar</h2></div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th class="num">#</th><th class="num">Soni</th><th>Izoh</th><th>Sana</th><th class="num">Excel</th></tr>
+          </thead>
+          <tbody>
+            {% for batch in batches %}
+              <tr>
+                <td class="num">{{ batch.id }}</td>
+                <td class="num">{{ batch.quantity }}</td>
+                <td class="small">{{ batch.note|default:"—" }}</td>
+                <td class="small">{{ batch.created_at|date:"d.m.Y H:i" }}</td>
+                <td class="num">
+                  <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:export_codes' batch.pk %}"><svg class="icon"><use href="#i-download"></use></svg></a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5"><div class="empty">Partiyalar yo‘q.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Kodlar ro‘yxati</h2>
+    <form method="get" class="filters">
+      <select class="input" name="holati" onchange="this.form.submit()">
+        <option value="">Barcha holatlar</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="num">№</th>
+            <th>ID kod</th>
+            <th>Holati</th>
+            <th>Ism-familiya</th>
+            <th class="num">Telegram ID</th>
+            <th>Faollashtirilgan</th>
+            <th>Ishlatilgan</th>
+            <th class="num"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for code in codes %}
+            <tr>
+              <td class="num">{{ forloop.counter }}</td>
+              <td><span class="code-pill">{{ code.code }}</span></td>
+              <td>
+                {% if code.status == 'unused' %}<span class="badge badge-green">Ishlatilmagan</span>
+                {% elif code.status == 'activated' %}<span class="badge badge-orange">Faollashtirilgan</span>
+                {% elif code.status == 'used' %}<span class="badge badge-red">Ishlatilgan</span>
+                {% else %}<span class="badge badge-gray">Bekor qilingan</span>{% endif %}
+              </td>
+              <td class="small">{{ code.full_name|default:"—" }}</td>
+              <td class="num small">{{ code.telegram_id|default:"—" }}</td>
+              <td class="small">{{ code.activated_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td class="small">{{ code.used_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td class="num nowrap">
+                {% if code.status != 'unused' %}
+                  <a class="btn btn-outline btn-sm" href="{% url 'dashboard:code_action' code.pk 'tiklash' %}"
+                     title="Ishlatilmagan holatiga qaytarish"
+                     onclick="return confirm('Kod ishlatilmagan holatiga qaytarilsinmi?')">
+                    <svg class="icon"><use href="#i-refresh"></use></svg>
+                  </a>
+                {% endif %}
+                {% if code.status != 'revoked' %}
+                  <a class="btn btn-red btn-sm" href="{% url 'dashboard:code_action' code.pk 'bekor' %}"
+                     title="Bekor qilish" onclick="return confirm('Kod bekor qilinsinmi?')">
+                    <svg class="icon"><use href="#i-x"></use></svg>
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8"><div class="empty">Kodlar yo‘q.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body small muted">Eng ko‘pi bilan 500 ta kod ko‘rsatiladi. To‘liq ro‘yxat uchun Excel eksportidan foydalaning.</div>
+  </div>
+</section>
+
+{% endblock %}

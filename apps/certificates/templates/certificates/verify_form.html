@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Sertifikatni tekshirish — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="verify-wrap">
+
+    <div class="card">
+      <h1 style="margin:0 0 8px; font-size:22px;">Sertifikatni tekshirish</h1>
+      <p style="color:var(--muted); margin:0 0 20px;">
+        Sertifikat raqamini kiriting yoki sertifikatdagi QR-kodni skanerlang.
+      </p>
+
+      <form method="get" action="{% url 'certificates:form' %}">
+        <div class="form-row">
+          <label for="number">Sertifikat raqami</label>
+          <input class="input" type="text" id="number" name="number"
+                 placeholder="RM-2026-000123" required autocomplete="off">
+        </div>
+        <button class="btn btn-primary" type="submit">Tekshirish</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h3>Tekshiruv nimani ko‘rsatadi?</h3>
+      <p>
+        Sertifikat haqiqiyligi, ism-familiya, test nomi, natija (RASH balli va
+        daraja), test sanasi hamda sertifikat raqami. Har bir sertifikat raqami
+        faqat bitta qatnashchi va bitta test natijasiga tegishli bo‘ladi.
+      </p>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

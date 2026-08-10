@@ -1,0 +1,99 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ exam.title }} — savollar{% endblock %}
+{% block page_title %}Savollar va javob kalitlari{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a> / Savollar
+{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-outline" href="{% url 'dashboard:exam_detail' exam.pk %}">Test sozlamalari</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>{{ questions|length }} ta savol</h2>
+    <span class="sub">
+      Ochiq savollarda kalitni <code>a ; b</code> ko‘rinishida yozing.
+      Muqobil javoblarni <code>;</code> bilan emas, <code>||</code> ichida bo‘lgani kabi
+      har bir maydonda alohida ko‘rsating.
+    </span>
+  </div>
+  <div class="card-body tight">
+    <form method="post">
+      {% csrf_token %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th class="num">№</th>
+              <th>Turi</th>
+              <th>Bo‘lim</th>
+              <th>Javob kaliti</th>
+              <th class="num">Qiyinlik (b)</th>
+              <th class="num">Qulflash</th>
+              <th class="num">Qismlar</th>
+              <th class="num"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for question in questions %}
+              <tr>
+                <td class="num rank">{{ question.order }}</td>
+                <td class="small">
+                  {% if question.kind == 'single' %}<span class="badge badge-navy">A–D</span>
+                  {% elif question.kind == 'multi' %}<span class="badge badge-purple">A–F ko‘p</span>
+                  {% else %}<span class="badge badge-orange">Ochiq</span>{% endif %}
+                </td>
+                <td class="small muted">{{ question.section|default:"—" }}</td>
+                <td>
+                  {% if question.kind == 'open' %}
+                    <input class="input input-sm" type="text" name="key_{{ question.id }}"
+                           value="{{ question.answer_a }}{% if question.answer_b %} ; {{ question.answer_b }}{% endif %}"
+                           placeholder="a ; b">
+                  {% else %}
+                    <input class="input input-sm" type="text" name="key_{{ question.id }}"
+                           value="{{ question.correct_key }}" style="max-width:110px"
+                           placeholder="{% if question.kind == 'multi' %}ABD{% else %}A{% endif %}">
+                  {% endif %}
+                </td>
+                <td class="num">
+                  <input class="input input-sm" type="number" step="0.01" name="diff_{{ question.id }}"
+                         value="{{ question.difficulty|floatformat:2 }}" style="max-width:90px">
+                </td>
+                <td class="num">
+                  <input type="checkbox" name="lock_{{ question.id }}"
+                         {% if question.difficulty_locked %}checked{% endif %}>
+                </td>
+                <td class="num">{{ question.parts }}</td>
+                <td class="num">
+                  <a class="btn btn-ghost btn-sm"
+                     href="{% url 'dashboard:question_edit' exam.pk question.pk %}"
+                     title="To‘liq tahrirlash">
+                    <svg class="icon"><use href="#i-edit"></use></svg>
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="8"><div class="empty">Savollar yo‘q.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if questions %}
+        <div class="card-body">
+          <button class="btn btn-primary" type="submit">Saqlash</button>
+          <span class="small muted" style="margin-left:10px">
+            «Qulflash» belgilangan savollar qiyinligi avtomatik kalibrlashda o‘zgarmaydi.
+          </span>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+</section>
+
+{% endblock %}

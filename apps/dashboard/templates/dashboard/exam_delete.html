@@ -1,0 +1,76 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Testni o‘chirish{% endblock %}
+{% block page_title %}Testni o‘chirish{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a> / O‘chirish
+{% endblock %}
+
+{% block content %}
+
+<div style="max-width:640px">
+
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon icon-lg" style="color:var(--red)"><use href="#i-alert"></use></svg>
+      <h2>Diqqat: bu amalni ortga qaytarib bo‘lmaydi</h2>
+    </div>
+    <div class="card-body">
+      <p class="mb">
+        <b>{{ exam.title }}</b> (<span class="code-pill">{{ exam.code }}</span>)
+        testi va u bilan bog‘liq barcha ma’lumotlar butunlay o‘chiriladi.
+      </p>
+
+      <div class="kv"><span class="k">Savollar</span><span class="v">{{ summary.questions }} ta</span></div>
+      <div class="kv"><span class="k">Urinishlar</span><span class="v">{{ summary.attempts }} ta</span></div>
+      <div class="kv"><span class="k">Topshirilgan javoblar</span><span class="v">{{ summary.submitted }} ta</span></div>
+      <div class="kv"><span class="k">ID kodlar</span><span class="v">{{ summary.codes }} ta (ishlatilgan: {{ summary.used_codes }})</span></div>
+      <div class="kv"><span class="k">Sertifikatlar</span><span class="v">{{ summary.certificates }} ta</span></div>
+
+      {% if summary.submitted %}
+        <div class="message message-error mt">
+          Bu testda <b>{{ summary.submitted }} ta topshirilgan javob</b> bor.
+          O‘chirishdan oldin natijalarni saqlab qo‘yish tavsiya etiladi.
+        </div>
+        <div class="chip-row mt">
+          <a class="btn btn-outline btn-sm" href="{% url 'dashboard:export_results_excel' exam.pk %}">
+            <svg class="icon"><use href="#i-sheet"></use></svg> Natijalar (Excel)
+          </a>
+          <a class="btn btn-outline btn-sm" href="{% url 'dashboard:export_results_pdf' exam.pk %}">
+            <svg class="icon"><use href="#i-file"></use></svg> Natijalar (PDF)
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-shield"></use></svg>
+      <h2>Tasdiqlash</h2>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-row">
+          <label for="{{ form.confirm_code.id_for_label }}">
+            {{ form.confirm_code.label }}: <b>{{ exam.code }}</b>
+          </label>
+          {{ form.confirm_code }}
+          {% if form.confirm_code.errors %}
+            <div class="errors">{{ form.confirm_code.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-red" type="submit">
+          <svg class="icon"><use href="#i-trash"></use></svg> Testni butunlay o‘chirish
+        </button>
+        <a class="btn btn-outline" href="{% url 'dashboard:exam_detail' exam.pk %}">Bekor qilish</a>
+      </form>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}

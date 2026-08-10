@@ -1,0 +1,90 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Sertifikatlar{% endblock %}
+{% block page_title %}Sertifikatlar{% endblock %}
+{% block crumbs %}{{ certificates|length }} ta sertifikat ko‘rsatilmoqda{% endblock %}
+
+{% block content %}
+
+<section class="card mb">
+  <div class="card-body">
+    <form method="get" class="filters">
+      <div>
+        <label class="small muted" for="q">Qidiruv</label>
+        <input class="input" type="search" id="q" name="q" value="{{ search }}"
+               placeholder="Raqam, ism yoki test kodi">
+      </div>
+      <button class="btn btn-primary" type="submit">Qidirish</button>
+      <a class="btn btn-outline" href="{% url 'dashboard:certificate_list' %}">Tozalash</a>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Raqam</th>
+            <th>Ism-familiya</th>
+            <th>Test</th>
+            <th class="num">Ball</th>
+            <th class="num">Daraja</th>
+            <th class="num">Reyting</th>
+            <th>Berilgan</th>
+            <th class="num">Amallar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for certificate in certificates %}
+            <tr>
+              <td><span class="code-pill">{{ certificate.number }}</span></td>
+              <td>{{ certificate.full_name }}</td>
+              <td class="small">{{ certificate.exam_title }}</td>
+              <td class="num"><b>{{ certificate.display_ball }}</b></td>
+              <td class="num">
+                {% if certificate.is_revoked %}<span class="badge badge-red">Bekor</span>
+                {% elif certificate.grade %}<span class="badge badge-gold">{{ certificate.grade }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="num small">{{ certificate.display_rank }}</td>
+              <td class="small">{{ certificate.issued_at|date:"d.m.Y" }}</td>
+              <td class="num nowrap">
+                <a class="btn btn-ghost btn-sm" href="/verify/{{ certificate.number }}/" title="Tekshirish">
+                  <svg class="icon"><use href="#i-qr"></use></svg>
+                </a>
+                {% if certificate.file %}
+                  <a class="btn btn-ghost btn-sm" href="{{ certificate.file.url }}" target="_blank" title="PDF">
+                    <svg class="icon"><use href="#i-download"></use></svg>
+                  </a>
+                {% endif %}
+                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:certificate_action' certificate.pk 'qayta' %}" title="PDF ni qayta yaratish">
+                  <svg class="icon"><use href="#i-refresh"></use></svg>
+                </a>
+                {% if certificate.is_revoked %}
+                  <a class="btn btn-green btn-sm" href="{% url 'dashboard:certificate_action' certificate.pk 'tiklash' %}" title="Tiklash">
+                    <svg class="icon"><use href="#i-check"></use></svg>
+                  </a>
+                {% else %}
+                  <a class="btn btn-outline btn-sm" href="{% url 'dashboard:certificate_action' certificate.pk 'bekor' %}"
+                     title="Bekor qilish" onclick="return confirm('Sertifikat bekor qilinsinmi?')">
+                    <svg class="icon"><use href="#i-x"></use></svg>
+                  </a>
+                {% endif %}
+                <a class="btn btn-red btn-sm" href="{% url 'dashboard:certificate_action' certificate.pk 'ochirish' %}"
+                   title="O‘chirish" onclick="return confirm('Sertifikat butunlay o‘chirilsinmi?')">
+                  <svg class="icon"><use href="#i-trash"></use></svg>
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8"><div class="empty">Sertifikatlar topilmadi.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

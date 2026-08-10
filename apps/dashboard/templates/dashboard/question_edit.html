@@ -1,0 +1,132 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ question.order }}-savol{% endblock %}
+{% block page_title %}{{ question.order }}-savolni tahrirlash{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a> /
+  <a href="{% url 'dashboard:exam_questions' exam.pk %}">Savollar</a> /
+  {{ position }} / {{ total }}
+{% endblock %}
+
+{% block actions %}
+  {% if prev_id %}
+    <a class="btn btn-outline" href="{% url 'dashboard:question_edit' exam.pk prev_id %}">
+      <svg class="icon"><use href="#i-chevron-left"></use></svg> Oldingi
+    </a>
+  {% endif %}
+  {% if next_id %}
+    <a class="btn btn-outline" href="{% url 'dashboard:question_edit' exam.pk next_id %}">
+      Keyingi <svg class="icon"><use href="#i-chevron-right"></use></svg>
+    </a>
+  {% endif %}
+  <a class="btn btn-ghost" href="{% url 'dashboard:exam_questions' exam.pk %}">Barcha savollar</a>
+{% endblock %}
+
+{% block content %}
+
+<form method="post" style="max-width:820px">
+  {% csrf_token %}
+
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-file"></use></svg>
+      <h2>Savol matni va turi</h2>
+      <span class="sub">{{ question.get_kind_display }}</span>
+    </div>
+    <div class="card-body">
+      {% for field in form %}
+        {% if field.name in "text,section,kind,choices_count,parts" %}
+          <div class="form-row">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="message message-info small">
+        <b>Turi:</b> <code>single</code> — A–D (bitta javob),
+        <code>multi</code> — A–F (bir yoki bir nechta),
+        <code>open</code> — variantsiz (a va b maydonlari).
+        Ochiq savolda «Qismlar» 2 bo‘lsa, a) va b) alohida ballanadi.
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-key"></use></svg>
+      <h2>Javob kaliti</h2>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        {% for field in form %}
+          {% if field.name in "correct_key,answer_a,answer_b,numeric_tolerance" %}
+            <div class="form-row">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="message message-info small">
+        Ochiq javoblar SymPy orqali <b>matematik ekvivalentlikka</b> tekshiriladi:
+        <code>1/2</code>, <code>0.5</code>, <code>2^-1</code> — bir xil javob.
+        Bir nechta to‘g‘ri javob bo‘lsa, ularni <code>;</code> bilan ajrating
+        (masalan: <code>0.5;1/2</code>).
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-sigma"></use></svg>
+      <h2>Rasch parametrlari</h2>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        {% for field in form %}
+          {% if field.name in "difficulty,difficulty_b" %}
+            <div class="form-row">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="check-row">
+        {{ form.difficulty_locked }}
+        <label for="{{ form.difficulty_locked.id_for_label }}" style="margin:0">
+          {{ form.difficulty_locked.label }}
+        </label>
+      </div>
+      <div class="check-row">
+        {{ form.is_active }}
+        <label for="{{ form.is_active.id_for_label }}" style="margin:0">{{ form.is_active.label }}</label>
+      </div>
+      <div class="message message-info small mt">
+        Qiyinlik <b>b</b> — logit shkalasida. Musbat qiymat = qiyinroq savol.
+        «Qulflash» belgilansa, avtomatik kalibrlash bu qiymatni o‘zgartirmaydi
+        (anchor savol).
+      </div>
+    </div>
+  </section>
+
+  <div class="chip-row">
+    <button class="btn btn-primary" type="submit">
+      <svg class="icon"><use href="#i-save"></use></svg> Saqlash
+    </button>
+    {% if next_id %}
+      <button class="btn btn-outline" type="submit" name="save_next" value="1">
+        <svg class="icon"><use href="#i-arrow-right"></use></svg> Saqlab, keyingisiga
+      </button>
+    {% endif %}
+    <a class="btn btn-ghost" href="{% url 'dashboard:exam_questions' exam.pk %}">Bekor qilish</a>
+  </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Testlar{% endblock %}
+{% block page_title %}Testlar{% endblock %}
+{% block crumbs %}Jami {{ exams|length }} ta test ko‘rsatilmoqda{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-primary" href="{% url 'dashboard:exam_create' %}">
+    <svg class="icon"><use href="#i-plus"></use></svg> Yangi test
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<section class="card mb">
+  <div class="card-body">
+    <form method="get" class="filters">
+      <div>
+        <label class="small muted" for="q">Qidiruv</label>
+        <input class="input" type="search" id="q" name="q" value="{{ search }}" placeholder="Nomi yoki kodi">
+      </div>
+      <div>
+        <label class="small muted" for="turi">Turi</label>
+        <select class="input" id="turi" name="turi">
+          <option value="">Barchasi</option>
+          {% for value, label in type_choices %}
+            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="small muted" for="holati">Holati</label>
+        <select class="input" id="holati" name="holati">
+          <option value="">Barchasi</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">Filtrlash</button>
+      <a class="btn btn-outline" href="{% url 'dashboard:exam_list' %}">Tozalash</a>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Test</th>
+            <th>Turi</th>
+            <th>Holati</th>
+            <th class="num">Savol</th>
+            <th class="num">Qatnashchi</th>
+            <th>Yaratuvchi</th>
+            <th class="num">Amallar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for exam in exams %}
+            <tr>
+              <td>
+                <a href="{% url 'dashboard:exam_detail' exam.pk %}"><b>{{ exam.title }}</b></a><br>
+                <span class="code-pill">{{ exam.code }}</span>
+                {% if exam.certificate_enabled %}<span class="badge badge-gold">Sertifikat</span>{% endif %}
+              </td>
+              <td class="small">{{ exam.get_exam_type_display }}</td>
+              <td>
+                {% if exam.status == 'active' %}<span class="badge badge-green">Faol</span>
+                {% elif exam.status == 'published' %}<span class="badge badge-gold">E’lon qilingan</span>
+                {% elif exam.status == 'calculated' %}<span class="badge badge-purple">Hisoblangan</span>
+                {% elif exam.status == 'closed' %}<span class="badge badge-orange">Yopilgan</span>
+                {% else %}<span class="badge badge-gray">{{ exam.get_status_display }}</span>{% endif %}
+              </td>
+              <td class="num">{{ exam.question_count }}</td>
+              <td class="num">{{ exam.participants }}</td>
+              <td class="small">{{ exam.owner.display_name }}</td>
+              <td class="num nowrap">
+                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:exam_results' exam.pk %}" title="Natijalar">
+                  <svg class="icon"><use href="#i-chart"></use></svg>
+                </a>
+                {% if exam.exam_type == 'rasch_paid' %}
+                  <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:exam_codes' exam.pk %}" title="ID kodlar">
+                    <svg class="icon"><use href="#i-key"></use></svg>
+                  </a>
+                {% endif %}
+                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:exam_duplicate' exam.pk %}" title="Nusxa yaratish">
+                  <svg class="icon"><use href="#i-copy"></use></svg>
+                </a>
+                <a class="btn btn-red btn-sm" href="{% url 'dashboard:exam_delete' exam.pk %}" title="O‘chirish">
+                  <svg class="icon"><use href="#i-trash"></use></svg>
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7"><div class="empty">Test topilmadi.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Amallar tarixi{% endblock %}
+{% block page_title %}Amallar tarixi{% endblock %}
+{% block crumbs %}Oxirgi {{ actions|length }} ta yozuv{% endblock %}
+
+{% block content %}
+
+<section class="card mb">
+  <div class="card-body">
+    <form method="get" class="filters">
+      <div>
+        <label class="small muted" for="q">Qidiruv</label>
+        <input class="input" type="search" id="q" name="q" value="{{ search }}" placeholder="Tavsif yoki ism">
+      </div>
+      <div>
+        <label class="small muted" for="turi">Amal turi</label>
+        <select class="input" id="turi" name="turi">
+          <option value="">Barchasi</option>
+          {% for value, label in kind_choices %}
+            <option value="{{ value }}" {% if selected_kind == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">
+        <svg class="icon"><use href="#i-filter"></use></svg> Filtrlash
+      </button>
+      <a class="btn btn-outline" href="{% url 'dashboard:audit_list' %}">Tozalash</a>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Vaqt</th>
+            <th>Foydalanuvchi</th>
+            <th>Amal</th>
+            <th>Tavsif</th>
+            <th>Qo‘shimcha</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for action in actions %}
+            <tr>
+              <td class="small nowrap">{{ action.created_at|date:"d.m.Y H:i:s" }}</td>
+              <td class="small">
+                {% if action.user %}
+                  <a href="{% url 'dashboard:user_detail' action.user.pk %}">{{ action.user.display_name }}</a>
+                {% else %}<span class="muted">—</span>{% endif %}
+              </td>
+              <td><span class="badge badge-navy">{{ action.get_kind_display }}</span></td>
+              <td class="small">{{ action.description|default:"—" }}</td>
+              <td class="small muted mono">{{ action.payload }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5"><div class="empty">Yozuvlar yo‘q.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

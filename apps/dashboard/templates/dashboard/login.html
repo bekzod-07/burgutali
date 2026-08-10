@@ -1,0 +1,45 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kirish — {{ SITE_NAME }}</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/dashboard.css' %}">
+</head>
+<body>
+{% include "partials/icons.html" %}
+<div class="login-page">
+  <form class="login-card" method="post" action="{% url 'dashboard:login' %}">
+    {% csrf_token %}
+    <div class="mark">R</div>
+    <h1>{{ SITE_NAME }}</h1>
+    <p class="sub">Boshqaruv paneliga kirish</p>
+
+    {% if form.errors %}
+      <div class="message message-error" style="margin-bottom:16px;">
+        Login yoki parol noto‘g‘ri. Qayta urinib ko‘ring.
+      </div>
+    {% endif %}
+
+    <div class="form-row">
+      <label for="id_username">Foydalanuvchi nomi</label>
+      <input class="input" type="text" name="username" id="id_username"
+             autocomplete="username" autofocus required>
+    </div>
+
+    <div class="form-row">
+      <label for="id_password">Parol</label>
+      <input class="input" type="password" name="password" id="id_password"
+             autocomplete="current-password" required>
+    </div>
+
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="btn btn-primary" type="submit">Kirish</button>
+
+    <p class="small muted" style="text-align:center; margin:18px 0 0;">
+      Hisob yaratish uchun: <code>python manage.py createsuperuser</code>
+    </p>
+  </form>
+</div>
+</body>
+</html>

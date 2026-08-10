@@ -1,0 +1,57 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Rasch modeli asosida matematik testlarni tekshiruvchi platforma.{% endblock %}">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+  {% include "partials/icons.html" %}
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">R</span>
+        <span class="brand-text">
+          <strong>{{ SITE_NAME }}</strong>
+          <small>Rasch modeli asosida baholash</small>
+        </span>
+      </a>
+      <nav class="site-nav">
+        <a href="{% url 'certificates:form' %}">Sertifikatni tekshirish</a>
+        {% if BOT_URL %}<a class="nav-cta" href="{{ BOT_URL }}" target="_blank" rel="noopener">Telegram bot</a>{% endif %}
+        <a class="nav-quiet" href="{% url 'dashboard:index' %}">Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="site-main">
+    {% if messages %}
+      <div class="container">
+        <div class="messages">
+          {% for message in messages %}
+            <div class="message message-{{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>&copy; {% now "Y" %} {{ SITE_NAME }}{% if ORGANIZATION %} — {{ ORGANIZATION }}{% endif %}</p>
+      <p class="footer-links">
+        {% if CHANNEL_URL %}<a href="{{ CHANNEL_URL }}" target="_blank" rel="noopener">Telegram kanal</a>{% endif %}
+        <a href="{% url 'certificates:form' %}">Sertifikat tekshiruvi</a>
+      </p>
+    </div>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

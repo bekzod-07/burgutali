@@ -1,0 +1,108 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Foydalanuvchilar{% endblock %}
+{% block page_title %}Foydalanuvchilar{% endblock %}
+{% block crumbs %}Jami {{ stats.total }} ta, ro‘yxatdan o‘tgan {{ stats.registered }} ta{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-4 mb">
+  <div class="stat">
+    <div class="ico"><svg class="icon"><use href="#i-users"></use></svg></div>
+    <div><div class="value">{{ stats.total }}</div><div class="label">Jami</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico green"><svg class="icon"><use href="#i-check-circle"></use></svg></div>
+    <div><div class="value">{{ stats.registered }}</div><div class="label">Ro‘yxatdan o‘tgan</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico gold"><svg class="icon"><use href="#i-star"></use></svg></div>
+    <div><div class="value">{{ stats.new_today }}</div><div class="label">Bugun qo‘shilgan</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico red"><svg class="icon"><use href="#i-lock"></use></svg></div>
+    <div><div class="value">{{ stats.blocked }}</div><div class="label">Bloklangan</div></div>
+  </div>
+</div>
+
+<section class="card mb">
+  <div class="card-body">
+    <form method="get" class="filters">
+      <div>
+        <label class="small muted" for="q">Qidiruv</label>
+        <input class="input" type="search" id="q" name="q" value="{{ search }}" placeholder="Ism, telefon yoki username">
+      </div>
+      <div>
+        <label class="small muted" for="faqat">Filtr</label>
+        <select class="input" id="faqat" name="faqat">
+          <option value="">Barchasi</option>
+          <option value="royxatdan" {% if only == 'royxatdan' %}selected{% endif %}>Ro‘yxatdan o‘tganlar</option>
+          <option value="admin" {% if only == 'admin' %}selected{% endif %}>Adminlar</option>
+          <option value="bloklangan" {% if only == 'bloklangan' %}selected{% endif %}>Bloklanganlar</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">Filtrlash</button>
+      <a class="btn btn-outline" href="{% url 'dashboard:user_list' %}">Tozalash</a>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="num">№</th>
+            <th>Ism-familiya</th>
+            <th>Telefon</th>
+            <th class="num">Telegram ID</th>
+            <th>Username</th>
+            <th>Holati</th>
+            <th>Qo‘shilgan</th>
+            <th class="num"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td class="num">{{ forloop.counter }}</td>
+              <td><a href="{% url 'dashboard:user_detail' user.pk %}">{{ user.display_name }}</a></td>
+              <td class="small">{{ user.phone|default:"—" }}</td>
+              <td class="num small">{{ user.telegram_id }}</td>
+              <td class="small">
+                {% if user.username %}<a href="https://t.me/{{ user.username }}" target="_blank">@{{ user.username }}</a>{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if user.is_admin %}<span class="badge badge-gold">Admin</span>{% endif %}
+                {% if user.is_blocked %}<span class="badge badge-red">Bloklangan</span>
+                {% elif user.is_registered %}<span class="badge badge-green">Ro‘yxatdan o‘tgan</span>
+                {% else %}<span class="badge badge-gray">Yangi</span>{% endif %}
+              </td>
+              <td class="small">{{ user.created_at|date:"d.m.Y" }}</td>
+              <td class="num nowrap">
+                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:user_detail' user.pk %}" title="Batafsil">
+                  <svg class="icon"><use href="#i-eye"></use></svg>
+                </a>
+                {% if user.is_blocked %}
+                  <a class="btn btn-green btn-sm" href="{% url 'dashboard:user_action' user.pk 'blokdan-chiqarish' %}" title="Blokdan chiqarish">
+                    <svg class="icon"><use href="#i-unlock"></use></svg>
+                  </a>
+                {% else %}
+                  <a class="btn btn-outline btn-sm" href="{% url 'dashboard:user_action' user.pk 'bloklash' %}"
+                     title="Bloklash" onclick="return confirm('Foydalanuvchi bloklansinmi?')">
+                    <svg class="icon"><use href="#i-lock"></use></svg>
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8"><div class="empty">Foydalanuvchilar topilmadi.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+.env
+*.log
+logs/
+
+data/
+media/
+staticfiles/
+
+# Tunnel dasturlari (ishga tushirish skripti avtomatik yuklaydi)
+tools/*.exe
+db.sqlite3*
+*.sqlite3
+
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

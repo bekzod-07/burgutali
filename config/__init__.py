@@ -1,0 +1,1 @@
+"""Django loyihasining konfiguratsiya paketi."""

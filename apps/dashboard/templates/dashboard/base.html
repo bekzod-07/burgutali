@@ -1,0 +1,83 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Boshqaruv paneli{% endblock %} — {{ SITE_NAME }}</title>
+  {# Telegram webview CSS ni uzoq keshlaydi — fayl o'zgarsa `?v=` yangilanadi. #}
+  <link rel="stylesheet" href="{% static 'dashboard/css/dashboard.css' %}?v={{ PANEL_CSS_VERSION }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% include "partials/icons.html" %}
+<div class="layout">
+
+  <aside class="sidebar">
+    <a class="sidebar-brand" href="{% url 'dashboard:index' %}">
+      <span class="mark">R</span>
+      <span>
+        <strong>{{ SITE_NAME }}</strong>
+        <small>Boshqaruv paneli</small>
+      </span>
+    </a>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Asosiy</div>
+      <a class="nav-link {% if section == 'index' %}is-active{% endif %}" href="{% url 'dashboard:index' %}">
+        <span class="ico"><svg class="icon"><use href="#i-chart"></use></svg></span><span class="label">Umumiy ko‘rinish</span>
+      </a>
+      <a class="nav-link {% if section == 'exams' %}is-active{% endif %}" href="{% url 'dashboard:exam_list' %}">
+        <span class="ico"><svg class="icon"><use href="#i-book"></use></svg></span><span class="label">Testlar</span>
+      </a>
+      <a class="nav-link {% if section == 'attempts' %}is-active{% endif %}" href="{% url 'dashboard:attempt_list' %}">
+        <span class="ico"><svg class="icon"><use href="#i-list"></use></svg></span><span class="label">Natijalar</span>
+      </a>
+
+      <div class="nav-section">Ma’lumotlar</div>
+      <a class="nav-link {% if section == 'certificates' %}is-active{% endif %}" href="{% url 'dashboard:certificate_list' %}">
+        <span class="ico"><svg class="icon"><use href="#i-award"></use></svg></span><span class="label">Sertifikatlar</span>
+      </a>
+      <a class="nav-link {% if section == 'users' %}is-active{% endif %}" href="{% url 'dashboard:user_list' %}">
+        <span class="ico"><svg class="icon"><use href="#i-users"></use></svg></span><span class="label">Foydalanuvchilar</span>
+      </a>
+      <a class="nav-link {% if section == 'audit' %}is-active{% endif %}" href="{% url 'dashboard:audit_list' %}">
+        <span class="ico"><svg class="icon"><use href="#i-clock"></use></svg></span><span class="label">Amallar tarixi</span>
+      </a>
+
+      <div class="nav-section">Tizim</div>
+      <a class="nav-link" href="/app/" target="_blank"><span class="ico"><svg class="icon"><use href="#i-telegram"></use></svg></span><span class="label">Web ilova</span></a>
+      <a class="nav-link" href="/" target="_blank"><span class="ico"><svg class="icon"><use href="#i-external"></use></svg></span><span class="label">Ommaviy sayt</span></a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user">{{ request.user.get_username }}</div>
+      <a href="{% url 'dashboard:logout' %}">Chiqish</a>
+    </div>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <div>
+        <h1>{% block page_title %}Boshqaruv paneli{% endblock %}</h1>
+        <div class="crumbs">{% block crumbs %}{% endblock %}</div>
+      </div>
+      <div class="topbar-actions">{% block actions %}{% endblock %}</div>
+    </header>
+
+    <div class="page">
+      {% if messages %}
+        <div class="messages">
+          {% for message in messages %}
+            <div class="message message-{{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ SITE_NAME }} — Rasch modeli asosida matematik testlar{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <section class="hero">
+    <h1>Matematika testlarini Rasch modeli asosida baholash platformasi</h1>
+    <p>
+      Milliy sertifikat formatidagi testlarni Telegram bot orqali o‘tkazing.
+      Natijalar IRT-1PL (Rasch) modeli bo‘yicha hisoblanadi, sertifikatlar
+      esa QR-kod orqali tekshiriladi.
+    </p>
+    <div class="hero-actions">
+      {% if BOT_URL %}<a class="btn btn-primary" href="{{ BOT_URL }}" target="_blank" rel="noopener">Botni ochish</a>{% endif %}
+      <a class="btn btn-light" href="{% url 'certificates:form' %}">Sertifikatni tekshirish</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="grid grid-4">
+      <div class="stat">
+        <div class="stat-value">{{ stats.exams }}</div>
+        <div class="stat-label">Yaratilgan testlar</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{ stats.attempts }}</div>
+        <div class="stat-label">Topshirilgan javoblar</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{ stats.certificates }}</div>
+        <div class="stat-label">Berilgan sertifikatlar</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">90.14</div>
+        <div class="stat-label">Maksimal ball</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Platforma imkoniyatlari</h2>
+    <div class="grid grid-3">
+
+      <div class="card">
+        <div class="card-icon"><svg class="icon"><use href="#i-book"></use></svg></div>
+        <h3>Uch xil test turi</h3>
+        <p>
+          Oddiy test (to‘g‘ri javoblar soni), bepul RASH testi va
+          pullik RASH testi — bir martalik ID kodlar bilan.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon"><svg class="icon"><use href="#i-chart"></use></svg></div>
+        <h3>Rasch (IRT-1PL) baholash</h3>
+        <p>
+          Savol qiyinligi <em>b</em> ma’lumotlardan kalibrlanadi, qobiliyat
+          <em>θ</em> esa MLE orqali topiladi va 90.14 ballik shkalaga o‘tkaziladi.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon"><svg class="icon"><use href="#i-sigma"></use></svg></div>
+        <h3>Matematik klaviatura</h3>
+        <p>
+          Ochiq javobli savollar uchun Mini App: kasr, ildiz, daraja, π, e,
+          sin, cos, tg, ctg, ln, log, |x|. Javoblar SymPy orqali ekvivalentlikka
+          tekshiriladi.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon"><svg class="icon"><use href="#i-key"></use></svg></div>
+        <h3>Bir martalik ID kodlar</h3>
+        <p>
+          Kod holatlari: <b>Ishlatilmagan → Faollashtirilgan → Ishlatilgan</b>.
+          Kod faqat yakuniy javob saqlangandan keyin yopiladi.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon"><svg class="icon"><use href="#i-award"></use></svg></div>
+        <h3>Avtomatik sertifikat</h3>
+        <p>
+          Natijalar e’lon qilingandan so‘ng PDF sertifikat yaratiladi:
+          noyob raqam, daraja, reyting va tekshiruv QR-kodi bilan.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon"><svg class="icon"><use href="#i-trend"></use></svg></div>
+        <h3>Statistika va eksport</h3>
+        <p>
+          Reyting, darajalar taqsimoti, savollar statistikasi (p-qiymat,
+          nuqtaviy-biserial) hamda Excel/PDF eksport.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Baholash shkalasi</h2>
+    <div class="card">
+      <dl style="margin:0">
+        <div class="detail-row"><dt>70.0 va yuqori</dt><dd><span class="badge badge-gold">A+</span></dd></div>
+        <div class="detail-row"><dt>65.0 – 69.9</dt><dd><span class="badge badge-gold">A</span></dd></div>
+        <div class="detail-row"><dt>60.0 – 64.9</dt><dd><span class="badge badge-green">B+</span></dd></div>
+        <div class="detail-row"><dt>55.0 – 59.9</dt><dd><span class="badge badge-green">B</span></dd></div>
+        <div class="detail-row"><dt>50.0 – 54.9</dt><dd><span class="badge badge-navy">C+</span></dd></div>
+        <div class="detail-row"><dt>46.0 – 49.9</dt><dd><span class="badge badge-navy">C</span></dd></div>
+        <div class="detail-row"><dt>0 – 45.9</dt><dd><span class="badge badge-red">Daraja olinmadi</span></dd></div>
+      </dl>
+    </div>
+  </section>
+
+</div>
+{% endblock %}

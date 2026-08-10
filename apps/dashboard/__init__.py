@@ -1,0 +1,1 @@
+"""Web boshqaruv paneli ilovasi."""

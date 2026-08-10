@@ -1,0 +1,190 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ exam.title }} — natijalar{% endblock %}
+{% block page_title %}Natijalar va reyting{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a> / Natijalar
+{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-outline" href="{% url 'dashboard:export_results_excel' exam.pk %}"><svg class="icon"><use href="#i-sheet"></use></svg> Excel</a>
+  <a class="btn btn-outline" href="{% url 'dashboard:export_results_pdf' exam.pk %}"><svg class="icon"><use href="#i-file"></use></svg> PDF</a>
+  <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">Qayta hisoblash</a>
+{% endblock %}
+
+{% block content %}
+
+{% if statistics and statistics.participants %}
+  <div class="grid grid-4 mb">
+    <div class="stat">
+      <div class="ico"><svg class="icon"><use href="#i-users"></use></svg></div>
+      <div><div class="value">{{ statistics.participants }}</div><div class="label">Qatnashchi</div></div>
+    </div>
+    <div class="stat">
+      <div class="ico gold"><svg class="icon"><use href="#i-trend"></use></svg></div>
+      <div><div class="value">{{ statistics.avg_ball|floatformat:2 }}</div><div class="label">O‘rtacha ball</div></div>
+    </div>
+    <div class="stat">
+      <div class="ico green"><svg class="icon"><use href="#i-trophy"></use></svg></div>
+      <div><div class="value">{{ statistics.max_ball_achieved|floatformat:2 }}</div><div class="label">Eng yuqori ball</div></div>
+    </div>
+    <div class="stat">
+      <div class="ico purple"><svg class="icon"><use href="#i-target"></use></svg></div>
+      <div><div class="value">{{ statistics.reliability|floatformat:3 }}</div><div class="label">Ishonchlilik</div></div>
+    </div>
+  </div>
+
+  {% if statistics.grade_distribution %}
+    <section class="card mb">
+      <div class="card-head"><h2>Darajalar taqsimoti</h2></div>
+      <div class="card-body">
+        {% for grade, count in statistics.grade_rows %}
+          {% if count %}
+            <div class="kv">
+              <span class="k">{{ grade }}</span>
+              <span class="v">{{ count }} ta</span>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Savollarning qiyinchilik darajasi. Bu bo'lim faqat boshqaruv panelida
+   (ya'ni faqat adminlarda) ko'rinadi — ishtirokchilar uni ko'rmaydi.
+--------------------------------------------------------------------------- #}
+{% if charts.has_data %}
+  <section class="card mb">
+    <div class="card-head">
+      <h2><svg class="icon"><use href="#i-trend"></use></svg> Savollar qiyinchiliklari</h2>
+      <span class="sub">Faqat admin uchun</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-legend">
+        {% for name, color, count in charts.level_counts %}
+          <span class="chart-legend-item">
+            <i style="background:{{ color }}"></i>{{ name }} — {{ count }} ta
+          </span>
+        {% endfor %}
+      </div>
+      <div class="chart-scroll">{{ difficulty_svg }}</div>
+
+      <div class="grid grid-2 chart-tops">
+        <div>
+          <h3 class="chart-sub">Eng qiyin savollar</h3>
+          <table class="data compact">
+            <thead><tr><th>Savol</th><th class="num">Noto‘g‘ri</th><th class="num">Rasch b</th><th class="num">r<sub>pb</sub></th></tr></thead>
+            <tbody>
+              {% for row in charts.hardest %}
+                <tr>
+                  <td><b>{{ row.label }}</b>-savol <span class="small muted">{{ row.level }}</span></td>
+                  <td class="num">{{ row.percent|floatformat:"-1" }}%</td>
+                  <td class="num">{{ row.difficulty|floatformat:2 }}</td>
+                  <td class="num">{{ row.point_biserial|floatformat:2 }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3 class="chart-sub">Eng oson savollar</h3>
+          <table class="data compact">
+            <thead><tr><th>Savol</th><th class="num">Noto‘g‘ri</th><th class="num">Rasch b</th><th class="num">r<sub>pb</sub></th></tr></thead>
+            <tbody>
+              {% for row in charts.easiest %}
+                <tr>
+                  <td><b>{{ row.label }}</b>-savol <span class="small muted">{{ row.level }}</span></td>
+                  <td class="num">{{ row.percent|floatformat:"-1" }}%</td>
+                  <td class="num">{{ row.difficulty|floatformat:2 }}</td>
+                  <td class="num">{{ row.point_biserial|floatformat:2 }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% if charts.bins %}
+    <section class="card mb">
+      <div class="card-head">
+        <h2><svg class="icon"><use href="#i-chart"></use></svg> Ballar taqsimoti</h2>
+        <span class="sub">Faqat admin uchun</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-scroll">{{ distribution_svg }}</div>
+      </div>
+    </section>
+  {% endif %}
+{% elif statistics and statistics.participants %}
+  <div class="message message-warning mb">
+    Savollar qiyinchiliklari diagrammasi natijalar hisoblangandan keyin
+    ko‘rinadi. «Qayta hisoblash» tugmasini bosing.
+  </div>
+{% endif %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Reyting</h2>
+    <span class="sub">{{ certificates }} ta sertifikat berilgan</span>
+  </div>
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="num">O‘rin</th>
+            <th>Ishtirokchi</th>
+            <th>Telefon</th>
+            <th class="num">To‘g‘ri</th>
+            <th class="num">Xato</th>
+            <th class="num">Bo‘sh</th>
+            <th class="num">Foiz</th>
+            {% if exam.uses_rasch %}<th class="num">θ</th><th class="num">Ball</th><th class="num">Daraja</th>{% endif %}
+            <th>Topshirgan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for attempt in attempts %}
+            <tr>
+              <td class="num rank">{{ attempt.rank|default:forloop.counter }}</td>
+              <td>
+                <a href="{% url 'dashboard:attempt_detail' attempt.pk %}">
+                  {{ attempt.full_name|default:attempt.user.display_name }}
+                </a><br>
+                {% if exam.requires_access_code %}
+                  {# Pullik testda natijalar ID raqami bilan e'lon qilinadi. #}
+                  <span class="small muted">ID raqami: {{ attempt.access_code_value|default:"—" }}</span><br>
+                {% endif %}
+                <span class="small muted">Telegram ID {{ attempt.user.telegram_id }}</span>
+              </td>
+              <td class="small">{{ attempt.phone|default:"—" }}</td>
+              <td class="num"><b>{{ attempt.raw_score|floatformat:"-2" }}</b> / {{ attempt.max_raw_score|floatformat:"-2" }}</td>
+              <td class="num">{{ attempt.wrong_count }}</td>
+              <td class="num">{{ attempt.empty_count }}</td>
+              <td class="num">{{ attempt.percent|floatformat:1 }}%</td>
+              {% if exam.uses_rasch %}
+                <td class="num small">{{ attempt.theta|floatformat:3|default:"—" }}</td>
+                <td class="num"><b>{{ attempt.display_ball }}</b></td>
+                <td class="num">
+                  {% if attempt.grade and attempt.grade != "Daraja olinmadi" %}
+                    <span class="badge badge-gold">{{ attempt.grade }}</span>
+                  {% else %}<span class="badge badge-gray">—</span>{% endif %}
+                </td>
+              {% endif %}
+              <td class="small">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="11"><div class="empty">Hozircha qatnashchilar yo‘q.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

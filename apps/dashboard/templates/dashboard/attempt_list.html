@@ -1,0 +1,104 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Natijalar{% endblock %}
+{% block page_title %}Natijalar{% endblock %}
+{% block crumbs %}{{ attempts|length }} ta urinish ko‘rsatilmoqda{% endblock %}
+
+{% block content %}
+
+<section class="card mb">
+  <div class="card-body">
+    <form method="get" class="filters">
+      <div>
+        <label class="small muted" for="q">Qidiruv</label>
+        <input class="input" type="search" id="q" name="q" value="{{ search }}"
+               placeholder="Ism, telefon yoki Telegram ID">
+      </div>
+      <div>
+        <label class="small muted" for="test">Test</label>
+        <select class="input" id="test" name="test">
+          <option value="">Barchasi</option>
+          {% for exam in exams %}
+            <option value="{{ exam.id }}" {% if selected_exam == exam.id|stringformat:"s" %}selected{% endif %}>
+              {{ exam.title }} [{{ exam.code }}]
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="small muted" for="holati">Holati</label>
+        <select class="input" id="holati" name="holati">
+          <option value="">Barchasi</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">
+        <svg class="icon"><use href="#i-filter"></use></svg> Filtrlash
+      </button>
+      <a class="btn btn-outline" href="{% url 'dashboard:attempt_list' %}">Tozalash</a>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Ishtirokchi</th>
+            <th>Test</th>
+            <th>Holati</th>
+            <th class="num">To‘g‘ri</th>
+            <th class="num">Foiz</th>
+            <th class="num">Ball</th>
+            <th class="num">Daraja</th>
+            <th>Topshirgan</th>
+            <th class="num"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for attempt in attempts %}
+            <tr>
+              <td>
+                <a href="{% url 'dashboard:attempt_detail' attempt.pk %}">
+                  <b>{{ attempt.full_name|default:attempt.user.display_name }}</b>
+                </a><br>
+                <span class="small muted">ID {{ attempt.user.telegram_id }}</span>
+              </td>
+              <td class="small">
+                {{ attempt.exam.title }}<br>
+                <span class="code-pill">{{ attempt.exam.code }}</span>
+              </td>
+              <td>
+                {% if attempt.status == 'submitted' %}<span class="badge badge-green">Yuborilgan</span>
+                {% elif attempt.status == 'draft' %}<span class="badge badge-orange">Jarayonda</span>
+                {% else %}<span class="badge badge-gray">Bekor qilingan</span>{% endif %}
+              </td>
+              <td class="num">{{ attempt.raw_score|floatformat:"-2" }} / {{ attempt.max_raw_score|floatformat:"-2" }}</td>
+              <td class="num">{{ attempt.percent|floatformat:1 }}%</td>
+              <td class="num"><b>{{ attempt.display_ball }}</b></td>
+              <td class="num">
+                {% if attempt.grade and attempt.grade != "Daraja olinmadi" %}
+                  <span class="badge badge-gold">{{ attempt.grade }}</span>
+                {% else %}<span class="muted">—</span>{% endif %}
+              </td>
+              <td class="small">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td class="num nowrap">
+                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:attempt_detail' attempt.pk %}" title="Batafsil">
+                  <svg class="icon"><use href="#i-eye"></use></svg>
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="9"><div class="empty">Urinishlar topilmadi.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

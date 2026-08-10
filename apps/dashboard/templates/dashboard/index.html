@@ -1,0 +1,180 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Umumiy ko‘rinish{% endblock %}
+{% block page_title %}Umumiy ko‘rinish{% endblock %}
+{% block crumbs %}Platformaning joriy holati{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-outline" href="{% url 'dashboard:exam_list' %}">Testlar</a>
+  <a class="btn btn-primary" href="{% url 'dashboard:exam_create' %}">
+    <svg class="icon"><use href="#i-plus"></use></svg> Yangi test
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ======================= Asosiy ko'rsatkichlar ======================= -->
+<div class="grid grid-4 mb">
+  <div class="stat">
+    <div class="ico"><svg class="icon"><use href="#i-users"></use></svg></div>
+    <div>
+      <div class="value">{{ users.total }}</div>
+      <div class="label">Foydalanuvchilar</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="ico green"><svg class="icon"><use href="#i-check-circle"></use></svg></div>
+    <div>
+      <div class="value">{{ users.registered }}</div>
+      <div class="label">Ro‘yxatdan o‘tgan</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="ico purple"><svg class="icon"><use href="#i-book"></use></svg></div>
+    <div>
+      <div class="value">{{ exam_total }}</div>
+      <div class="label">Testlar</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="ico gold"><svg class="icon"><use href="#i-award"></use></svg></div>
+    <div>
+      <div class="value">{{ certificates }}</div>
+      <div class="label">Sertifikatlar</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-4 mb">
+  <div class="stat">
+    <div class="ico green"><svg class="icon"><use href="#i-play"></use></svg></div>
+    <div>
+      <div class="value">{{ exam_active }}</div>
+      <div class="label">Faol testlar</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="ico"><svg class="icon"><use href="#i-send"></use></svg></div>
+    <div>
+      <div class="value">{{ attempts_total }}</div>
+      <div class="label">Topshirilgan javoblar</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="ico"><svg class="icon"><use href="#i-calendar"></use></svg></div>
+    <div>
+      <div class="value">{{ attempts_today }}</div>
+      <div class="label">Bugun topshirilgan</div>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="ico red"><svg class="icon"><use href="#i-key"></use></svg></div>
+    <div>
+      <div class="value">{{ codes.used }} / {{ codes.total }}</div>
+      <div class="label">Ishlatilgan ID kodlar</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+
+  <!-- ======================= So'nggi testlar ======================= -->
+  <section class="card">
+    <div class="card-head">
+      <h2>So‘nggi testlar</h2>
+      <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:exam_list' %}">Barchasi</a>
+    </div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Test</th>
+              <th>Turi</th>
+              <th>Holati</th>
+              <th class="num">Savol</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for exam in recent_exams %}
+              <tr>
+                <td>
+                  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a><br>
+                  <span class="code-pill">{{ exam.code }}</span>
+                </td>
+                <td class="small">{{ exam.get_exam_type_display }}</td>
+                <td>
+                  {% if exam.status == 'active' %}<span class="badge badge-green">Faol</span>
+                  {% elif exam.status == 'published' %}<span class="badge badge-gold">E’lon qilingan</span>
+                  {% elif exam.status == 'calculated' %}<span class="badge badge-purple">Hisoblangan</span>
+                  {% elif exam.status == 'closed' %}<span class="badge badge-orange">Yopilgan</span>
+                  {% else %}<span class="badge badge-gray">{{ exam.get_status_display }}</span>{% endif %}
+                </td>
+                <td class="num">{{ exam.question_count }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4"><div class="empty">Hozircha testlar yo‘q.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= So'nggi natijalar ======================= -->
+  <section class="card">
+    <div class="card-head">
+      <h2>So‘nggi natijalar</h2>
+      <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:attempt_list' %}">Barchasi</a>
+    </div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Ishtirokchi</th>
+              <th>Test</th>
+              <th class="num">Ball</th>
+              <th class="num">Daraja</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for attempt in recent_attempts %}
+              <tr>
+                <td>
+                  <a href="{% url 'dashboard:attempt_detail' attempt.pk %}">
+                    {{ attempt.full_name|default:attempt.user.display_name }}
+                  </a>
+                </td>
+                <td class="small"><span class="code-pill">{{ attempt.exam.code }}</span></td>
+                <td class="num"><b>{{ attempt.display_ball }}</b></td>
+                <td class="num">
+                  {% if attempt.grade %}<span class="badge badge-gold">{{ attempt.grade }}</span>
+                  {% else %}<span class="muted">{{ attempt.display_percent }}</span>{% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4"><div class="empty">Hozircha natijalar yo‘q.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ======================= Test turlari ======================= -->
+<section class="card mt">
+  <div class="card-head"><h2>Test turlari bo‘yicha taqsimot</h2></div>
+  <div class="card-body">
+    {% for row in type_breakdown %}
+      <div class="kv">
+        <span class="k">{{ row.label }}</span>
+        <span class="v">{{ row.count }} ta</span>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}
