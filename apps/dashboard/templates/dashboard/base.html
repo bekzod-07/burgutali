@@ -6,10 +6,31 @@
   <title>{% block title %}Boshqaruv paneli{% endblock %} — {{ SITE_NAME }}</title>
   {# Telegram webview CSS ni uzoq keshlaydi — fayl o'zgarsa `?v=` yangilanadi. #}
   <link rel="stylesheet" href="{% static 'dashboard/css/dashboard.css' %}?v={{ PANEL_CSS_VERSION }}">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   {% block head %}{% endblock %}
 </head>
 <body>
 {% include "partials/icons.html" %}
+<script>
+  /* Panel Telegram Web App ichida ochilganda: oynani kengaytirish va
+     kompyuterda to'liq ekranga o'tish. Oddiy brauzerda hech narsa qilmaydi. */
+  (function () {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg || !tg.initData) { return; }
+    try {
+      tg.ready();
+      tg.expand();
+      var desktopPlatforms = ["tdesktop", "macos", "weba", "webk", "web", "unigram"];
+      if (
+        desktopPlatforms.indexOf(tg.platform) !== -1 &&
+        typeof tg.isVersionAtLeast === "function" && tg.isVersionAtLeast("8.0") &&
+        typeof tg.requestFullscreen === "function" && !tg.isFullscreen
+      ) {
+        try { tg.requestFullscreen(); } catch (e) { /* qo'llamaydigan mijoz */ }
+      }
+    } catch (e) { /* eski versiyalar */ }
+  })();
+</script>
 <div class="layout">
 
   <aside class="sidebar">

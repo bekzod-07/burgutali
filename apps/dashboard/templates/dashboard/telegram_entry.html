@@ -44,7 +44,20 @@
     }
 
     if (tg) {
-      try { tg.ready(); tg.expand(); } catch (e) { /* eski versiyalar */ }
+      try {
+        tg.ready();
+        tg.expand();
+        /* Kompyuterda panel ochilishi bilan to'liq ekranga o'tadi —
+           oyna holati keyingi sahifalarga ham saqlanib qoladi. */
+        var desktopPlatforms = ["tdesktop", "macos", "weba", "webk", "web", "unigram"];
+        if (
+          desktopPlatforms.indexOf(tg.platform) !== -1 &&
+          typeof tg.isVersionAtLeast === "function" && tg.isVersionAtLeast("8.0") &&
+          typeof tg.requestFullscreen === "function" && !tg.isFullscreen
+        ) {
+          try { tg.requestFullscreen(); } catch (e) { /* qo'llamaydigan mijoz */ }
+        }
+      } catch (e) { /* eski versiyalar */ }
     }
 
     var headers = { "Content-Type": "application/json" };
