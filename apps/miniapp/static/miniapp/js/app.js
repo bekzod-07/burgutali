@@ -1588,6 +1588,23 @@
       if (tg.BackButton) { tg.BackButton.onClick(back); }
       if (tg.setHeaderColor) { tg.setHeaderColor("secondary_bg_color"); }
 
+      /* Qorong'u mavzuda kontrastni CSS orqali moslash uchun belgi. */
+      var syncTheme = function () {
+        body.classList.toggle("tg-dark", tg.colorScheme === "dark");
+      };
+      /* To'liq ekranda Telegram boshqaruv tugmalari uchun joy qoldiriladi. */
+      var syncFullscreen = function () {
+        body.classList.toggle("tg-fullscreen", !!tg.isFullscreen);
+      };
+      syncTheme();
+      syncFullscreen();
+      if (typeof tg.onEvent === "function") {
+        try {
+          tg.onEvent("themeChanged", syncTheme);
+          tg.onEvent("fullscreenChanged", syncFullscreen);
+        } catch (e) { /* eski versiyalar */ }
+      }
+
       /* Kompyuterda (desktop/web mijozlar) ilova ochilishi bilan avtomatik
          to'liq ekranga o'tadi — Bot API 8.0+ requestFullscreen. */
       var desktopPlatforms = ["tdesktop", "macos", "weba", "webk", "web", "unigram"];

@@ -57,10 +57,16 @@ body {
   line-height: 1.45;
   overscroll-behavior-y: none;
   /* To'liq ekran rejimida Telegram boshqaruv tugmalari ustki qismni
-     egallaydi — content-safe-area shu joyni bo'sh qoldiradi. */
-  padding-top: calc(var(--bar-h) + var(--tg-content-safe-area-inset-top, 0px));
+     egallaydi — content-safe-area (yoki zaxira qiymat) shu joyni bo'sh
+     qoldiradi. Ba'zi mijozlar inset bermaydi, shuning uchun max(). */
+  --fs-extra: 0px;
+  --safe-top: max(var(--tg-content-safe-area-inset-top, 0px), var(--fs-extra));
+  padding-top: calc(var(--bar-h) + var(--safe-top));
   padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
 }
+
+/* Fullscreen'da inset kelmagan mijozlar uchun zaxira bo'sh joy. */
+body.tg-fullscreen { --fs-extra: 46px; }
 
 /* --------------------------------------------------------------- ikonka */
 
@@ -83,7 +89,7 @@ body {
 
 .app-bar {
   position: fixed;
-  top: var(--tg-content-safe-area-inset-top, 0px);
+  top: var(--safe-top, 0px);
   left: 0; right: 0;
   height: var(--bar-h);
   display: flex;
@@ -502,7 +508,7 @@ textarea.input { resize: vertical; min-height: 72px; font-family: "SF Mono", Con
 /* Jarayon va palitra varaq tepasida yopishib turadi. */
 .sheet-top {
   position: sticky;
-  top: calc(var(--bar-h) + var(--tg-content-safe-area-inset-top, 0px));
+  top: calc(var(--bar-h) + var(--safe-top, 0px));
   z-index: 20;
   padding: 8px 0 6px;
   margin-bottom: 4px;
@@ -535,7 +541,7 @@ textarea.input { resize: vertical; min-height: 72px; font-family: "SF Mono", Con
   border: 1.5px solid transparent;
   border-radius: var(--radius);
   padding: 12px 13px 13px;
-  scroll-margin-top: calc(var(--bar-h) + var(--tg-content-safe-area-inset-top, 0px) + 132px);
+  scroll-margin-top: calc(var(--bar-h) + var(--safe-top, 0px) + 132px);
 }
 .qitem.is-answered { border-color: var(--green-soft); }
 .qitem.is-target { border-color: var(--accent); }
@@ -919,6 +925,39 @@ body.pad-open .screen { padding-bottom: 58vh; }
     transform: translateX(-50%);
   }
 }
+
+/* ==========================================================================
+   Qorong'u mavzu — Telegram dark rejimida kontrast tuzatishlari.
+   To'q jigarrang/yashil matnlar qora fonda ko'rinmay qolmasligi uchun
+   ochroq ohanglar ishlatiladi. `tg-dark` klassi JS orqali qo'yiladi.
+   ========================================================================== */
+
+body.tg-dark {
+  --line: rgba(160, 178, 196, .3);
+  --gold-soft:  rgba(224, 170, 45, .22);
+  --green-soft: rgba(60, 190, 110, .2);
+  --red-soft:   rgba(235, 100, 95, .2);
+}
+
+body.tg-dark .badge-green,
+body.tg-dark .quick .ico.green,
+body.tg-dark .review-cell.correct,
+body.tg-dark .stat.green b { color: #5fd68f; }
+
+body.tg-dark .badge-gold,
+body.tg-dark .quick .ico.gold,
+body.tg-dark .review-cell.partial,
+body.tg-dark .mkey.clr,
+body.tg-dark .alert-warn,
+body.tg-dark .stat.gold b { color: #eec36a; }
+
+body.tg-dark .badge-red,
+body.tg-dark .review-cell.wrong,
+body.tg-dark .alert-error,
+body.tg-dark .stat.red b { color: #f2938f; }
+
+body.tg-dark .choices.multi .choice { color: #eec36a; }
+body.tg-dark .choices.multi .choice.is-selected { background: var(--orange); color: #fff; }
 
 /* Kompyuter: ilova to'liq ekranni egallaydi, kontent kengayadi. */
 @media (min-width: 900px) {

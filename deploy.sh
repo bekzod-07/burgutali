@@ -153,6 +153,13 @@ server {
 
     client_max_body_size 25M;
 
+    # --- Xavfsizlik sarlavhalari ---
+    # Eslatma: frame-ancestors/X-Frame-Options qo'yilmaydi — Mini App
+    # Telegram Web mijozlarida iframe ichida ochiladi.
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+
     location /static/ {
         alias $APP_DIR/staticfiles/;
         expires 30d;

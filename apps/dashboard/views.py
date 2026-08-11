@@ -62,10 +62,43 @@ from .forms import (
 
 
 class LoginView(DjangoLoginView):
-    """Panelga kirish sahifasi."""
+    """
+    Panelga kirish sahifasi.
+
+    Brute-force himoyasi: bitta IP dan 10 ta muvaffaqiyatsiz urinishdan
+    so'ng kirish 10 daqiqaga vaqtincha yopiladi.
+    """
 
     template_name = "dashboard/login.html"
     redirect_authenticated_user = True
+
+    MAX_FAILURES = 10
+    LOCKOUT_SECONDS = 600
+
+    @staticmethod
+    def _client_ip(request) -> str:
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR", "") or "nomalum"
+
+    def post(self, request, *args, **kwargs):
+        from django.core.cache import cache
+
+        key = f"panel-login-fail:{self._client_ip(request)}"
+        if int(cache.get(key) or 0) >= self.MAX_FAILURES:
+            messages.error(
+                request,
+                "Juda ko'p muvaffaqiyatsiz urinish. 10 daqiqadan so'ng qayta urinib ko'ring.",
+            )
+            return redirect("dashboard:login")
+
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 302:  # muvaffaqiyatli kirish
+            cache.delete(key)
+        else:
+            cache.set(key, int(cache.get(key) or 0) + 1, self.LOCKOUT_SECONDS)
+        return response
 
 
 def logout_view(request):
