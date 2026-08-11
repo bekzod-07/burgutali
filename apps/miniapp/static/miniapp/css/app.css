@@ -56,7 +56,9 @@ body {
   font-size: 15px;
   line-height: 1.45;
   overscroll-behavior-y: none;
-  padding-top: var(--bar-h);
+  /* To'liq ekran rejimida Telegram boshqaruv tugmalari ustki qismni
+     egallaydi — content-safe-area shu joyni bo'sh qoldiradi. */
+  padding-top: calc(var(--bar-h) + var(--tg-content-safe-area-inset-top, 0px));
   padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
 }
 
@@ -81,7 +83,8 @@ body {
 
 .app-bar {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: var(--tg-content-safe-area-inset-top, 0px);
+  left: 0; right: 0;
   height: var(--bar-h);
   display: flex;
   align-items: center;
@@ -499,7 +502,7 @@ textarea.input { resize: vertical; min-height: 72px; font-family: "SF Mono", Con
 /* Jarayon va palitra varaq tepasida yopishib turadi. */
 .sheet-top {
   position: sticky;
-  top: 0;
+  top: calc(var(--bar-h) + var(--tg-content-safe-area-inset-top, 0px));
   z-index: 20;
   padding: 8px 0 6px;
   margin-bottom: 4px;
@@ -510,63 +513,102 @@ textarea.input { resize: vertical; min-height: 72px; font-family: "SF Mono", Con
 
 .sheet { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 
+/* Bo'lim sarlavhasi: 1–32 / 33–35 / 36–45 kabi guruhlar. */
+.q-section {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  font-size: 13px;
+  margin-top: 6px;
+}
+.q-section b { font-size: 14.5px; font-weight: 750; white-space: nowrap; }
+.q-section span { color: var(--muted); line-height: 1.35; }
+.q-section.kind-multi { border-left-color: var(--orange); background: var(--gold-soft); }
+.q-section.kind-open  { border-left-color: var(--green);  background: var(--green-soft); }
+
 .qitem {
   background: var(--bg-soft);
   border: 1.5px solid transparent;
   border-radius: var(--radius);
   padding: 12px 13px 13px;
-  scroll-margin-top: 128px;
+  scroll-margin-top: calc(var(--bar-h) + var(--tg-content-safe-area-inset-top, 0px) + 132px);
 }
 .qitem.is-answered { border-color: var(--green-soft); }
 .qitem.is-target { border-color: var(--accent); }
 
 .qitem .qhead {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 9px;
 }
 .qitem .qno {
-  font-size: 12px; font-weight: 700; color: var(--accent);
-  text-transform: uppercase; letter-spacing: .5px;
+  min-width: 30px; height: 30px;
+  padding: 0 7px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-tx);
+  display: inline-grid; place-items: center;
+  font-size: 13.5px; font-weight: 750;
 }
-.qitem .qtag { font-size: 11px; color: var(--muted); }
+.qitem.kind-multi .qno { background: var(--orange); color: #fff; }
+.qitem.kind-open  .qno { background: var(--green);  color: #fff; }
+.qitem .qtag { font-size: 11.5px; color: var(--muted); }
 .qitem .q-text { margin: 0 0 10px; font-size: 15px; line-height: 1.5; }
 .qitem .q-hint { margin: 8px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 .qitem .choices { margin-bottom: 0; }
 .qitem .answer-fields { margin-bottom: 0; }
 
-.choices { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+/*
+   Variant tugmalari — to'liq kenglikdagi qator (video namunadagidek):
+   bitta javobli savolda A–D ko'k ohangda, ko'p javoblida A–F sariq-olov.
+*/
+.choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.choices.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.choices.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.choices.cols-5 { grid-template-columns: repeat(5, 1fr); }
+.choices.cols-6 { grid-template-columns: repeat(6, 1fr); }
+
 .choice {
   display: flex;
   align-items: center;
-  gap: 11px;
-  min-height: 50px;
-  padding: 0 14px;
-  border: 1.5px solid var(--line);
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 6px;
+  border: 1.5px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 16px;
-  font-weight: 620;
+  font-weight: 720;
   font-family: inherit;
   cursor: pointer;
-  text-align: left;
 }
-.choice .mark {
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--line);
-  display: grid; place-items: center;
-  flex: none;
-  color: transparent;
+.choice.is-selected { background: var(--accent); color: var(--accent-tx); }
+.choice:active { transform: scale(.97); }
+
+.choices.multi .choice { background: var(--gold-soft); color: #8a5c08; }
+.choices.multi .choice.is-selected { background: var(--orange); color: #fff; }
+
+/* Pastdagi yopishqoq «Yakunlash va yuborish» paneli. */
+.finish-bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 25;
+  display: flex;
+  justify-content: center;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
 }
-.choice.square .mark { border-radius: 6px; }
-.choice .mark .icon { width: 14px; height: 14px; stroke-width: 3; }
-.choice.is-selected { border-color: var(--accent); background: var(--accent-soft); }
-.choice.is-selected .mark { border-color: var(--accent); background: var(--accent); color: #fff; }
-.choice:active { transform: scale(.99); }
+.finish-bar .btn { margin: 0; min-height: 52px; font-size: 16px; max-width: 640px; }
+body.attempt-open .tabbar { display: none; }
+body.attempt-open { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+body.pad-open .finish-bar { display: none; }
 
 /* ------------------------------------------------- matematik klaviatura */
 
@@ -868,5 +910,26 @@ body.pad-open .screen { padding-bottom: 58vh; }
 
 @media (min-width: 560px) {
   .screen { max-width: 560px; margin: 0 auto; }
-  .app-bar, .tabbar { max-width: 560px; left: 50%; transform: translateX(-50%); }
+  /* `right: auto; width: 100%` shart — aks holda `left: 50%` + `right: 0`
+     juftligi panel kengligini 50vw ga qisqartirib qo'yadi. */
+  .app-bar, .tabbar {
+    max-width: 560px;
+    left: 50%; right: auto;
+    width: 100%;
+    transform: translateX(-50%);
+  }
+}
+
+/* Kompyuter: ilova to'liq ekranni egallaydi, kontent kengayadi. */
+@media (min-width: 900px) {
+  .screen { max-width: 1080px; padding-left: 24px; padding-right: 24px; }
+  .app-bar, .tabbar { max-width: 1080px; }
+  .quick-grid { grid-template-columns: repeat(4, 1fr); }
+  .stats { grid-template-columns: repeat(3, 1fr); }
+  .palette { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); }
+  .sheet-top .palette { max-height: 132px; }
+  .choice { min-height: 52px; font-size: 17px; }
+  .finish-bar .btn { max-width: 1032px; }
+  .mathpad.floating { max-width: 720px; left: 50%; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
+  .modal { max-width: 440px; }
 }

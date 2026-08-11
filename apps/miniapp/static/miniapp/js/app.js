@@ -228,6 +228,10 @@
     loading();
     var view = state.view;
 
+    /* Test topshirish ekranida pastki menyu o'rniga yopishqoq
+       «Yakunlash» paneli ko'rsatiladi. */
+    body.classList.toggle("attempt-open", view === "attempt");
+
     if (view === "home") { return viewHome(); }
     if (view === "exams") { return viewExams(); }
     if (view === "exam") { return viewExam(); }
@@ -442,6 +446,13 @@
      serverga saqlanadi, sahifa esa qayta chizilmaydi — shu sababli varaq
      joyidan siljimaydi.
   */
+  /* Bo'lim sarlavhalari — savol turi o'zgargan joyda ko'rsatiladi. */
+  var SECTION_LABELS = {
+    single: "Yopiq savollar — bitta javobni tanlang",
+    multi: "Ko‘p javobli savollar — bir yoki bir nechta javob belgilanadi",
+    open: "Ochiq javoblar — a) va b) qismlarni kiriting"
+  };
+
   function renderSheet() {
     var data = state.attempt;
     var questions = data.questions;
@@ -455,7 +466,7 @@
 
     html += '<div class="sheet-top">' +
       '<div class="q-progress"><div class="bar"><span style="width:' +
-      Math.round(done / total * 100) + '%"></span></div>' +
+      (total ? Math.round(done / total * 100) : 0) + '%"></span></div>' +
       '<div class="count">' + done + " / " + total + "</div></div>" +
       '<div class="palette">';
     questions.forEach(function (q) {
@@ -464,14 +475,34 @@
     });
     html += "</div></div>";
 
+    // Ketma-ket bir xil turdagi savollar bitta guruhga yig'iladi.
+    var groups = [];
+    questions.forEach(function (q) {
+      var last = groups[groups.length - 1];
+      if (!last || last.kind !== q.kind) {
+        groups.push({ kind: q.kind, from: q.order, to: q.order, items: [q] });
+      } else {
+        last.to = q.order;
+        last.items.push(q);
+      }
+    });
+
     html += '<div class="sheet">';
-    questions.forEach(function (q) { html += questionBlock(q); });
+    groups.forEach(function (group) {
+      if (groups.length > 1) {
+        html += '<div class="q-section kind-' + group.kind + '"><b>' +
+          group.from + "–" + group.to + "</b><span>" +
+          (SECTION_LABELS[group.kind] || "") + "</span></div>";
+      }
+      group.items.forEach(function (q) { html += questionBlock(q); });
+    });
     html += "</div>";
 
-    html += '<button class="btn btn-green" data-act="finish">' +
-      ic("check-circle") + "Testni yakunlash</button>";
     html += '<button class="btn btn-ghost" data-act="leave">' +
       ic("arrow-left") + "Keyinroq davom ettirish</button>";
+
+    html += '<div class="finish-bar"><button class="btn" data-act="finish">' +
+      ic("check-circle") + "Yakunlash va yuborish</button></div>";
 
     if (hasOpen) { html += renderMathPad(); }
 
@@ -482,14 +513,15 @@
   }
 
   function questionBlock(question) {
-    var kindLabel = question.kind === "multi"
-      ? "bir yoki bir nechta javob"
-      : (question.kind === "open" ? "ochiq javob" : "bitta javob");
-
-    var html = '<section class="qitem' + (question.answered ? " is-answered" : "") +
+    var html = '<section class="qitem kind-' + question.kind +
+      (question.answered ? " is-answered" : "") +
       '" id="q-' + question.order + '" data-order="' + question.order + '">' +
-      '<div class="qhead"><span class="qno">' + question.order + "-savol</span>" +
-      '<span class="qtag">' + kindLabel + "</span></div>";
+      '<div class="qhead"><span class="qno">' + question.order + "</span>" +
+      (question.kind === "multi"
+        ? '<span class="qtag">bir nechta javob belgilash mumkin</span>' : "") +
+      (question.kind === "open"
+        ? '<span class="qtag">a) va b) qismlariga javob kiriting</span>' : "") +
+      "</div>";
 
     if (question.text) { html += '<p class="q-text">' + esc(question.text) + "</p>"; }
 
@@ -506,15 +538,21 @@
     return html;
   }
 
+  /*
+     Variantlar to'liq kenglikdagi qatorda joylashadi: A–D (bitta javob,
+     ko'k) yoki A–F (ko'p javob, sariq-olov). Tanlangan tugma to'liq
+     bo'yaladi — video namunadagi ko'rinish.
+  */
   function renderChoices(question) {
     var selected = (question.answer.selected || "").split("");
-    var square = question.kind === "multi";
-    var html = '<div class="choices">';
+    var isMulti = question.kind === "multi";
+    var html = '<div class="choices cols-' + question.choices.length +
+      (isMulti ? " multi" : "") + '">';
     question.choices.forEach(function (letter) {
       var isOn = selected.indexOf(letter) !== -1;
-      html += '<button class="choice' + (square ? " square" : "") + (isOn ? " is-selected" : "") +
+      html += '<button class="choice' + (isOn ? " is-selected" : "") +
         '" data-act="choose" data-order="' + question.order + '" data-letter="' + letter + '">' +
-        '<span class="mark">' + ic("check") + "</span>" + letter + "</button>";
+        letter + "</button>";
     });
     html += "</div>";
     return html;
@@ -1030,9 +1068,9 @@
 
     html += '<div class="card"><div class="card-head">' + ic("info") + "<h2>Test turi</h2></div>" +
       '<div class="seg" id="seg-type">' +
-      '<button data-type="simple" class="is-active">1-tur · Oddiy</button>' +
-      '<button data-type="rasch_free">2-tur · RASH</button>' +
-      (isAdmin ? '<button data-type="rasch_paid">3-tur · Pullik</button>' : "") +
+      '<button data-type="simple" class="is-active">1-tur · Bepul oddiy</button>' +
+      '<button data-type="rasch_free">2-tur · Bepul RASH</button>' +
+      (isAdmin ? '<button data-type="rasch_paid">3-tur · Pullik RASH</button>' : "") +
       "</div>" +
       '<p class="hint muted small mt" id="type-hint">Natija to‘g‘ri javoblar soni bo‘yicha hisoblanadi.</p>' +
       "</div>";
@@ -1534,6 +1572,17 @@
       if (tg.MainButton) { tg.MainButton.hide(); }
       if (tg.BackButton) { tg.BackButton.onClick(back); }
       if (tg.setHeaderColor) { tg.setHeaderColor("secondary_bg_color"); }
+
+      /* Kompyuterda (desktop/web mijozlar) ilova ochilishi bilan avtomatik
+         to'liq ekranga o'tadi — Bot API 8.0+ requestFullscreen. */
+      var desktopPlatforms = ["tdesktop", "macos", "weba", "webk", "web", "unigram"];
+      if (
+        desktopPlatforms.indexOf(tg.platform) !== -1 &&
+        typeof tg.isVersionAtLeast === "function" && tg.isVersionAtLeast("8.0") &&
+        typeof tg.requestFullscreen === "function" && !tg.isFullscreen
+      ) {
+        try { tg.requestFullscreen(); } catch (e) { /* qo'llamaydigan mijoz */ }
+      }
     } catch (e) { /* eski versiyalar */ }
   }
 
