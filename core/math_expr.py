@@ -112,9 +112,43 @@ def _expand_abs(text: str) -> str:
     return text.replace("|", "")
 
 
+#: Vergul argument ajratuvchi bo'lib keladigan funksiyalar: `root(8,3)`,
+#: `log(100,10)` — bu yerdagi vergulni kasr nuqtasiga aylantirib bo'lmaydi.
+_TWO_ARG_FUNCTIONS = frozenset(
+    {"root", "log", "gcd", "lcm", "binomial", "rational", "atan2"}
+)
+
+
 def _fix_decimal_commas(text: str) -> str:
-    """Raqamlar orasidagi vergulni nuqtaga o'zgartiradi (0,5 -> 0.5)."""
-    return re.sub(r"(?<=\d),(?=\d)", ".", text)
+    """
+    Raqamlar orasidagi vergulni nuqtaga o'zgartiradi (0,5 -> 0.5).
+
+    Istisno: ikki argumentli funksiya qavslari ichida vergul argument
+    ajratuvchi hisoblanadi — `root(8,3)` va `log(100,10)` o'zgarmaydi
+    (aks holda `root(8.3)` tahlil qilinmay, `log(100.10)` esa noto'g'ri
+    natija berar edi).
+    """
+    result: list[str] = []
+    stack: list[bool] = []  # har bir ochiq qavs: 2 argumentli funksiya qavsimi
+    for index, char in enumerate(text):
+        if char == "(":
+            j = index - 1
+            while j >= 0 and (text[j].isalnum() or text[j] == "_"):
+                j -= 1
+            name = text[j + 1 : index].lower()
+            stack.append(name in _TWO_ARG_FUNCTIONS)
+        elif char == ")":
+            if stack:
+                stack.pop()
+        elif char == ",":
+            separator_context = stack[-1] if stack else False
+            prev_digit = index > 0 and text[index - 1].isdigit()
+            next_digit = index + 1 < len(text) and text[index + 1].isdigit()
+            if prev_digit and next_digit and not separator_context:
+                result.append(".")
+                continue
+        result.append(char)
+    return "".join(result)
 
 
 def normalize_expression(raw: str) -> str:

@@ -7,6 +7,8 @@ bu satrlarni qo'lda tahlil qilishdan qutqaradi va xatolarni kamaytiradi.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from aiogram.filters.callback_data import CallbackData
 
 
@@ -25,8 +27,12 @@ class SubscriptionCB(CallbackData, prefix="sub"):
 class CreateCB(CallbackData, prefix="crt"):
     """Test yaratish sehrgari."""
 
+    # `value` bo'sh qoldirilishi mumkin. aiogram 3.15 unpack paytida bo'sh
+    # ("") segmentni None ga aylantiradi, shuning uchun tip Optional bo'lishi
+    # shart — aks holda pydantic validatsiyasi yiqilib, tugma «eskirgan»
+    # deb e'lon qilinadi.
     action: str  # type, structure, count, duration, visibility, certificate, keys_skip
-    value: str = ""
+    value: Optional[str] = ""
 
 
 class ExamCB(CallbackData, prefix="exam"):
@@ -40,9 +46,12 @@ class ExamCB(CallbackData, prefix="exam"):
 class QuestionCB(CallbackData, prefix="q"):
     """Test topshirishdagi savol tugmalari."""
 
+    # `value` haqida izoh — CreateCB dagi bilan bir xil: Optional bo'lmasa,
+    # value'siz tugmalar (finish, review, prev, next, jump, confirm, clear)
+    # unpack bosqichida yiqilib, umuman ishlamay qoladi.
     action: str  # pick, toggle, confirm, prev, next, jump, review, finish, clear
     order: int = 0
-    value: str = ""
+    value: Optional[str] = ""
 
 
 class AttemptCB(CallbackData, prefix="att"):

@@ -162,8 +162,8 @@ async def pick_single(
         await callback.answer(TC.ERROR_GENERIC, show_alert=True)
         return
 
-    await attempt_service.save_answer(attempt, question, selected=callback_data.value)
-    await callback.answer(callback_data.value)
+    await attempt_service.save_answer(attempt, question, selected=callback_data.value or "")
+    await callback.answer(callback_data.value or "")
 
     total = int(data.get("total", 0) or 0)
     next_order = callback_data.order + 1
@@ -189,7 +189,9 @@ async def toggle_multi(
         await callback.answer(TC.ERROR_GENERIC, show_alert=True)
         return
 
-    value = await attempt_service.toggle_multi_choice(attempt, question, callback_data.value)
+    value = await attempt_service.toggle_multi_choice(
+        attempt, question, callback_data.value or ""
+    )
     await callback.answer(value or "—")
     await send_question(callback.message, state, callback_data.order, edit=True)
 
