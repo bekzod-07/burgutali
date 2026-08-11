@@ -966,6 +966,12 @@ def telegram_login(request):
     if not account.is_staff:
         account.is_staff = True
         changed = True
+    # Telegram orqali faqat bot adminlari kira oladi (yuqoridagi tekshiruv),
+    # ular panelda to'liq huquqli: pullik test yaratish `is_superuser`
+    # talab qiladi — aks holda formada «3-tur — Pullik RASH» ko'rinmaydi.
+    if not account.is_superuser:
+        account.is_superuser = True
+        changed = True
     if not account.is_active:
         account.is_active = True
         changed = True

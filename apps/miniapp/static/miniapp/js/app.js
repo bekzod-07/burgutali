@@ -1063,6 +1063,21 @@
   /* ---------------------------------------------------------- 9. Create */
 
   function viewCreate() {
+    /* Ekran bot menyusidan to'g'ridan-to'g'ri ochilsa, foydalanuvchi
+       ma'lumoti hali yuklanmagan bo'ladi — avval uni olamiz, aks holda
+       admin uchun «3-tur · Pullik RASH» tugmasi ko'rinmay qoladi. */
+    if (!state.user) {
+      api("boshlash/").then(function (data) {
+        state.boot = data;
+        state.user = data.user;
+        renderCreateForm();
+      }).catch(handleError);
+      return;
+    }
+    renderCreateForm();
+  }
+
+  function renderCreateForm() {
     var isAdmin = state.user && state.user.is_admin;
     var html = "";
 
