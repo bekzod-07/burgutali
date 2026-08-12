@@ -222,7 +222,7 @@ def build_rasch_free(owner: BotUser, users: list[BotUser], rng: random.Random) -
         show_results=True,
     )
     apply_single_keys(exam, ["ABCD"[i % 4] for i in range(32)])
-    apply_multi_keys(exam, ["AB", "ACD", "BF"])
+    apply_multi_keys(exam, ["A", "C", "E"])
     apply_open_keys(
         exam,
         [

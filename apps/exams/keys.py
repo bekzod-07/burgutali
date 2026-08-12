@@ -8,8 +8,8 @@ Test yaratuvchi kalitni turli ko'rinishda kiritishi mumkin:
   * raqamlangan:    ``1-A 2-B 3-C`` yoki ``1) A  2) B``
   * qatorlar bilan: har bir qatorda bitta javob.
 
-Ko'p javobli savollar (33–35) uchun guruhlar albatta ajratilishi kerak:
-``AB, ACD, BF`` yoki har bir qatorda bitta guruh.
+Moslashtirish savollari (33–35) uchun ham har bir savolga **bitta** harf
+kiritiladi (A–F): ``A, C, E`` yoki ``33-A 34-C 35-E``.
 """
 
 from __future__ import annotations
@@ -38,6 +38,11 @@ class KeyParseResult:
 
 _NUMBERED_RE = re.compile(r"(\d{1,3})\s*[\).\-:=]?\s*([A-Za-z]+)")
 _SPLIT_RE = re.compile(r"[\s,;|/]+")
+
+#: Ochiq javob qatori boshidagi savol raqami: «36) », «36. », «36: », «36- ».
+#: Nuqta va chiziqdan keyin probel talab qilinadi — aks holda «0.5» kabi
+#: o'nlik kasr yoki «12-3» kabi ifodaning boshi kesilib qolar edi.
+_LEADING_NUMBER_RE = re.compile(r"^\s*\d{1,3}\s*(?:[\):=]|[.\-](?=\s))\s*")
 
 
 def _clean(raw: str) -> str:
@@ -107,9 +112,10 @@ def parse_single_key(raw: str, count: int, allowed: tuple[str, ...] = C.SINGLE_C
 
 def parse_multi_key(raw: str, count: int, allowed: tuple[str, ...] = C.MULTI_CHOICES) -> KeyParseResult:
     """
-    Ko'p javobli savollar uchun kalitni tahlil qiladi.
+    Moslashtirish savollari (A–F) uchun kalitni tahlil qiladi.
 
-    Guruhlar probel, vergul, nuqta-vergul yoki yangi qator bilan ajratiladi.
+    Har bir savolga **faqat bitta** variant to'g'ri keladi. Javoblar probel,
+    vergul, nuqta-vergul yoki yangi qator bilan ajratiladi: ``A, C, E``.
     """
     raw = _clean(raw)
     result = KeyParseResult()
@@ -127,11 +133,14 @@ def parse_multi_key(raw: str, count: int, allowed: tuple[str, ...] = C.MULTI_CHO
         groups = [mapping.get(order, "") for order in range(1, count + 1)]
     else:
         groups = [g for g in _SPLIT_RE.split(raw) if g]
+        # Ajratkichsiz ketma-ket yozilgan bo'lsa («ACE») — har bir harf alohida javob.
+        if len(groups) == 1 and len(groups[0]) == count:
+            groups = list(groups[0])
 
     if len(groups) != count:
         result.errors.append(
-            f"{count} ta javob guruhi kutilgan, {len(groups)} ta topildi. "
-            "Guruhlarni vergul yoki probel bilan ajrating (masalan: AB, ACD, BF)."
+            f"{count} ta javob kutilgan, {len(groups)} ta topildi. "
+            "Har bir savol uchun bitta harf yozing (masalan: A, C, E)."
         )
 
     keys: list[str] = []
@@ -146,6 +155,12 @@ def parse_multi_key(raw: str, count: int, allowed: tuple[str, ...] = C.MULTI_CHO
             result.errors.append(
                 f"{index}-savolda noto'g'ri variant: {', '.join(invalid)}. "
                 f"Ruxsat etilgan: {', '.join(sorted(allowed_set))}."
+            )
+        elif len(letters) > 1:
+            # 33–35 — moslashtirish savollari: faqat bitta variant belgilanadi.
+            result.errors.append(
+                f"{index}-savolda faqat bitta variant belgilanadi, "
+                f"«{''.join(letters)}» emas."
             )
         keys.append("".join(letters))
 
@@ -180,8 +195,8 @@ def parse_open_key(raw: str, count: int, parts: int = 2) -> KeyParseResult:
 
     keys: list[str] = []
     for index, line in enumerate(lines[:count], start=1):
-        # Boshidagi savol raqamini olib tashlaymiz
-        line = re.sub(r"^\s*\d{1,3}\s*[\).\-:=]\s*", "", line)
+        # Boshidagi savol raqamini olib tashlaymiz («36) 12 ; 3/4»).
+        line = _LEADING_NUMBER_RE.sub("", line)
         pieces = [p.strip() for p in re.split(r"[;|]", line) if p.strip()]
         if not pieces:
             result.errors.append(f"{index}-qatorda javob topilmadi.")

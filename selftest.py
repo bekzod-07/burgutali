@@ -377,12 +377,19 @@ def test_keys() -> None:
     result = keys.parse_single_key("ABZ", 3)
     R.check("Noto'g'ri variant aniqlanadi", not result.ok)
 
-    result = keys.parse_multi_key("AB, ACD, BF", 3)
-    R.check("Ko'p javobli kalit o'qiladi", result.ok)
-    R.equal("Ko'p javob saralanadi", result.keys, ["AB", "ACD", "BF"])
+    result = keys.parse_multi_key("A, C, E", 3)
+    R.check("Moslashtirish kaliti o'qiladi", result.ok)
+    R.equal("Moslashtirish javoblari", result.keys, ["A", "C", "E"])
 
-    result = keys.parse_multi_key("AB ACD", 3)
-    R.check("Guruh soni mos kelmasa xato", not result.ok)
+    result = keys.parse_multi_key("ACE", 3)
+    R.check("Ajratkichsiz kalit ham o'qiladi", result.ok)
+    R.equal("Ajratkichsiz kalit qiymati", result.keys, ["A", "C", "E"])
+
+    result = keys.parse_multi_key("AB, C, D", 3)
+    R.check("33–35 da bir nechta harf xato beradi", not result.ok)
+
+    result = keys.parse_multi_key("A C", 3)
+    R.check("Javob soni mos kelmasa xato", not result.ok)
 
     result = keys.parse_open_key("12 ; 3/4\nsqrt(2) ; pi/6", 2)
     R.check("Ochiq kalit o'qiladi", result.ok)
@@ -391,6 +398,17 @@ def test_keys() -> None:
 
     result = keys.parse_open_key("12 ; 3/4", 3)
     R.check("Qator soni mos kelmasa xato", not result.ok)
+
+    # O'nlik kasr savol raqami deb kesilmasligi kerak: «0.5» -> «5» emas.
+    result = keys.parse_open_key("0.5 ; -2\n12-3 ; 1.25", 2)
+    R.check("O'nlik kasrli kalit o'qiladi", result.ok)
+    R.equal("O'nlik kasr butunligicha qoladi", keys.split_open_key(result.keys[0]), ("0.5", "-2"))
+    R.equal("Ayirma ifodasi kesilmaydi", keys.split_open_key(result.keys[1]), ("12-3", "1.25"))
+
+    result = keys.parse_open_key("36) 12 ; 3/4\n37. 5 ; 6", 2)
+    R.check("Raqamlangan ochiq kalit o'qiladi", result.ok)
+    R.equal("Savol raqami olib tashlanadi", keys.split_open_key(result.keys[0]), ("12", "3/4"))
+    R.equal("Nuqtali raqam ham olib tashlanadi", keys.split_open_key(result.keys[1]), ("5", "6"))
 
     R.check("Kalit ko'rinishi shakllanadi", "1-A" in keys.format_key_preview(["A", "B"]))
 
@@ -500,7 +518,7 @@ def test_rasch_free_flow() -> dict:
     # --- Javob kalitlari ---
     single_keys = ["ABCD"[i % 4] for i in range(32)]
     apply_single_keys(exam, single_keys)
-    apply_multi_keys(exam, ["AB", "ACD", "BF"])
+    apply_multi_keys(exam, ["A", "C", "E"])
     open_keys = [
         "12||3/4", "1/2||0.25", "sqrt(2)||pi/6", "5||-3", "0||1",
         "2^3||9", "sin(pi/2)||cos(0)", "10||100", "1/3||2/3", "7||8",
@@ -542,7 +560,7 @@ def test_rasch_free_flow() -> dict:
                 value = question.correct_key if rng.random() < success else "A" if question.correct_key != "A" else "B"
                 save_answer(attempt, question, selected=value)
             elif question.kind == Question.Kind.MULTI:
-                value = question.correct_key if rng.random() < success else "A"
+                value = question.correct_key if rng.random() < success else "A" if question.correct_key != "A" else "B"
                 save_answer(attempt, question, selected=value)
             else:
                 good_a = rng.random() < success

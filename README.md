@@ -31,10 +31,11 @@ yuklab olish — barchasi **web ilovada**, tugmalar orqali:
 * **Testlar** — testga **faqat kod orqali** kiriladi; testlar ro‘yxati
   ishtirokchilarga ko‘rsatilmaydi (uni faqat adminlar ko‘radi);
 * **Test topshirish** — **javoblar varaqasi**: barcha savollar bitta oynada,
-  yuqorida savollar palitrasi. Bitta javobli savolda tanlov «radio» kabi
-  ishlaydi (ikkinchi variant bosilsa, birinchisi o‘chadi), 33–35-savollarda
-  esa bir nechta variant belgilanadi; ochiq savollar uchun **matematik
-  klaviatura** va jonli SymPy tekshiruvi. Har bir javob darhol serverga
+  yuqorida savollar palitrasi. Tanlov «radio» kabi ishlaydi (ikkinchi
+  variant bosilsa, birinchisi o‘chadi) — bu 1–32 (A–D) va 33–35
+  (moslashtirish, A–F) savollarining ikkalasiga ham tegishli: har bir
+  savolda **faqat bitta** javob belgilanadi. Ochiq savollar uchun
+  **matematik klaviatura** va jonli SymPy tekshiruvi. Har bir javob darhol serverga
   saqlanadi. Testni javobsiz savollar bilan ham yakunlash mumkin — bot
   qaysi savollar qolganini ogohlantirib aytadi;
 * **Natija** — RASH balli, daraja, reyting, har bir savol bo‘yicha
@@ -60,7 +61,7 @@ imzosi bilan autentifikatsiya qilinadi.
 Milliy sertifikat shabloni — **45 ta savol**:
 
 * **1–32** — A, B, C, D (bitta to‘g‘ri javob);
-* **33–35** — A, B, C, D, E, F (bir yoki bir nechta to‘g‘ri javob);
+* **33–35** — A, B, C, D, E, F (moslashtirish: faqat bitta to‘g‘ri javob);
 * **36–45** — variantsiz, har birida **a)** va **b)** javob maydoni.
 
 Yoki ixtiyoriy tuzilma: 10, 20, 30, 45, 50, 100 … savol (A/B/C/D).
@@ -162,11 +163,32 @@ paytda oladi.
 
 ### Matematik formulalar klaviaturasi (Telegram Mini App)
 
-36–45-savollar uchun maxsus klaviatura: kasr, ildiz, daraja, π, e,
-sin, cos, tg, ctg, ln, log, |x|, ≤ ≥ ≠, qavslar va +, −, ×, ÷.
+Ochiq javob maydoni bosilganda ekran pastidan chiqadigan klaviatura ikkita
+sahifadan iborat:
+
+* **123** — raqamlar, `× ÷ + −`, kasr nuqtasi, kursorni siljitish (`‹ ›`),
+  `⌫` va `⏎` (keyingi maydonga o‘tish);
+* **f(x)** — kasr, `□²`, `□^□`, `√`, `ⁿ√`, sin/cos/tg/ctg va ularning
+  teskarilari, `ln`, `log`, `|□|`, `□!`, qavslar.
+
+Ustidagi doimiy panelda `x`, `y`, `π`, `e` va daraja belgisi turadi.
+Xuddi shu klaviatura **test yaratishda** ham ishlatiladi — javob kalitlari
+varaqasidagi ochiq javob maydonlarida.
 
 Javoblar **SymPy** yordamida *matematik ekvivalentlik* bo‘yicha tekshiriladi:
 `1/2` = `0.5` = `2^-1`, `sin(pi/6)` = `0.5`, `30°` = `pi/6`.
+
+### Javob kalitlari — varaqa ko‘rinishida
+
+Test yaratuvchi to‘g‘ri javoblarni **qatnashchi ko‘radigan varaqaning aynan
+o‘zida** belgilaydi: har bir savol uchun A–D (33–35 da A–F) tugmalari, ochiq
+savollar uchun esa a) va b) maydonlari va matematik klaviatura. Yuqorida
+`belgilangan / jami` hisoblagichi turadi; to‘ldirilmagan savollar yuborishdan
+oldin ro‘yxat qilib ko‘rsatiladi.
+
+Uzun kalitni bir marta joylashtirish uchun **«Matn ko‘rinishida»** rejimi
+qoldirilgan: `ABCDABCD…` yoki `1-A 2-B`, moslashtirish uchun `A, C, E`,
+ochiq javoblar uchun har bir qatorda `12 ; 3/4`.
 
 ### Bir martalik ID kodlar (pullik test)
 

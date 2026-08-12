@@ -302,7 +302,9 @@ def attempt_answer(request, user, attempt_id: int):
         allowed = set(question.choice_letters)
         if not letters <= allowed:
             raise ApiError("Noto'g'ri variant tanlandi.")
-        if question.kind == Question.Kind.SINGLE and len(letters) > 1:
+        if len(letters) > 1:
+            # Yopiq savollarda ham, moslashtirish (A–F) savollarida ham
+            # faqat bitta variant belgilanadi.
             raise ApiError("Bu savolda faqat bitta variant tanlanadi.")
         kwargs["selected"] = "".join(sorted(letters))
     else:

@@ -176,18 +176,17 @@ def save_answer(
 
 def toggle_multi_choice(attempt: Attempt, question: Question, letter: str) -> str:
     """
-    Ko'p javobli savolda variantni belgilaydi yoki belgini olib tashlaydi.
+    Moslashtirish savolida (33–35, A–F) variantni belgilaydi.
 
-    Qaytaradi: yangilangan tanlov satri (masalan, "ABD").
+    Faqat **bitta** variant belgilanadi: yangi harf oldingisini almashtiradi,
+    o'sha harf qayta bosilsa esa belgi olib tashlanadi.
+
+    Qaytaradi: yangilangan tanlov satri (masalan, "C").
     """
     answer = Answer.objects.filter(attempt=attempt, question=question).first()
-    current = set(answer.selected) if answer and answer.selected else set()
+    current = (answer.selected if answer and answer.selected else "").upper()
     letter = (letter or "").upper()[:1]
-    if letter in current:
-        current.discard(letter)
-    else:
-        current.add(letter)
-    value = "".join(sorted(current))
+    value = "" if letter and letter == current else letter
     save_answer(attempt, question, selected=value)
     return value
 

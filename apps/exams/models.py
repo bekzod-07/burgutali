@@ -302,13 +302,13 @@ class Question(TimeStampedModel):
 
     TZ 3-bo'lim (Milliy sertifikat shabloni):
       * 1–32  — SINGLE: A, B, C, D (bitta to'g'ri javob);
-      * 33–35 — MULTI : A, B, C, D, E, F (bir yoki bir nechta to'g'ri javob);
+      * 33–35 — MULTI : A, B, C, D, E, F (moslashtirish, bitta to'g'ri javob);
       * 36–45 — OPEN  : variantsiz, a) va b) javob maydonlari.
     """
 
     class Kind(models.TextChoices):
         SINGLE = "single", "Bitta javobli (A–D)"
-        MULTI = "multi", "Ko'p javobli (A–F)"
+        MULTI = "multi", "Moslashtirish (A–F)"
         OPEN = "open", "Ochiq javob (a, b)"
 
     exam = models.ForeignKey(
@@ -326,7 +326,7 @@ class Question(TimeStampedModel):
     )
     correct_key = models.CharField(
         "To'g'ri javob kaliti", max_length=8, blank=True, default="",
-        help_text="SINGLE uchun: A. MULTI uchun: ABD ko'rinishida.",
+        help_text="Bitta harf: A. Moslashtirish savollarida ham bitta harf (A–F).",
     )
 
     # --- Ochiq javoblar (36–45) ---

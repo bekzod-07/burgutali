@@ -649,71 +649,166 @@ body.pad-open .finish-bar { display: none; }
 .answer-field .fx.ok  { color: var(--green); }
 .answer-field .fx.err { color: var(--red); }
 
-.mathpad { background: var(--bg-soft); border-radius: var(--radius); padding: 9px; margin-bottom: 12px; }
-.mathpad .row { display: flex; gap: 5px; margin-bottom: 5px; }
-.mathpad .row:last-child { margin-bottom: 0; }
-.mathpad .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.mathpad .group-title {
-  font-size: 10px; font-weight: 700; letter-spacing: .5px;
-  text-transform: uppercase; color: var(--muted); margin: 6px 2px 5px;
-}
-.mkey {
-  flex: 1;
-  min-height: 42px;
-  border: none;
-  border-radius: 9px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 620;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow);
-}
-.mkey:active { transform: scale(.94); }
-.mkey.op  { color: var(--accent); font-size: 17px; }
-.mkey.num { font-size: 18px; }
-.mkey.del { background: var(--red-soft); color: var(--red); }
-.mkey.clr { background: var(--gold-soft); color: #8a6d10; font-size: 13px; }
-
-/* Klaviatura ekran pastida — ochiq javob maydoni tanlanganda chiqadi. */
-.mathpad.floating {
+/*
+   Klaviatura — video namunadagidek to'q panel: tepasida x, y, π, e va
+   daraja belgisi, so'ng «123» yoki «f(x)» sahifasi. Panel har ikkala
+   mavzuda ham to'q ohangda qoladi (klaviaturaning o'z ko'rinishi).
+*/
+.mathpad {
   display: none;
   position: fixed;
   left: 0; right: 0; bottom: 0;
   z-index: 60;
-  margin: 0;
+  padding: 6px 8px calc(8px + env(safe-area-inset-bottom));
+  background: #14161b;
   border-radius: 16px 16px 0 0;
-  max-height: 56vh;
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, .34);
+  max-height: 62vh;
   overflow-y: auto;
-  padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
-  box-shadow: 0 -10px 28px rgba(0, 0, 0, .22);
 }
-.mathpad.floating.is-open { display: block; }
+.mathpad.is-open { display: block; }
+
 .mathpad .mathpad-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2px 2px 6px;
+  padding: 4px 4px 7px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--muted);
+  color: #8d97a8;
 }
+.mathpad-tools { display: flex; gap: 6px; }
 .mathpad-close {
   border: none;
   border-radius: 8px;
-  background: var(--bg);
-  color: var(--accent);
+  background: #262b34;
+  color: #d7dde7;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   padding: 6px 12px;
   cursor: pointer;
 }
+.mathpad-close:active { transform: scale(.96); }
+
+/* Doimiy yuqori panel: x | y | π | e | □° */
+.mstrip {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  background: #262b34;
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 8px;
+}
+.mstrip .mkey {
+  background: transparent;
+  box-shadow: none;
+  min-height: 36px;
+  font-size: 17px;
+  font-style: italic;
+  font-family: "Times New Roman", Georgia, serif;
+  border-radius: 7px;
+}
+.mstrip .mkey + .mkey { border-left: 1px solid #3a414d; }
+
+.mathpad .mgrid { display: grid; gap: 6px; }
+.mathpad .mgrid-4 { grid-template-columns: repeat(4, 1fr); }
+.mathpad .mgrid-5 { grid-template-columns: repeat(5, 1fr); }
+.mathpad .mgrid-6 { grid-template-columns: repeat(6, 1fr); }
+.mathpad .mgrid-tail { margin-top: 6px; }
+
+.mkey {
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #262b34;
+  color: #f2f5f9;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+  line-height: 1.15;
+}
+.mkey:active { transform: scale(.94); background: #333a45; }
+.mkey.num { font-size: 20px; font-weight: 500; background: #1c2028; }
+.mkey.op { font-size: 19px; }
+.mkey.fn { font-size: 14px; }
+.mkey.sym { color: #f2f5f9; }
+.mkey.nav { font-size: 20px; color: #c3ccd9; }
+.mkey.switch { font-size: 14px; font-weight: 700; }
+.mkey.del { background: #2f353f; font-size: 18px; }
+.mkey.enter { background: var(--accent); color: #fff; font-size: 18px; }
+
 body.pad-open .tabbar { display: none; }
-body.pad-open .screen { padding-bottom: 58vh; }
+body.pad-open .screen { padding-bottom: 64vh; }
+
+/* ------------------------------------ javob kalitlari varaqasi (yaratish) */
+
+/*
+   Test yaratuvchi to'g'ri javobni qatnashchi ko'radigan varaqaning
+   aynan o'zida belgilaydi — shuning uchun `.choices/.choice` uslublari
+   qayta ishlatiladi.
+*/
+.key-progress {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg-soft);
+  border-radius: 20px;
+  padding: 3px 11px;
+}
+.key-progress.is-full { color: var(--green); background: var(--green-soft); }
+
+.ksheet { display: flex; flex-direction: column; gap: 7px; }
+
+.ks-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  margin-top: 5px;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  font-size: 12.5px;
+}
+.ks-head:first-child { margin-top: 0; }
+.ks-head b { font-size: 13.5px; font-weight: 750; white-space: nowrap; }
+.ks-head span { color: var(--muted); line-height: 1.35; }
+.ks-head.kind-multi { border-left-color: var(--orange); background: var(--gold-soft); }
+.ks-head.kind-open  { border-left-color: var(--green);  background: var(--green-soft); }
+
+.ks-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+}
+.ks-row.is-set { border-color: var(--green-soft); }
+.ks-row.ks-open { align-items: flex-start; padding-top: 9px; }
+.ks-row .ks-no {
+  min-width: 30px; height: 30px;
+  padding: 0 6px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--muted);
+  display: inline-grid; place-items: center;
+  font-size: 13px; font-weight: 750;
+}
+.ks-row.is-set .ks-no { background: var(--green); color: #fff; }
+.ks-row .choices { flex: 1; margin-bottom: 0; gap: 6px; }
+.ks-row .choice { min-height: 38px; font-size: 15px; }
+.ks-row .answer-fields { flex: 1; margin-bottom: 0; gap: 7px; }
 
 .warn-text { color: var(--red); font-weight: 650; }
 
@@ -947,7 +1042,6 @@ body.tg-dark .stat.green b { color: #5fd68f; }
 body.tg-dark .badge-gold,
 body.tg-dark .quick .ico.gold,
 body.tg-dark .review-cell.partial,
-body.tg-dark .mkey.clr,
 body.tg-dark .alert-warn,
 body.tg-dark .stat.gold b { color: #eec36a; }
 
@@ -969,6 +1063,8 @@ body.tg-dark .choices.multi .choice.is-selected { background: var(--orange); col
   .sheet-top .palette { max-height: 132px; }
   .choice { min-height: 52px; font-size: 17px; }
   .finish-bar .btn { max-width: 1032px; }
-  .mathpad.floating { max-width: 720px; left: 50%; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
+  .mathpad { max-width: 760px; left: 50%; right: auto; transform: translateX(-50%); }
+  .mathpad .mkey { min-height: 48px; }
+  .ks-row .choice { min-height: 44px; font-size: 16px; }
   .modal { max-width: 440px; }
 }

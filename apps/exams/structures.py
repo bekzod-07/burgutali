@@ -8,7 +8,7 @@ Ikki xil tuzilma qo'llab-quvvatlanadi:
 
   2. **Milliy sertifikat shabloni** (SRS 3-bo'lim) — 45 ta savol:
        * 1–32  — A, B, C, D (bitta javob);
-       * 33–35 — A, B, C, D, E, F (bir yoki bir nechta javob);
+       * 33–35 — A, B, C, D, E, F (moslashtirish, faqat bitta javob);
        * 36–45 — variantsiz, a) va b) javob maydonlari.
 """
 
@@ -100,7 +100,7 @@ def describe_structure(exam: Exam) -> str:
     parts: list[str] = []
     labels = {
         Question.Kind.SINGLE: "bitta javobli (A–D)",
-        Question.Kind.MULTI: "ko'p javobli (A–F)",
+        Question.Kind.MULTI: "moslashtirish (A–F, bitta javob)",
         Question.Kind.OPEN: "ochiq javobli (a, b)",
     }
     for kind, label in labels.items():

@@ -44,7 +44,7 @@ ASK_STRUCTURE = (
     "<b>Test tuzilmasini tanlang</b>\n\n"
     "<b>Milliy sertifikat shabloni</b> — 45 ta savol:\n"
     "• 1–32 — A, B, C, D (bitta javob)\n"
-    "• 33–35 — A, B, C, D, E, F (bir yoki bir nechta javob)\n"
+    "• 33–35 — A, B, C, D, E, F (moslashtirish, bitta javob)\n"
     "• 36–45 — variantsiz, a) va b) javob maydonlari\n\n"
     "Yoki oddiy tuzilmani tanlab, savollar sonini o‘zingiz belgilang."
 )
@@ -71,9 +71,10 @@ ASK_SINGLE_KEYS = (
 )
 
 ASK_MULTI_KEYS = (
-    "<b>Ko‘p javobli savollar kaliti</b> ({count} ta savol, A–F)\n\n"
-    "Har bir savol javoblarini guruh sifatida, vergul bilan ajratib yozing:\n"
-    "<code>AB, ACD, BF</code>"
+    "<b>Moslashtirish savollari kaliti</b> ({count} ta savol, A–F)\n\n"
+    "Har bir savolga <b>bitta</b> harf to‘g‘ri keladi. Javoblarni vergul "
+    "bilan ajratib yozing:\n"
+    "<code>A, C, E</code>"
 )
 
 ASK_OPEN_KEYS = (
@@ -223,7 +224,7 @@ QUESTION_MULTI = (
     "<b>{order}-savol</b>  ({order}/{total})\n"
     "{progress}\n"
     "{text}"
-    "\n<b>Bir yoki bir nechta</b> javobni tanlang, so‘ng «Tasdiqlash» ni bosing."
+    "\nA–F variantlardan <b>mos bittasini</b> belgilang, so‘ng «Tasdiqlash» ni bosing."
 )
 
 QUESTION_OPEN = (

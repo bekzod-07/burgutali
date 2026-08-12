@@ -93,7 +93,7 @@ NATIONAL_TOTAL_QUESTIONS: Final[int] = 45
 #: 1–32-savollar: A, B, C, D — bitta to'g'ri javob.
 NATIONAL_SINGLE_RANGE: Final[tuple[int, int]] = (1, 32)
 
-#: 33–35-savollar: A, B, C, D, E, F — bir yoki bir nechta to'g'ri javob.
+#: 33–35-savollar (moslashtirish): A, B, C, D, E, F — faqat bitta to'g'ri javob.
 NATIONAL_MULTI_RANGE: Final[tuple[int, int]] = (33, 35)
 
 #: 36–45-savollar: variantsiz, har birida a) va b) javob maydoni.
@@ -102,7 +102,7 @@ NATIONAL_OPEN_RANGE: Final[tuple[int, int]] = (36, 45)
 #: Bitta javobli savollar uchun variant harflari.
 SINGLE_CHOICES: Final[tuple[str, ...]] = ("A", "B", "C", "D")
 
-#: Ko'p javobli savollar uchun variant harflari.
+#: Moslashtirish savollari (33–35) uchun variant harflari — bittasi tanlanadi.
 MULTI_CHOICES: Final[tuple[str, ...]] = ("A", "B", "C", "D", "E", "F")
 
 #: Ochiq savollarning qismlari.

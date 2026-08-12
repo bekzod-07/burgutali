@@ -97,7 +97,7 @@ class QuestionForm(forms.ModelForm):
             "kind": "Savol turi",
             "choices_count": "Variantlar soni",
             "parts": "Ballanadigan qismlar (1 yoki 2)",
-            "correct_key": "To'g'ri javob (A yoki ABD)",
+            "correct_key": "To'g'ri javob (bitta harf: A–F)",
             "answer_a": "a) javob",
             "answer_b": "b) javob",
             "numeric_tolerance": "Sonli xatolik chegarasi",
@@ -197,9 +197,9 @@ class ExamCreateForm(forms.Form):
         ),
     )
     multi_keys = forms.CharField(
-        label="Ko'p javobli savollar kaliti (A–F)",
+        label="Moslashtirish savollari kaliti (A–F)",
         required=False,
-        widget=forms.Textarea(attrs={"class": "input", "rows": 2, "placeholder": "AB, ACD, BF"}),
+        widget=forms.Textarea(attrs={"class": "input", "rows": 2, "placeholder": "A, C, E"}),
     )
     open_keys = forms.CharField(
         label="Ochiq javoblar kaliti (a ; b)",
@@ -302,10 +302,10 @@ class KeyImportForm(forms.Form):
         ),
     )
     multi_keys = forms.CharField(
-        label="Ko'p javobli savollar kaliti (A–F)",
+        label="Moslashtirish savollari kaliti (A–F)",
         required=False,
         widget=forms.Textarea(
-            attrs={"class": "input", "rows": 2, "placeholder": "AB, ACD, BF"}
+            attrs={"class": "input", "rows": 2, "placeholder": "A, C, E"}
         ),
     )
     open_keys = forms.CharField(

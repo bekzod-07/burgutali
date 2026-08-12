@@ -356,11 +356,11 @@ def question_single(question, selected: str, total: int) -> InlineKeyboardMarkup
 
 
 def question_multi(question, selected: str, total: int) -> InlineKeyboardMarkup:
-    """Ko'p javobli savol uchun tugmalar."""
+    """Moslashtirish savoli (A–F) uchun tugmalar — bitta variant tanlanadi."""
     builder = InlineKeyboardBuilder()
     chosen = set(selected or "")
     for letter in question.choice_letters:
-        prefix = "■ " if letter in chosen else "□ "
+        prefix = "● " if letter in chosen else "○ "
         builder.button(
             text=f"{prefix}{letter}",
             callback_data=QuestionCB(action="toggle", order=question.order, value=letter),

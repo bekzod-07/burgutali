@@ -4,7 +4,7 @@ Javoblarni tekshirish (baholash) mantiqi.
 Uchta savol turi qo'llab-quvvatlanadi:
 
   * SINGLE — A/B/C/D dan bittasi. Tanlangan harf kalitga to'liq mos kelsa 1 ball.
-  * MULTI  — A..F dan bir yoki bir nechtasi. To'plam kalitga **aynan** mos
+  * MULTI  — A..F dan bittasi (moslashtirish). Tanlov kalitga **aynan** mos
              kelgandagina 1 ball (qisman ball berilmaydi).
   * OPEN   — a) va b) javob maydonlari. Har biri SymPy orqali matematik
              ekvivalentlikka tekshiriladi va har biri 1 balldan.

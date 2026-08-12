@@ -27,7 +27,7 @@
   var preview  = document.getElementById("preview");
   var btnSend  = document.getElementById("btn-submit");
   var btnClear = document.getElementById("btn-clear");
-  var btnBack  = document.getElementById("btn-backspace");
+  var btnNext  = document.getElementById("btn-next");
 
   var activeInput = inputA;
 
@@ -115,10 +115,40 @@
     scheduleCheck();
   }
 
+  function moveCaret(step) {
+    if (!activeInput) { return; }
+    var position = activeInput.selectionStart;
+    if (position === null || position === undefined) { position = activeInput.value.length; }
+    position = Math.max(0, Math.min(position + step, activeInput.value.length));
+    try {
+      activeInput.setSelectionRange(position, position);
+    } catch (err) { /* ignore */ }
+    activeInput.focus({ preventScroll: true });
+    haptic("light");
+  }
+
+  /* «⏎» — a) dan b) ga o'tadi, b) da esa javobni yuboradi. */
+  function nextField() {
+    if (parts >= 2 && activeInput === inputA && inputB) {
+      setActive(inputB);
+      return;
+    }
+    submit();
+  }
+
   function haptic(style) {
     if (tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred) {
       try { tg.HapticFeedback.impactOccurred(style); } catch (err) { /* ignore */ }
     }
+  }
+
+  /* ------------------------------------------------------- sahifa almashish */
+
+  function setPage(page) {
+    var numeric = document.getElementById("mpage-num");
+    var functions = document.getElementById("mpage-fn");
+    if (numeric) { numeric.hidden = page === "fn"; }
+    if (functions) { functions.hidden = page !== "fn"; }
   }
 
   /* ------------------------------------------------------- tugmalar ulash */
@@ -132,8 +162,26 @@
     });
   });
 
-  if (btnBack)  { btnBack.addEventListener("click", function (e) { e.preventDefault(); backspace(); }); }
+  document.querySelectorAll(".key[data-page]").forEach(function (button) {
+    button.addEventListener("click", function (event) {
+      event.preventDefault();
+      setPage(button.getAttribute("data-page"));
+    });
+  });
+
+  document.querySelectorAll(".key[data-caret-move]").forEach(function (button) {
+    button.addEventListener("click", function (event) {
+      event.preventDefault();
+      moveCaret(parseInt(button.getAttribute("data-caret-move"), 10) || 0);
+    });
+  });
+
+  document.querySelectorAll("#btn-backspace, #btn-backspace-fn").forEach(function (button) {
+    button.addEventListener("click", function (e) { e.preventDefault(); backspace(); });
+  });
+
   if (btnClear) { btnClear.addEventListener("click", function (e) { e.preventDefault(); clearAll(); }); }
+  if (btnNext)  { btnNext.addEventListener("click", function (e) { e.preventDefault(); nextField(); }); }
 
   /* ---------------------------------------------------- serverda tekshirish */
 

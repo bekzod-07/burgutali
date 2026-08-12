@@ -32,7 +32,6 @@
     params: {},
     stack: [],
     attempt: null,      // {attempt, exam, questions, editable}
-    activeField: "",    // "<savol tartibi>-<a|b>" — klaviatura shu maydonga yozadi
     busy: false
   };
 
@@ -225,6 +224,10 @@
 
   function render() {
     setHeader(state.view);
+    /* Ekran almashganda klaviatura eski (o'chirilgan) maydonga bog'lanib
+       qolmasligi va `pad-open` belgisi tagbar/tugmalarni yashirib
+       qo'ymasligi uchun uni yopamiz. */
+    closeMathPad();
     loading();
     var view = state.view;
 
@@ -448,8 +451,8 @@
   */
   /* Bo'lim sarlavhalari — savol turi o'zgargan joyda ko'rsatiladi. */
   var SECTION_LABELS = {
-    single: "Yopiq savollar — bitta javobni tanlang",
-    multi: "Ko‘p javobli savollar — bir yoki bir nechta javob belgilanadi",
+    single: "Yopiq savollar — A–D variantlardan bittasini tanlang",
+    multi: "Moslashtirish — A–F variantlardan mos bittasini belgilang",
     open: "Ochiq javoblar — a) va b) qismlarni kiriting"
   };
 
@@ -509,7 +512,15 @@
     el.screen.innerHTML = html;
     window.scrollTo(0, 0);
 
-    if (hasOpen) { bindOpenFields(); }
+    if (hasOpen) {
+      bindPadFields(
+        el.screen,
+        function (input) {
+          return input.dataset.order + "-savol · " + input.dataset.part + ") javob";
+        },
+        function (input) { saveOpenAnswer(parseInt(input.dataset.order, 10)); }
+      );
+    }
   }
 
   function questionBlock(question) {
@@ -518,7 +529,8 @@
       '" id="q-' + question.order + '" data-order="' + question.order + '">' +
       '<div class="qhead"><span class="qno">' + question.order + "</span>" +
       (question.kind === "multi"
-        ? '<span class="qtag">bir nechta javob belgilash mumkin</span>' : "") +
+        ? '<span class="qtag">faqat bitta javob belgilash mumkin — A–F mos variantni belgilang</span>'
+        : "") +
       (question.kind === "open"
         ? '<span class="qtag">a) va b) qismlariga javob kiriting</span>' : "") +
       "</div>";
@@ -577,135 +589,196 @@
       '<div class="fx" id="fx-' + id + '"></div></div>';
   }
 
-  var MATH_KEYS = [
-    { title: "Funksiyalar", rows: [
-      [["a⁄b", "/", 0], ["√", "sqrt()", -1], ["x²", "^2", 0], ["xⁿ", "^", 0]],
-      [["π", "pi", 0], ["e", "e", 0], ["|x|", "abs()", -1], ["∛", "root(,3)", -3]],
-      [["sin", "sin()", -1], ["cos", "cos()", -1], ["tg", "tg()", -1], ["ctg", "ctg()", -1]],
-      [["ln", "ln()", -1], ["log", "log(,10)", -4], ["log₂", "log(,2)", -3], ["n!", "!", 0]]
-    ]},
-    { title: "Taqqoslash va qavslar", rows: [
-      [["≤", "≤", 0], ["≥", "≥", 0], ["≠", "≠", 0], ["=", "=", 0], ["(", "(", 0], [")", ")", 0]]
-    ]}
+  /* =====================================================================
+     Matematik klaviatura
+
+     Ikkita sahifadan iborat (namunadagi ko'rinish):
+       * «123»  — raqamlar, amallar, kursor va keyingi maydonga o'tish;
+       * «f(x)» — kasr, daraja, ildiz, trigonometriya, logarifmlar.
+     Ustidagi doimiy panelda x, y, π, e va daraja belgisi turadi.
+
+     Klaviatura ikki joyda ishlatiladi: test topshirishda (ochiq javoblar)
+     va test yaratishda (javob kalitlari varaqasi). Shu sababli u aniq bir
+     savolga emas, «faol maydon»ga bog'langan.
+     ===================================================================== */
+
+  var pad = {
+    input: null,    // klaviatura yozayotgan maydon
+    change: null,   // har bir o'zgarishdan keyin chaqiriladi
+    page: "num"
+  };
+
+  /* [belgi, kiritiladigan matn, kursor siljishi] */
+  var PAD_STRIP = [
+    ["x", "x", 0], ["y", "y", 0], ["π", "pi", 0], ["e", "e", 0], ["□°", "°", 0]
   ];
 
-  var NUM_KEYS = [
-    ["7", "7"], ["8", "8"], ["9", "9"], ["÷", "÷"],
-    ["4", "4"], ["5", "5"], ["6", "6"], ["×", "×"],
-    ["1", "1"], ["2", "2"], ["3", "3"], ["−", "−"],
-    ["0", "0"], [",", "."], ["x", "x"], ["+", "+"]
+  var PAD_FUNCTIONS = [
+    ["□⁄□", "/", 0], ["□²", "^2", 0], ["□^□", "^", 0], ["sin(□)", "sin()", -1],
+    ["√□", "sqrt()", -1], ["ⁿ√□", "root(,3)", -3], ["cos(□)", "cos()", -1], ["tg(□)", "tg()", -1],
+    ["log□(□)", "log(,10)", -4], ["ln(□)", "ln()", -1], ["ctg(□)", "ctg()", -1], ["|□|", "abs()", -1],
+    ["sin⁻¹(□)", "arcsin()", -1], ["cos⁻¹(□)", "arccos()", -1],
+    ["tg⁻¹(□)", "arctg()", -1], ["□!", "!", 0]
   ];
+
+  function padKey(label, insert, caret, cls) {
+    return '<button class="mkey' + (cls ? " " + cls : "") + '" data-act="mkey" data-ins="' +
+      esc(insert) + '" data-caret="' + (caret || 0) + '">' + esc(label) + "</button>";
+  }
+
+  function padAction(label, act, cls, extra) {
+    return '<button class="mkey' + (cls ? " " + cls : "") + '" data-act="' + act + '"' +
+      (extra || "") + ">" + esc(label) + "</button>";
+  }
 
   /*
-     Klaviatura varaqning pastida turadi va ochiq javob maydoniga
-     bosilgandagina ochiladi — shu sababli u barcha savollar uchun bitta
-     nusxada bo'ladi va varaqni uzaytirmaydi.
+     Klaviatura ekranning pastida turadi va javob maydoni tanlanganda
+     ochiladi — shu sababli u bitta nusxada bo'ladi va varaqni uzaytirmaydi.
   */
   function renderMathPad() {
-    var html = '<div class="mathpad floating" id="mathpad">' +
+    var html = '<div class="mathpad" id="mathpad">' +
       '<div class="mathpad-head"><span id="mathpad-label">Javob</span>' +
-      '<button class="mathpad-close" data-act="mclose">Yopish</button></div>';
-    MATH_KEYS.forEach(function (group) {
-      html += '<div class="group-title">' + group.title + "</div>";
-      group.rows.forEach(function (row) {
-        html += '<div class="row">';
-        row.forEach(function (key) {
-          html += '<button class="mkey' + (group.title.indexOf("Taqqos") === 0 ? " op" : "") +
-            '" data-act="mkey" data-ins="' + esc(key[1]) + '" data-caret="' + key[2] + '">' +
-            esc(key[0]) + "</button>";
-        });
-        html += "</div>";
-      });
-    });
+      '<span class="mathpad-tools">' +
+      '<button class="mathpad-close" data-act="mclear">Tozalash</button>' +
+      '<button class="mathpad-close" data-act="mclose">Yopish</button></span></div>';
 
-    html += '<div class="group-title">Raqamlar va amallar</div><div class="pad">';
-    NUM_KEYS.forEach(function (key) {
-      var isOp = "÷×−+".indexOf(key[0]) !== -1;
-      html += '<button class="mkey ' + (isOp ? "op" : "num") + '" data-act="mkey" data-ins="' +
-        esc(key[1]) + '" data-caret="0">' + esc(key[0]) + "</button>";
+    html += '<div class="mstrip">';
+    PAD_STRIP.forEach(function (key) {
+      html += padKey(key[0], key[1], key[2], "sym");
     });
     html += "</div>";
 
-    html += '<div class="row" style="margin-top:5px">' +
-      '<button class="mkey clr" data-act="mclear">Tozalash</button>' +
-      '<button class="mkey del" data-act="mdel">' + ic("chevron-left") + " o‘chirish</button></div>";
+    /* --- «123» sahifasi --- */
+    html += '<div class="mpage" id="mpage-num"><div class="mgrid mgrid-5">' +
+      padKey("7", "7", 0, "num") + padKey("8", "8", 0, "num") + padKey("9", "9", 0, "num") +
+      padKey("×", "×", 0, "op") + padKey("÷", "÷", 0, "op") +
+      padKey("4", "4", 0, "num") + padKey("5", "5", 0, "num") + padKey("6", "6", 0, "num") +
+      padKey("+", "+", 0, "op") + padKey("−", "−", 0, "op") +
+      padKey("1", "1", 0, "num") + padKey("2", "2", 0, "num") + padKey("3", "3", 0, "num") +
+      padKey(",", ".", 0, "op") + padAction("⌫", "mdel", "del") +
+      padAction("f(x)", "mpage", "switch", ' data-page="fn"') +
+      padKey("0", "0", 0, "num") +
+      padAction("‹", "mleft", "nav") + padAction("›", "mright", "nav") +
+      padAction("⏎", "mnext", "enter") +
+      "</div></div>";
 
-    html += "</div>";
-    return html;
+    /* --- «f(x)» sahifasi --- */
+    html += '<div class="mpage" id="mpage-fn" hidden><div class="mgrid mgrid-4">';
+    PAD_FUNCTIONS.forEach(function (key) {
+      html += padKey(key[0], key[1], key[2], "fn");
+    });
+    html += '</div><div class="mgrid mgrid-6 mgrid-tail">' +
+      padAction("123", "mpage", "switch", ' data-page="num"') +
+      padKey("(", "(", 0, "op") + padKey(")", ")", 0, "op") +
+      padAction("‹", "mleft", "nav") + padAction("›", "mright", "nav") +
+      padAction("⌫", "mdel", "del") +
+      "</div></div>";
+
+    return html + "</div>";
   }
 
-  var checkTimers = {};
-
-  function bindOpenFields() {
-    Array.prototype.forEach.call(
-      el.screen.querySelectorAll(".answer-field input"),
-      function (input) {
-        var id = input.dataset.order + "-" + input.dataset.part;
-        input.addEventListener("focus", function () { openMathPad(id); });
-        input.addEventListener("click", function () { openMathPad(id); });
-        input.addEventListener("input", function () {
-          scheduleCheck(id);
-          saveOpenAnswer(parseInt(input.dataset.order, 10));
-        });
-        if (input.value.trim()) { scheduleCheck(id); }
-      }
-    );
+  function padWrap(input) {
+    return input && input.closest ? input.closest(".answer-field") : null;
   }
 
-  function openMathPad(id) {
-    state.activeField = id;
+  function openPad(input, label, onChange) {
+    if (!input) { return; }
+    pad.input = input;
+    pad.change = onChange || null;
+
     Array.prototype.forEach.call(el.screen.querySelectorAll(".answer-field"), function (field) {
-      field.classList.toggle("is-active", field.dataset.field === id);
+      field.classList.remove("is-active");
     });
+    var wrap = padWrap(input);
+    if (wrap) { wrap.classList.add("is-active"); }
 
-    var pad = document.getElementById("mathpad");
-    if (!pad) { return; }
-    pad.classList.add("is-open");
+    var box = document.getElementById("mathpad");
+    if (!box) { return; }
+    box.classList.add("is-open");
     body.classList.add("pad-open");
 
-    var label = document.getElementById("mathpad-label");
-    if (label) {
-      var parts = id.split("-");
-      label.textContent = parts[0] + "-savol · " + parts[1] + ") javob";
-    }
+    var tag = document.getElementById("mathpad-label");
+    if (tag) { tag.textContent = label || "Javob"; }
+    setPadPage(pad.page);
   }
 
   function closeMathPad() {
-    var pad = document.getElementById("mathpad");
-    if (pad) { pad.classList.remove("is-open"); }
+    var box = document.getElementById("mathpad");
+    if (box) { box.classList.remove("is-open"); }
     body.classList.remove("pad-open");
+    pad.input = null;
+    pad.change = null;
     Array.prototype.forEach.call(el.screen.querySelectorAll(".answer-field"), function (field) {
       field.classList.remove("is-active");
     });
   }
 
-  function scheduleCheck(id) {
+  function setPadPage(page) {
+    pad.page = page === "fn" ? "fn" : "num";
+    var numeric = document.getElementById("mpage-num");
+    var functions = document.getElementById("mpage-fn");
+    if (numeric) { numeric.hidden = pad.page !== "num"; }
+    if (functions) { functions.hidden = pad.page !== "fn"; }
+  }
+
+  var checkTimers = {};
+
+  /*
+     Javob maydonlarini klaviaturaga bog'laydi.
+       scope    — qidiriladigan bo'lim (ekran yoki uning bir qismi);
+       labelFn  — klaviatura sarlavhasi matni;
+       changeFn — qiymat o'zgarganda chaqiriladi.
+  */
+  function bindPadFields(scope, labelFn, changeFn) {
+    Array.prototype.forEach.call(
+      (scope || el.screen).querySelectorAll(".answer-field input"),
+      function (input) {
+        function open() { openPad(input, labelFn ? labelFn(input) : "", changeFn); }
+        input.addEventListener("focus", open);
+        input.addEventListener("click", open);
+        input.addEventListener("input", function () {
+          scheduleCheck(input);
+          if (changeFn) { changeFn(input); }
+        });
+        if (input.value.trim()) { scheduleCheck(input); }
+      }
+    );
+  }
+
+  function scheduleCheck(input) {
+    if (!input || !input.id) { return; }
+    var id = input.id;
     if (checkTimers[id]) { clearTimeout(checkTimers[id]); }
     checkTimers[id] = setTimeout(function () { runCheck(id); }, 400);
   }
 
   function runCheck(id) {
-    var input = document.getElementById("ans-" + id);
-    var fx = document.getElementById("fx-" + id);
+    var input = document.getElementById(id);
+    var wrap = padWrap(input);
+    var fx = wrap ? wrap.querySelector(".fx") : null;
     if (!input || !fx) { return; }
     var value = input.value.trim();
     if (!value) { fx.textContent = ""; fx.className = "fx"; return; }
 
     api("ifoda/", { method: "POST", body: { expr: value } }).then(function (data) {
+      if (document.getElementById(id) !== input) { return; }   // ekran almashgan
       fx.textContent = data.pretty + (data.value ? " ≈ " + data.value : "");
       fx.className = "fx ok";
     }).catch(function (error) {
+      if (document.getElementById(id) !== input) { return; }
       fx.textContent = error.message;
       fx.className = "fx err";
     });
   }
 
-  function activeInput() {
-    return state.activeField ? document.getElementById("ans-" + state.activeField) : null;
+  function padApply(input) {
+    haptic("light");
+    scheduleCheck(input);
+    if (pad.change) { pad.change(input); }
   }
 
   function insertText(text, caretShift) {
-    var input = activeInput();
+    var input = pad.input;
     if (!input) { toast("Avval javob maydonini tanlang.", true); return; }
     var start = input.selectionStart;
     var end = input.selectionEnd;
@@ -714,15 +787,14 @@
     var position = Math.max(0, Math.min(start + text.length + (caretShift || 0), input.value.length));
     try { input.setSelectionRange(position, position); } catch (e) { /* ignore */ }
     input.focus({ preventScroll: true });
-    haptic("light");
-    scheduleCheck(state.activeField);
-    saveOpenAnswer(parseInt(input.dataset.order, 10));
+    padApply(input);
   }
 
   function backspace() {
-    var input = activeInput();
+    var input = pad.input;
     if (!input) { return; }
     var start = input.selectionStart, end = input.selectionEnd;
+    if (start === null || start === undefined) { start = input.value.length; end = start; }
     if (start === end) {
       if (start === 0) { return; }
       input.value = input.value.slice(0, start - 1) + input.value.slice(end);
@@ -732,9 +804,43 @@
     }
     try { input.setSelectionRange(start, start); } catch (e) { /* ignore */ }
     input.focus({ preventScroll: true });
+    padApply(input);
+  }
+
+  function moveCaret(step) {
+    var input = pad.input;
+    if (!input) { return; }
+    var position = input.selectionStart;
+    if (position === null || position === undefined) { position = input.value.length; }
+    position = Math.max(0, Math.min(position + step, input.value.length));
+    try { input.setSelectionRange(position, position); } catch (e) { /* ignore */ }
+    input.focus({ preventScroll: true });
     haptic("light");
-    scheduleCheck(state.activeField);
-    saveOpenAnswer(parseInt(input.dataset.order, 10));
+  }
+
+  function clearField() {
+    var input = pad.input;
+    if (!input) { return; }
+    input.value = "";
+    try { input.setSelectionRange(0, 0); } catch (e) { /* ignore */ }
+    input.focus({ preventScroll: true });
+    padApply(input);
+  }
+
+  /* «⏎» — keyingi javob maydoniga o'tadi, oxirgisida klaviaturani yopadi. */
+  function padNext() {
+    var inputs = Array.prototype.slice.call(
+      el.screen.querySelectorAll(".answer-field input")
+    );
+    var index = inputs.indexOf(pad.input);
+    if (index !== -1 && index + 1 < inputs.length) {
+      var next = inputs[index + 1];
+      next.focus();
+      var wrap = padWrap(next);
+      if (wrap) { wrap.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      return;
+    }
+    closeMathPad();
   }
 
   var saveTimers = {};
@@ -778,22 +884,17 @@
   }
 
   /*
-     Variantni belgilash. Bitta javobli savolda tanlov «radio» kabi ishlaydi:
-     ikkinchi variant bosilsa, birinchisi avtomatik olib tashlanadi.
-     33–35 kabi ko'p javobli savollarda esa bir nechta variant belgilanadi.
+     Variantni belgilash. Tanlov «radio» kabi ishlaydi: ikkinchi variant
+     bosilsa, birinchisi avtomatik olib tashlanadi. Bu qoida A–D (1–32) va
+     A–F (33–35, moslashtirish) savollarining ikkalasiga ham tegishli —
+     har bir savolda faqat bitta javob belgilanadi.
   */
   function chooseLetter(order, letter) {
     var question = questionByOrder(order);
     if (!question) { return; }
     var current = (question.answer.selected || "").split("").filter(Boolean);
 
-    if (question.kind === "single") {
-      current = current[0] === letter ? [] : [letter];
-    } else {
-      var position = current.indexOf(letter);
-      if (position === -1) { current.push(letter); } else { current.splice(position, 1); }
-      current.sort();
-    }
+    current = current[0] === letter ? [] : [letter];
 
     question.answer.selected = current.join("");
     question.answered = current.length > 0;
@@ -1120,19 +1221,33 @@
       "</div>" +
       "</div>";
 
-    html += '<div class="card"><div class="card-head">' + ic("key") + "<h2>Javob kalitlari</h2></div>" +
+    /*
+       Javob kalitlari — qatnashchi ko'radigan varaqaning aynan o'zi.
+       Yaratuvchi to'g'ri javobni xuddi test topshirayotgandek belgilaydi;
+       kalit satrlari yuborishdan oldin shu varaqadan yig'iladi.
+       «Matn» rejimi tayyor kalitni bir marta joylashtirish uchun qoldirilgan.
+    */
+    html += '<div class="card"><div class="card-head">' + ic("key") + "<h2>Javob kalitlari</h2>" +
+      '<span class="key-progress" id="key-progress"></span></div>' +
+      '<div class="seg mb" id="seg-keymode">' +
+      '<button data-keymode="sheet" class="is-active">Javoblar varaqasi</button>' +
+      '<button data-keymode="text">Matn ko‘rinishida</button>' +
+      "</div>" +
+      '<div id="key-sheet"></div>' +
+
+      '<div id="key-text" hidden>' +
       '<div class="field" id="wrap-single"><label>Bitta javobli savollar (A–D)</label>' +
       '<textarea class="input" id="f-single" placeholder="ABCDABCD... yoki 1-A 2-B 3-C"></textarea>' +
       '<div class="hint" id="hint-single"></div></div>' +
 
-      '<div class="field" id="wrap-multi" hidden><label>Ko‘p javobli savollar (A–F)</label>' +
-      '<textarea class="input" id="f-multi" placeholder="AB, ACD, BF"></textarea>' +
-      '<div class="hint">Guruhlarni vergul bilan ajrating.</div></div>' +
+      '<div class="field" id="wrap-multi" hidden><label>Moslashtirish savollari (A–F)</label>' +
+      '<textarea class="input" id="f-multi" placeholder="A, C, E"></textarea>' +
+      '<div class="hint">Har bir savolga bitta harf — vergul bilan ajrating.</div></div>' +
 
       '<div class="field" id="wrap-open" hidden><label>Ochiq javoblar (a ; b)</label>' +
       '<textarea class="input" id="f-open" rows="6" placeholder="12 ; 3/4&#10;sqrt(2) ; pi/6"></textarea>' +
       '<div class="hint">Har bir savol uchun alohida qator.</div></div>' +
-      "</div>";
+      "</div></div>";
 
     html += '<div class="card"><div class="card-head">' + ic("settings") + "<h2>Sozlamalar</h2></div>" +
       '<div class="switch-row"><div><b>Natija qatnashchilarga ko‘rinsin</b>' +
@@ -1145,13 +1260,221 @@
 
     html += '<button class="btn btn-green" data-act="create-exam">' + ic("check") + "Testni yaratish</button>";
     html += '<div id="create-errors"></div>';
+    html += renderMathPad();
 
     el.screen.innerHTML = html;
     bindCreateForm();
   }
 
+  /* ------------------------------------------ javob kalitlari varaqasi */
+
+  /* Test tuzilmasiga qarab qaysi savol qaysi turda ekanini aniqlaydi. */
+  function keyPlan(form) {
+    if (form.structure === "national" && form.type !== "simple") {
+      return {
+        national: true,
+        single: { from: 1, to: 32 },
+        multi: { from: 33, to: 35 },
+        open: { from: 36, to: 45 }
+      };
+    }
+    var count = parseInt(form.count, 10) || 0;
+    count = Math.max(1, Math.min(count, 500));
+    return { national: false, single: { from: 1, to: count }, multi: null, open: null };
+  }
+
+  var SINGLE_LETTERS = ["A", "B", "C", "D"];
+  var MULTI_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
+  function keySheetHead(title, note, kind) {
+    return '<div class="ks-head kind-' + kind + '"><b>' + title + "</b><span>" + note + "</span></div>";
+  }
+
+  function keyLetterRow(order, letters, kind) {
+    var chosen = state.createForm.keys.letters[order] || "";
+    var html = '<div class="ks-row' + (chosen ? " is-set" : "") + '" id="ks-' + order + '">' +
+      '<span class="ks-no">' + order + "</span>" +
+      '<div class="choices cols-' + letters.length + (kind === "multi" ? " multi" : "") + '">';
+    letters.forEach(function (letter) {
+      html += '<button class="choice' + (chosen === letter ? " is-selected" : "") +
+        '" data-act="kchoose" data-order="' + order + '" data-letter="' + letter + '">' +
+        letter + "</button>";
+    });
+    return html + "</div></div>";
+  }
+
+  function keyOpenField(order, part, value) {
+    var id = "key-" + order + "-" + part;
+    return '<div class="answer-field" data-field="' + id + '">' +
+      "<label>" + part + ") to‘g‘ri javob</label>" +
+      '<input type="text" inputmode="none" autocomplete="off" spellcheck="false" ' +
+      'data-order="' + order + '" data-part="' + part + '" id="' + id + '" ' +
+      'value="' + esc(value || "") + '" placeholder="masalan: sqrt(2)">' +
+      '<div class="fx"></div></div>';
+  }
+
+  function keyOpenRow(order) {
+    var value = state.createForm.keys.open[order] || { a: "", b: "" };
+    var ready = !!((value.a || "").trim() && (value.b || "").trim());
+    return '<div class="ks-row ks-open' + (ready ? " is-set" : "") + '" id="ks-' + order + '">' +
+      '<span class="ks-no">' + order + "</span>" +
+      '<div class="answer-fields">' +
+      keyOpenField(order, "a", value.a) + keyOpenField(order, "b", value.b) +
+      "</div></div>";
+  }
+
+  function renderKeySheet() {
+    var form = state.createForm;
+    var plan = keyPlan(form);
+    var order;
+    var html = '<div class="ksheet">';
+
+    html += keySheetHead(
+      plan.national ? "1–32 · Yopiq savollar" : "1–" + plan.single.to + " · Yopiq savollar",
+      "A–D variantlardan to‘g‘ri javobni belgilang", "single"
+    );
+    for (order = plan.single.from; order <= plan.single.to; order += 1) {
+      html += keyLetterRow(order, SINGLE_LETTERS, "single");
+    }
+
+    if (plan.multi) {
+      html += keySheetHead("33–35 · Moslashtirish",
+        "A–F variantlardan faqat bittasi to‘g‘ri", "multi");
+      for (order = plan.multi.from; order <= plan.multi.to; order += 1) {
+        html += keyLetterRow(order, MULTI_LETTERS, "multi");
+      }
+    }
+
+    if (plan.open) {
+      html += keySheetHead("36–45 · Ochiq javob",
+        "Maydonni bosing — matematik klaviatura ochiladi", "open");
+      for (order = plan.open.from; order <= plan.open.to; order += 1) {
+        html += keyOpenRow(order);
+      }
+    }
+
+    return html + "</div>";
+  }
+
+  /* Varaqadagi to'ldirilgan va bo'sh savollarni sanaydi. */
+  function keyCounters() {
+    var form = state.createForm;
+    var plan = keyPlan(form);
+    var done = 0, total = 0, order;
+    var missing = [];
+
+    function letterCheck(from, to) {
+      for (var i = from; i <= to; i += 1) {
+        total += 1;
+        if (form.keys.letters[i]) { done += 1; } else { missing.push(i); }
+      }
+    }
+
+    letterCheck(plan.single.from, plan.single.to);
+    if (plan.multi) { letterCheck(plan.multi.from, plan.multi.to); }
+    if (plan.open) {
+      for (order = plan.open.from; order <= plan.open.to; order += 1) {
+        var value = form.keys.open[order] || {};
+        total += 1;
+        if ((value.a || "").trim() && (value.b || "").trim()) {
+          done += 1;
+        } else {
+          missing.push(order);
+        }
+      }
+    }
+    return { plan: plan, done: done, total: total, missing: missing };
+  }
+
+  function updateKeyProgress() {
+    var box = document.getElementById("key-progress");
+    if (!box) { return; }
+    if (state.createForm.keymode !== "sheet") { box.textContent = ""; return; }
+    var counters = keyCounters();
+    box.textContent = counters.done + " / " + counters.total;
+    box.classList.toggle("is-full", counters.done === counters.total);
+  }
+
+  function keyChoose(order, letter) {
+    var keys = state.createForm.keys;
+    keys.letters[order] = keys.letters[order] === letter ? "" : letter;
+
+    var row = document.getElementById("ks-" + order);
+    if (row) {
+      row.classList.toggle("is-set", !!keys.letters[order]);
+      Array.prototype.forEach.call(row.querySelectorAll(".choice"), function (button) {
+        button.classList.toggle("is-selected", button.dataset.letter === keys.letters[order]);
+      });
+    }
+    haptic("light");
+    updateKeyProgress();
+  }
+
+  function keyOpenChanged(input) {
+    var order = parseInt(input.dataset.order, 10);
+    var keys = state.createForm.keys;
+    var value = keys.open[order] || { a: "", b: "" };
+    value[input.dataset.part] = input.value;
+    keys.open[order] = value;
+
+    var row = document.getElementById("ks-" + order);
+    if (row) {
+      row.classList.toggle("is-set", !!(value.a.trim() && value.b.trim()));
+    }
+    updateKeyProgress();
+  }
+
+  /* Varaqadan server kutayotgan kalit satrlarini yig'adi. */
+  function collectSheetKeys(plan) {
+    var form = state.createForm;
+    var single = [], multi = [], open = [];
+    var order;
+
+    for (order = plan.single.from; order <= plan.single.to; order += 1) {
+      single.push(form.keys.letters[order] || "");
+    }
+    if (plan.multi) {
+      for (order = plan.multi.from; order <= plan.multi.to; order += 1) {
+        multi.push(form.keys.letters[order] || "");
+      }
+    }
+    if (plan.open) {
+      for (order = plan.open.from; order <= plan.open.to; order += 1) {
+        var value = form.keys.open[order] || {};
+        open.push((value.a || "").trim() + " ; " + (value.b || "").trim());
+      }
+    }
+    return {
+      single_keys: single.join(" "),
+      multi_keys: multi.join(", "),
+      open_keys: open.join("\n")
+    };
+  }
+
+  function refreshKeySheet() {
+    var box = document.getElementById("key-sheet");
+    if (!box) { return; }
+    closeMathPad();
+    box.innerHTML = renderKeySheet();
+    bindPadFields(
+      box,
+      function (input) {
+        return input.dataset.order + "-savol · " + input.dataset.part + ") to‘g‘ri javob";
+      },
+      keyOpenChanged
+    );
+    updateKeyProgress();
+  }
+
   function bindCreateForm() {
-    var form = { type: "simple", structure: "custom", count: 20, hours: 0 };
+    var form = {
+      type: "simple",
+      structure: "custom",
+      count: 20,
+      hours: 0,
+      keymode: "sheet",
+      keys: { letters: {}, open: {} }
+    };
     state.createForm = form;
 
     function segment(id, attribute, onPick) {
@@ -1178,7 +1501,13 @@
       document.getElementById("type-hint").textContent = hints[value] || "";
       document.getElementById("wrap-structure").hidden = value === "simple";
       document.getElementById("wrap-cert").hidden = value !== "rasch_paid";
-      if (value === "simple") { form.structure = "custom"; }
+      if (value === "simple") {
+        form.structure = "custom";
+        Array.prototype.forEach.call(
+          document.getElementById("seg-structure").querySelectorAll("button"),
+          function (b) { b.classList.toggle("is-active", b.dataset.structure === "custom"); }
+        );
+      }
       applyStructure();
     });
 
@@ -1190,7 +1519,7 @@
     segment("seg-count", "count", function (value) {
       form.count = parseInt(value, 10);
       document.getElementById("f-count").value = form.count;
-      updateKeyHints();
+      applyStructure();
     });
 
     segment("seg-duration", "hours", function (value) {
@@ -1199,9 +1528,19 @@
       if (picker) { picker.value = ""; }   // tayyor variant aniq vaqtni bekor qiladi
     });
 
+    segment("seg-keymode", "keymode", function (value) {
+      form.keymode = value;
+      document.getElementById("key-sheet").hidden = value !== "sheet";
+      document.getElementById("key-text").hidden = value !== "text";
+      closeMathPad();
+      updateKeyProgress();
+    });
+
+    var countTimer = null;
     document.getElementById("f-count").addEventListener("input", function () {
       form.count = parseInt(this.value, 10) || 0;
-      updateKeyHints();
+      if (countTimer) { clearTimeout(countTimer); }
+      countTimer = setTimeout(applyStructure, 300);
     });
 
     function applyStructure() {
@@ -1209,22 +1548,26 @@
       document.getElementById("wrap-count").hidden = national;
       document.getElementById("wrap-multi").hidden = !national;
       document.getElementById("wrap-open").hidden = !national;
-      updateKeyHints();
-    }
 
-    function updateKeyHints() {
-      var national = form.structure === "national" && form.type !== "simple";
-      var single = national ? 32 : form.count;
       var hint = document.getElementById("hint-single");
-      if (hint) { hint.textContent = single + " ta javob kerak (A–D)."; }
+      if (hint) {
+        hint.textContent = (national ? 32 : form.count) + " ta javob kerak (A–D).";
+      }
+      refreshKeySheet();
     }
 
     applyStructure();
   }
 
   function submitCreate() {
-    var form = state.createForm || { type: "simple", structure: "custom", count: 20, hours: 0 };
+    var form = state.createForm || {
+      type: "simple", structure: "custom", count: 20, hours: 0,
+      keymode: "sheet", keys: { letters: {}, open: {} }
+    };
     var national = form.structure === "national" && form.type !== "simple";
+    var box = document.getElementById("create-errors");
+    box.innerHTML = "";
+
     var payload = {
       title: document.getElementById("f-title").value.trim(),
       type: form.type,
@@ -1234,9 +1577,9 @@
       ends_at: (document.getElementById("f-ends-at") || {}).value || "",
       show_results: document.getElementById("f-show").checked,
       certificate: !!(document.getElementById("f-cert") && document.getElementById("f-cert").checked),
-      single_keys: document.getElementById("f-single").value,
-      multi_keys: national ? document.getElementById("f-multi").value : "",
-      open_keys: national ? document.getElementById("f-open").value : ""
+      single_keys: "",
+      multi_keys: "",
+      open_keys: ""
     };
 
     if (payload.title.length < 3) {
@@ -1244,8 +1587,30 @@
       return;
     }
 
-    var box = document.getElementById("create-errors");
-    box.innerHTML = "";
+    if (form.keymode === "sheet") {
+      var counters = keyCounters();
+      if (counters.missing.length) {
+        showCreateErrors(
+          "Javob kaliti to‘ldirilmagan savollar bor.",
+          ["Quyidagi savollarni belgilang: " +
+            counters.missing.slice(0, 30).join(", ") +
+            (counters.missing.length > 30 ? " ..." : "")]
+        );
+        var first = document.getElementById("ks-" + counters.missing[0]);
+        if (first) { first.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        return;
+      }
+      var collected = collectSheetKeys(counters.plan);
+      payload.single_keys = collected.single_keys;
+      payload.multi_keys = national ? collected.multi_keys : "";
+      payload.open_keys = national ? collected.open_keys : "";
+    } else {
+      payload.single_keys = document.getElementById("f-single").value;
+      payload.multi_keys = national ? document.getElementById("f-multi").value : "";
+      payload.open_keys = national ? document.getElementById("f-open").value : "";
+    }
+
+    closeMathPad();
     setBusy(true);
 
     api("test-yaratish/", { method: "POST", body: payload }).then(function (data) {
@@ -1255,18 +1620,23 @@
       go("manage", { code: data.exam.code }, true);
     }).catch(function (error) {
       setBusy(false);
-      var errors = (error.payload && error.payload.errors) || [];
-      var html = '<div class="alert alert-error">' + ic("alert") + "<div><b>" + esc(error.message) + "</b>";
-      if (errors.length) {
-        html += "<ul style='margin:6px 0 0 16px;padding:0'>";
-        errors.forEach(function (item) { html += "<li>" + esc(item) + "</li>"; });
-        html += "</ul>";
-      }
-      html += "</div></div>";
-      box.innerHTML = html;
-      box.scrollIntoView({ behavior: "smooth", block: "center" });
+      showCreateErrors(error.message, (error.payload && error.payload.errors) || []);
       haptic("err");
     });
+  }
+
+  function showCreateErrors(message, errors) {
+    var box = document.getElementById("create-errors");
+    if (!box) { return; }
+    var html = '<div class="alert alert-error">' + ic("alert") + "<div><b>" + esc(message) + "</b>";
+    if (errors.length) {
+      html += "<ul style='margin:6px 0 0 16px;padding:0'>";
+      errors.forEach(function (item) { html += "<li>" + esc(item) + "</li>"; });
+      html += "</ul>";
+    }
+    html += "</div></div>";
+    box.innerHTML = html;
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function setBusy(value) {
@@ -1552,15 +1922,11 @@
     }
     if (act === "mdel") { backspace(); return; }
     if (act === "mclose") { closeMathPad(); return; }
-    if (act === "mclear") {
-      var field = activeInput();
-      if (field) {
-        field.value = "";
-        scheduleCheck(state.activeField);
-        saveOpenAnswer(parseInt(field.dataset.order, 10));
-      }
-      return;
-    }
+    if (act === "mclear") { clearField(); return; }
+    if (act === "mleft") { moveCaret(-1); return; }
+    if (act === "mright") { moveCaret(1); return; }
+    if (act === "mnext") { padNext(); return; }
+    if (act === "mpage") { setPadPage(target.dataset.page); return; }
 
     if (act === "get-certificate") {
       setBusy(true);
@@ -1570,6 +1936,10 @@
       return;
     }
 
+    if (act === "kchoose") {
+      keyChoose(parseInt(target.dataset.order, 10), target.dataset.letter);
+      return;
+    }
     if (act === "create-exam") { submitCreate(); return; }
     if (act === "exam-action") { runExamAction(target.dataset.action); return; }
     if (act === "delete-exam") { deleteExam(target.dataset.code); return; }
