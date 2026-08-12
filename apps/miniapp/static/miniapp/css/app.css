@@ -703,6 +703,7 @@ body.pad-open .finish-bar { display: none; }
   margin-bottom: 8px;
 }
 .mstrip .mkey {
+  flex: 1;
   background: transparent;
   box-shadow: none;
   min-height: 36px;

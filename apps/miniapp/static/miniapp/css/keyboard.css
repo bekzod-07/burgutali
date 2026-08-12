@@ -158,6 +158,7 @@ body {
   margin-bottom: 8px;
 }
 .mstrip .key {
+  flex: 1;
   background: transparent;
   box-shadow: none;
   min-height: 38px;
@@ -210,11 +211,18 @@ body {
 
 /* ---------------------------------------------------------------- footer */
 
+.app-main { padding-bottom: 10px; }
+
+/*
+   Pastki panel yopishqoq — klaviatura undan balandroq bo'lsa, tugmalar
+   panel orqasidan ko'rinib qolmasligi uchun fon to'liq bo'yaladi.
+*/
 .app-footer {
   position: sticky;
   bottom: 0;
   padding: 10px 0 12px;
-  background: linear-gradient(to bottom, transparent, var(--bg) 22%);
+  background: var(--bg);
+  box-shadow: 0 -8px 12px -8px rgba(15, 43, 70, .28);
 }
 
 .preview {
