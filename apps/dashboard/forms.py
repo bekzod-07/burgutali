@@ -83,8 +83,8 @@ class QuestionForm(forms.ModelForm):
             "choices_count": forms.NumberInput(attrs={"class": "input", "min": 2, "max": 6}),
             "parts": forms.NumberInput(attrs={"class": "input", "min": 1, "max": 2}),
             "correct_key": forms.TextInput(attrs={"class": "input"}),
-            "answer_a": forms.TextInput(attrs={"class": "input"}),
-            "answer_b": forms.TextInput(attrs={"class": "input"}),
+            "answer_a": forms.TextInput(attrs={"class": "input", "data-mathpad": "one"}),
+            "answer_b": forms.TextInput(attrs={"class": "input", "data-mathpad": "one"}),
             "numeric_tolerance": forms.NumberInput(
                 attrs={"class": "input", "step": "0.000001"}
             ),
@@ -205,7 +205,13 @@ class ExamCreateForm(forms.Form):
         label="Ochiq javoblar kaliti (a ; b)",
         required=False,
         widget=forms.Textarea(
-            attrs={"class": "input", "rows": 6, "placeholder": "12 ; 3/4\nsqrt(2) ; pi/6"}
+            attrs={
+                "class": "input",
+                "rows": 6,
+                "placeholder": "12 ; 3/4\nsqrt(2) ; pi/6",
+                # Maydonga bosilganda matematik klaviatura ochiladi.
+                "data-mathpad": "lines",
+            }
         ),
     )
 
@@ -312,6 +318,11 @@ class KeyImportForm(forms.Form):
         label="Ochiq javoblar kaliti (har bir qatorda: a ; b)",
         required=False,
         widget=forms.Textarea(
-            attrs={"class": "input", "rows": 5, "placeholder": "12 ; 3/4\nsqrt(2) ; pi/6"}
+            attrs={
+                "class": "input",
+                "rows": 5,
+                "placeholder": "12 ; 3/4\nsqrt(2) ; pi/6",
+                "data-mathpad": "lines",
+            }
         ),
     )

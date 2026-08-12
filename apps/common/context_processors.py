@@ -6,28 +6,28 @@ from pathlib import Path
 
 from django.conf import settings
 
-#: Panel uslubi — versiya belgisini shu fayl bo'yicha hisoblaymiz.
-_PANEL_CSS = (
-    Path(__file__).resolve().parent.parent
-    / "dashboard"
-    / "static"
-    / "dashboard"
-    / "css"
-    / "dashboard.css"
+#: Panel uslubi va skriptlari — versiya belgisini shu fayllar bo'yicha olamiz.
+_PANEL_STATIC = Path(__file__).resolve().parent.parent / "dashboard" / "static" / "dashboard"
+_PANEL_ASSETS = (
+    _PANEL_STATIC / "css" / "dashboard.css",
+    _PANEL_STATIC / "js" / "mathpad.js",
 )
 
 
 def _css_version() -> str:
     """
-    Panel uslubi uchun versiya belgisi (kesh buzish).
+    Panel uslubi va skriptlari uchun versiya belgisi (kesh buzish).
 
-    Panel Telegram Web App sifatida ham ochiladi, webview esa CSS ni uzoq
-    keshlaydi — fayl o'zgarganda havolaga yangi `?v=...` qo'shiladi.
+    Panel Telegram Web App sifatida ham ochiladi, webview esa fayllarni uzoq
+    keshlaydi — ular o'zgarganda havolaga yangi `?v=...` qo'shiladi.
     """
-    try:
-        return str(int(_PANEL_CSS.stat().st_mtime))
-    except OSError:  # pragma: no cover - fayl yo'q bo'lishi mumkin
-        return "1"
+    newest = 0
+    for asset in _PANEL_ASSETS:
+        try:
+            newest = max(newest, int(asset.stat().st_mtime))
+        except OSError:  # pragma: no cover - fayl yo'q bo'lishi mumkin
+            continue
+    return str(newest or 1)
 
 
 def site_info(request) -> dict:  # noqa: ANN001

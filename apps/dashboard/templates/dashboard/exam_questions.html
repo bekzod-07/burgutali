@@ -17,9 +17,9 @@
   <div class="card-head">
     <h2>{{ questions|length }} ta savol</h2>
     <span class="sub">
-      Ochiq savollarda kalitni <code>a ; b</code> ko‘rinishida yozing.
-      Muqobil javoblarni <code>;</code> bilan emas, <code>||</code> ichida bo‘lgani kabi
-      har bir maydonda alohida ko‘rsating.
+      Ochiq savollarda kalitni <code>a ; b</code> ko‘rinishida yozing — maydonga
+      bosilganda matematik klaviatura ochiladi. A–F (33–35) savollarida ham
+      faqat bitta harf yoziladi.
     </span>
   </div>
   <div class="card-body tight">
@@ -45,19 +45,22 @@
                 <td class="num rank">{{ question.order }}</td>
                 <td class="small">
                   {% if question.kind == 'single' %}<span class="badge badge-navy">A–D</span>
-                  {% elif question.kind == 'multi' %}<span class="badge badge-purple">A–F ko‘p</span>
+                  {% elif question.kind == 'multi' %}<span class="badge badge-purple">A–F</span>
                   {% else %}<span class="badge badge-orange">Ochiq</span>{% endif %}
                 </td>
                 <td class="small muted">{{ question.section|default:"—" }}</td>
                 <td>
                   {% if question.kind == 'open' %}
+                    {# Maydonga bosilganda matematik klaviatura ochiladi. #}
                     <input class="input input-sm" type="text" name="key_{{ question.id }}"
                            value="{{ question.answer_a }}{% if question.answer_b %} ; {{ question.answer_b }}{% endif %}"
-                           placeholder="a ; b">
+                           placeholder="a ; b"
+                           data-mathpad="pair"
+                           data-mathpad-label="{{ question.order }}-savol · a ; b">
                   {% else %}
                     <input class="input input-sm" type="text" name="key_{{ question.id }}"
                            value="{{ question.correct_key }}" style="max-width:110px"
-                           placeholder="{% if question.kind == 'multi' %}ABD{% else %}A{% endif %}">
+                           placeholder="A">
                   {% endif %}
                 </td>
                 <td class="num">
