@@ -1977,6 +1977,8 @@ def test_mathpad() -> None:
         ("root(32,5)", 2), ("root(16,4)", 2),
         # Tayyor kasrdan keyin qo'yilgan yangi kasr — alohida ko'paytuvchi.
         ("455/3*(2/5)", None), ("1/2*(3/4)", 0.375),
+        # Maxrajdan chiqqandan keyin davom ettirilgan ifoda.
+        ("5/(2)", 2.5), ("5/(2)3", 7.5), ("5/(2)+3", 5.5), ("2^(3)/(4)", 2),
     ]
     for expression, expected in functions:
         parsed = parse_expression(expression)
@@ -2065,6 +2067,14 @@ def test_mathpad() -> None:
     R.check(
         "Ildiz darajasi bo'sh to'rtburchak bo'lib chiziladi",
         '"root(,)"' in source and ".mf-deg.is-empty" in styles,
+    )
+    R.check(
+        "Maxrajdan chiqib yozishni davom ettirish mumkin",
+        "function openDenominator(" in source,
+    )
+    R.check(
+        "Tuzilma qavslari ustida kursor to'xtamaydi",
+        "function hiddenParen(" in source,
     )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---

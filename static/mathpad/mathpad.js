@@ -322,15 +322,19 @@
   /*
      Kasr tugmasi.
 
-     Uchta holat bor:
+     To'rtta holat bor:
 
-       * oldida hech narsa yoki amal turibdi (`2+`) — bo'sh kasr
-         chiziladi, kursor **suratda** qoladi va yozilgan son o'z
-         joyida qoladi (`2 + □/□`);
+       * oldida hech narsa, qo'shish/ayirish yoki ochiq qavs turibdi
+         (`2+`) — bo'sh kasr chiziladi, yozilgan son o'z joyida qoladi
+         (`2 + □/□`), kursor **suratda** turadi;
+       * oldida ko'paytirish, bo'lish yoki daraja belgisi turibdi
+         (`5/`) — yangi kasr qavs ichida chiziladi, shunda oldingi
+         ifoda uning suratiga ko'tarilib ketmaydi va ikkala katak
+         ham bo'sh bo'ladi (`5 / (□/□)`);
        * oldida son yoki ifoda turibdi (`455`) — u surat bo'ladi,
          kursor maxrajga tushadi (`455/|`);
        * oldida tayyor kasr turibdi (`455/3`) — u yangi kasrning
-         suratiga ko'tarilib ketmaydi: yangi kasr alohida ko'paytuvchi
+         suratiga ko'tarilmaydi: yangi kasr alohida ko'paytuvchi
          bo'lib qo'shiladi (`455/3 · □/□`).
   */
   function insertFraction() {
@@ -340,8 +344,10 @@
     var before = input.value.slice(0, caretOf(input)).replace(/\s+$/, "");
     var last = before.slice(-1);
 
-    if (last === "" || "+-*/^(,|".indexOf(last) !== -1) {
+    if (last === "" || "+-(,|".indexOf(last) !== -1) {
       insert("/", -1);
+    } else if ("*/^".indexOf(last) !== -1) {
+      insert("(/)", -2);
     } else if (endsWithFraction(before)) {
       insert("*(/)", -2);
     } else {
@@ -419,10 +425,76 @@
     apply(input, value.slice(0, start - 1) + value.slice(start), start - 1);
   }
 
+  /*
+     Kursor tugallanmagan maxrajning oxirida turibdimi.
+
+     `455/3|` — bunda o'ngga siljish uchun joy yo'q, matn tugagan.
+     Natija: kasr chizig'ining o'rni yoki -1.
+  */
+  function openDenominator(value, caret) {
+    /* Yopiladigan qavs bilan tugagan bo'lsa, kursor allaqachon tashqarida. */
+    if (value.charAt(caret - 1) === ")") { return -1; }
+
+    var depth = 0;
+    for (var i = caret - 1; i >= 0; i -= 1) {
+      var ch = value.charAt(i);
+      if (ch === ")") { depth += 1; continue; }
+      if (ch === "(") {
+        if (depth === 0) { return -1; }      // ochiq qavs ichidamiz
+        depth -= 1;
+        continue;
+      }
+      if (depth) { continue; }
+      if (ch === "/") { return i; }
+      if ("+-*,|^".indexOf(ch) !== -1) { return -1; }
+    }
+    return -1;
+  }
+
+  /*
+     Tuzilma qavsi — `2^(3)` va `455/(3)` dagi qavslar.
+
+     Ular ekranda ko'rinmaydi, shuning uchun kursor ular ustida
+     to'xtab o'tirmaydi: «‹» va «›» ularni sakrab o'tadi.
+  */
+  function hiddenParen(value, index) {
+    return value.charAt(index) === "(" &&
+      "/^".indexOf(value.charAt(index - 1)) !== -1;
+  }
+
   function moveCaret(step) {
     var input = state.input;
     if (!input) { return; }
-    var position = Math.max(0, Math.min(caretOf(input) + step, input.value.length));
+
+    var value = input.value;
+    var caret = caretOf(input);
+
+    /*
+       Maxrajning oxiridan o'ngga chiqish.
+
+       Matn tugagan joyda kursorning «maxraj ichida» va «kasrdan keyin»
+       holatlari bir xil o'ringa to'g'ri keladi. Shuning uchun maxraj
+       qavsga olinadi — ko'rinish o'zgarmaydi (`455/3` xuddi shundayligicha
+       chiziladi), lekin kursor kasrdan chiqadigan joy paydo bo'ladi.
+    */
+    if (step > 0 && caret >= value.length) {
+      var slash = openDenominator(value, caret);
+      if (slash !== -1 && slash + 1 < value.length) {
+        pushUndo(input);
+        apply(input,
+              value.slice(0, slash + 1) + "(" + value.slice(slash + 1) + ")",
+              value.length + 2);
+        return;
+      }
+    }
+
+    var position = Math.max(0, Math.min(caret + step, value.length));
+    for (var guard = 0; guard < 8 && hiddenParen(value, position); guard += 1) {
+      var next = position + step;
+      if (next < 0 || next > value.length) { break; }
+      position = next;
+    }
+
     try { input.setSelectionRange(position, position); } catch (error) { /* qo'llamaydi */ }
     try { input.focus({ preventScroll: true }); } catch (error) { input.focus(); }
     historyOf(input).caret = position;
