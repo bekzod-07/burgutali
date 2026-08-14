@@ -285,6 +285,182 @@
 
 .mpad-focus { caret-color: #0f2b46; }
 
+/* ==========================================================================
+   Matematik maydon — javob chizilgan formula ko'rinishida ko'rinadi.
+   Mantiqi: `static/mathpad/mathfield.js`.
+   ========================================================================== */
+
+.mfield {
+  --mf-ink: #16202c;
+  --mf-accent: #c2760c;      /* kasr chizig'i va sonlari */
+  --mf-caret: #1d4e7e;
+  --mf-mute: #8b97a5;
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 42px;
+  padding: 3px 4px 3px 10px;
+  border: 1.5px solid #dbe3ec;
+  border-radius: 10px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.mfield-view {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 3px 0;
+  color: var(--mf-ink);
+  font-family: "Cambria Math", "Times New Roman", Georgia, serif;
+  font-size: 20px;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: text;
+  -webkit-user-select: none;
+  user-select: none;
+  scrollbar-width: none;
+}
+
+.mfield-view::-webkit-scrollbar { display: none; }
+
+/*
+   Haqiqiy maydon ko'rinmaydi, lekin joyida qoladi: qiymat, kursor va
+   jismoniy klaviatura o'sha yerda ishlaydi. «Matn ko'rinishi» tugmasi
+   uni qaytadan ko'rsatadi.
+*/
+.mfield.is-live .mfield-src {
+  position: absolute;
+  left: 10px;
+  right: 60px;
+  top: 3px;
+  bottom: 3px;
+  width: auto;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  background: transparent;
+}
+
+.mfield.is-raw .mfield-view { display: none; }
+.mfield.is-raw .mfield-src {
+  position: static;
+  opacity: 1;
+  pointer-events: auto;
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: auto;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--mf-ink);
+  font-family: "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
+  font-size: 16px;
+  padding: 4px 0;
+}
+
+.mfield-tools { display: flex; align-items: center; gap: 0; flex: none; }
+
+.mfield-btn {
+  width: 28px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--mf-mute);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.mfield-btn:active { background: rgba(27, 34, 44, .09); }
+
+.mfield-ico {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------- formula qismlari */
+
+.mf-c { display: inline-block; }
+.mf-var { font-style: italic; }
+.mf-fn { font-style: normal; }
+.mf-op { padding: 0 .16em; }
+.mf-paren { padding: 0 .02em; }
+.mf-bar { padding: 0 .04em; }
+.mf-gap { display: inline-block; width: .18em; }
+.mf-raw { color: var(--mf-accent); }
+
+/* Kasr — ustma-ust, orasida chiziq. */
+.mf-frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 .16em;
+  color: var(--mf-accent);
+  font-size: .92em;
+}
+.mf-fnum, .mf-fden { display: block; padding: 0 .22em; line-height: 1.12; }
+.mf-fbar { display: block; width: 100%; height: 1.4px; background: currentColor; margin: 1.5px 0; }
+
+/* Daraja va indeks. */
+.mf-sup, .mf-sub { display: inline-block; font-size: .66em; line-height: 1; }
+.mf-sup { vertical-align: .72em; }
+.mf-sub { vertical-align: -.34em; }
+
+/* Ildiz — daraja ko'rsatkichi, radikal va chiziq ostidagi ifoda. */
+.mf-root { display: inline-flex; align-items: flex-start; margin: 0 .06em; }
+.mf-radical { font-size: 1.2em; line-height: .95; }
+.mf-rad { border-top: 1.4px solid currentColor; padding: 1.5px .16em 0; margin-top: .07em; }
+.mf-deg {
+  display: inline-block;
+  font-size: .55em;
+  line-height: 1;
+  align-self: flex-start;
+  margin: .12em -.34em 0 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* To'ldirilmagan joy. */
+.mf-box {
+  display: inline-block;
+  width: .58em;
+  height: .58em;
+  border: 1.3px solid var(--mf-mute);
+  margin: 0 .06em;
+  vertical-align: .02em;
+}
+
+.mf-ph { color: var(--mf-mute); font-family: inherit; font-size: .78em; font-style: italic; }
+
+/* Kursor. */
+.mf-caret {
+  display: inline-block;
+  width: 1.7px;
+  height: 1.05em;
+  background: var(--mf-caret);
+  vertical-align: -.17em;
+  margin: 0 -0.85px;
+  animation: mf-blink 1.05s step-end infinite;
+}
+
+@keyframes mf-blink { 50% { opacity: 0; } }
+
 /* ---------------------------------------------------------------- ekranlar */
 
 @media (max-width: 340px) {

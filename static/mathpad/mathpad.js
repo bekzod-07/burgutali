@@ -147,7 +147,8 @@
     opts: {},
     applying: false,
     flashTimer: null,
-    hitTimer: null
+    hitTimer: null,
+    hitButton: null
   };
 
   /* =====================================================================
@@ -194,15 +195,20 @@
     history.value = value;
     history.caret = position;
 
-    try {
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    } catch (error) {
-      var legacy = document.createEvent("Event");
-      legacy.initEvent("input", true, false);
-      input.dispatchEvent(legacy);
-    }
+    fire(input, "input");
     state.applying = false;
     refreshTools();
+  }
+
+  /* Maydonda oddiy hodisa uyg'otadi (eski brauzerlar uchun zaxira bilan). */
+  function fire(input, name) {
+    try {
+      input.dispatchEvent(new Event(name, { bubbles: true }));
+    } catch (error) {
+      var legacy = document.createEvent("Event");
+      legacy.initEvent(name, true, false);
+      input.dispatchEvent(legacy);
+    }
   }
 
   function refreshTools() {
@@ -243,13 +249,20 @@
     }, 2200);
   }
 
+  /* Bosilgan tugma qisqa vaqt yonib turadi (bir vaqtda faqat bittasi). */
   function hit(button) {
     if (!button) { return; }
+    if (state.hitButton && state.hitButton !== button) {
+      state.hitButton.classList.remove("is-hit");
+    }
+    state.hitButton = button;
     button.classList.add("is-hit");
+
     if (state.hitTimer) { clearTimeout(state.hitTimer); }
     state.hitTimer = setTimeout(function () {
       button.classList.remove("is-hit");
-    }, 180);
+      if (state.hitButton === button) { state.hitButton = null; }
+    }, 200);
   }
 
   /* =====================================================================
@@ -293,6 +306,8 @@
     try { input.setSelectionRange(position, position); } catch (error) { /* qo'llamaydi */ }
     try { input.focus({ preventScroll: true }); } catch (error) { input.focus(); }
     historyOf(input).caret = position;
+    /* Chizilgan formulada kursor yangi joyga ko'chsin. */
+    fire(input, "mpad:change");
   }
 
   function undo() {
@@ -606,6 +621,15 @@
     input.addEventListener("click", function () { open(input); });
     input.addEventListener("input", function () { trackTyping(input); });
     input.addEventListener("keyup", function () { historyOf(input).caret = caretOf(input); });
+
+    /*
+       Maydon javobni chizilgan formula ko'rinishida ko'rsatadi.
+       `raw: true` berilgan maydonlar (ko'p qatorli kalitlar, `a ; b`)
+       oddiy matn bo'lib qoladi.
+    */
+    if (!meta.raw && global.MathField) {
+      global.MathField.attach(input);
+    }
   }
 
   function bindAll(scope, selector, meta) {
@@ -636,6 +660,7 @@
       return field && document.contains(field);
     });
     if (state.input && !document.contains(state.input)) { close(); }
+    if (global.MathField) { global.MathField.reset(); }
   }
 
   /* =====================================================================

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="{% static 'dashboard/css/dashboard.css' %}?v={{ PANEL_CSS_VERSION }}">
   {# Javob kalitlari uchun matematik klaviatura (`data-mathpad` maydonlari). #}
   <script defer src="{% static 'mathpad/mathpad.js' %}?v={{ PANEL_CSS_VERSION }}"></script>
+  <script defer src="{% static 'mathpad/mathfield.js' %}?v={{ PANEL_CSS_VERSION }}"></script>
   <script defer src="{% static 'dashboard/js/mathpad.js' %}?v={{ PANEL_CSS_VERSION }}"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   {% block head %}{% endblock %}

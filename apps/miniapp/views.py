@@ -44,6 +44,7 @@ def asset_version() -> str:
         # Umumiy matematik klaviatura ham shu versiya bilan yangilanadi.
         shared_dir / "mathpad.css",
         shared_dir / "mathpad.js",
+        shared_dir / "mathfield.js",
     ]
     stamps: list[float] = []
     for path in assets:

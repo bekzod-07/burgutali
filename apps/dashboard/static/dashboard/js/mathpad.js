@@ -103,7 +103,9 @@
       window.MathPad.bind(input, {
         label: labelFor(input),
         enter: mode === "lines" ? "newline" : "next",
-        extra: mode === "lines" || mode === "pair"
+        extra: mode === "lines" || mode === "pair",
+        /* Ko'p qatorli va `a ; b` maydonlari matn ko'rinishida qoladi. */
+        raw: mode !== "one"
       });
       input.addEventListener("input", scheduleCheck);
       input.addEventListener("keyup", scheduleCheck);

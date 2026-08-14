@@ -186,6 +186,27 @@ Klaviatura **bitta manbadan** keladi (`static/mathpad/`), shuning uchun u
 uchala joyda aynan bir xil: web ilovada test topshirishda, test yaratishdagi
 javob kalitlari varaqasida va botning `/app/klaviatura/` sahifasida.
 
+### Javob maydoni — chizilgan formula
+
+Javob maydonining o‘zi kiritilgan ifodani **haqiqiy formula ko‘rinishida**
+ko‘rsatadi: kasr ustma-ust, ildiz chiziq ostida, daraja yuqorida.
+
+```
+455        ______
+───  ·  ⁵⁴√ 5666
+4566
+```
+
+Maydonning qiymati ilgarigidek oddiy matn bo‘lib qoladi (`455/4566 sqrt(...)`) —
+baholash, saqlash va SymPy tekshiruvi shu matn bilan ishlaydi, o‘zgargani
+faqat ko‘rinish. Kursor formulaning ichida ko‘rinadi; uni `‹ ›` tugmalari
+bilan yoki formulani bosib siljitish mumkin.
+
+Har bir maydonning o‘ng chetida ikkita tugma bor: **klaviatura** belgisi
+matematik klaviaturani ochadi/yopadi, **ro‘yxat** belgisi esa maydonni
+matn ko‘rinishiga o‘tkazadi (nusxa ko‘chirish yoki oddiy klaviatura bilan
+tuzatish uchun).
+
 Javoblar **SymPy** yordamida *matematik ekvivalentlik* bo‘yicha tekshiriladi:
 `1/2` = `0.5` = `2^-1`, `sin(pi/6)` = `0.5`, `30°` = `pi/6`.
 
@@ -381,7 +402,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (505 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (523 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -454,7 +475,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 505 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 523 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

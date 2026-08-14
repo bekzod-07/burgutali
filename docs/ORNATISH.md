@@ -214,7 +214,7 @@ sertifikat baribir yaratiladi.
 
 ```bash
 python manage.py check      # Django tizim tekshiruvi
-python selftest.py          # 505 ta tekshiruv (alohida sinov bazasida)
+python selftest.py          # 523 ta tekshiruv (alohida sinov bazasida)
 python simulate.py          # 157 ta tekshiruv (bot oqimi simulyatsiyasi)
 ```
 

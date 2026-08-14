@@ -1941,10 +1941,12 @@ def test_mathpad() -> None:
     shared = BASE_DIR / "static" / "mathpad"
     css = shared / "mathpad.css"
     js = shared / "mathpad.js"
+    field_js = shared / "mathfield.js"
 
     R.check("Umumiy uslub fayli bor", css.is_file())
     R.check("Umumiy modul fayli bor", js.is_file())
-    if not (css.is_file() and js.is_file()):
+    R.check("Formula maydoni fayli bor", field_js.is_file())
+    if not (css.is_file() and js.is_file() and field_js.is_file()):
         return
 
     source = js.read_text(encoding="utf-8")
@@ -1993,6 +1995,32 @@ def test_mathpad() -> None:
             f"{name} umumiy klaviaturani ulaydi",
             "mathpad/mathpad.css" in markup and "mathpad/mathpad.js" in markup,
         )
+        R.check(
+            f"{name} formula maydonini ulaydi",
+            "mathpad/mathfield.js" in markup,
+        )
+
+    # --- Javob chizilgan formula ko'rinishida ko'rsatiladi ---
+    field_source = field_js.read_text(encoding="utf-8")
+    for part, marker in (
+        ("kasr", "mf-frac"),
+        ("daraja", "mf-sup"),
+        ("ildiz", "mf-root"),
+        ("indeks", "mf-sub"),
+        ("kursor", "mf-caret"),
+        ("bo'sh joy belgisi", "mf-box"),
+    ):
+        R.check(f"Formula qismi chiziladi: {part}", marker in field_source)
+
+    for name in ("sqrt", "cbrt", "root", "abs", "log10", "log"):
+        R.check(f"Funksiya chizilishi tavsiflangan: {name}",
+                '"%s"' % name in field_source)
+
+    R.check("Formula maydonida emoji yo'q", not _has_emoji(field_source))
+    R.check(
+        "Formula uslublari umumiy faylda",
+        ".mf-frac" in css.read_text(encoding="utf-8"),
+    )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
     for path in (
