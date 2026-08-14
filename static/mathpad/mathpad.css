@@ -399,10 +399,18 @@
 .mf-var { font-style: italic; }
 .mf-fn { font-style: normal; }
 .mf-op { padding: 0 .16em; }
+/* Ishora (`-5`) — songa yopishib turadi, amal belgisi emas. */
+.mf-neg { padding: 0 .03em 0 0; }
 .mf-paren { padding: 0 .02em; }
 .mf-bar { padding: 0 .04em; }
 .mf-gap { display: inline-block; width: .18em; }
 .mf-raw { color: var(--mf-accent); }
+
+/*
+   Tuzilma tugagan o'rin. Ko'rinmaydi — faqat kursor uchun belgi:
+   daraja yoki ildizdan chiqqan kursor shu yerda, asosiy satrda turadi.
+*/
+.mf-tail { display: inline-block; width: 0; }
 
 /* Kasr — ustma-ust, orasida chiziq. */
 .mf-frac {

@@ -82,9 +82,14 @@
         ['<span class="mpad-frac">' + BOX + '<i class="mpad-line"></i>' + BOX + "</span>",
           "/", 0, "", "frac"],
         ['<span class="mpad-root">&#8730;' + BOX + "</span>", "sqrt()", -1],
-        [BOX + "<sup>" + BOX + "</sup>", "^"],
-        [BOX + "<sup>2</sup>", "^2"],
-        [BOX + "<sup>3</sup>", "^3"],
+        /*
+           Daraja qavs bilan yoziladi: `^()`. Shu sababli ko'rsatkich
+           qayerda tugashi aniq bo'ladi — «›» tugmasi bilan darajadan
+           chiqib, keyingi sonni pastda yozish mumkin.
+        */
+        [BOX + "<sup>" + BOX + "</sup>", "^()", -1],
+        [BOX + "<sup>2</sup>", "^(2)"],
+        [BOX + "<sup>3</sup>", "^(3)"],
         ['<span class="mpad-root"><span class="mpad-deg">3</span>&#8730;' + BOX + "</span>",
           "cbrt()", -1],
         ['<span class="mpad-root"><span class="mpad-deg">n</span>&#8730;' + BOX + "</span>",
@@ -303,6 +308,46 @@
     insert("/", hasNumerator ? 0 : -1);
   }
 
+  /*
+     Kursor bo'sh tuzilma ichida turibdimi.
+
+     `sqrt(|)`, `2^(|)`, `root(|,3)`, `log(|,)` — bularda o'chirish tugmasi
+     bitta belgini emas, butun tuzilmani olib tashlaydi. Aks holda ekranda
+     yopilmagan qavs yoki yolg'iz vergul qolib ketardi.
+
+     Natija: [boshi, oxiri] yoki `null`.
+  */
+  function emptyShell(value, caret) {
+    var left = value.charAt(caret - 1);
+    var right = value.charAt(caret);
+    /* Kursor bo'sh argument joyida bo'lishi shart. */
+    if (!left || "(,".indexOf(left) === -1) { return null; }
+    if (!right || ",)".indexOf(right) === -1) { return null; }
+
+    /* Qavs ichida faqat vergul va (masalan ildiz darajasi kabi) son bo'lsin. */
+    var open = caret - 1;
+    while (open >= 0 && value.charAt(open) !== "(") {
+      if (",0123456789".indexOf(value.charAt(open)) === -1) { return null; }
+      open -= 1;
+    }
+    if (open < 0) { return null; }
+
+    var close = caret;
+    while (close < value.length && value.charAt(close) !== ")") {
+      if (",0123456789".indexOf(value.charAt(close)) === -1) { return null; }
+      close += 1;
+    }
+    if (close >= value.length) { return null; }
+
+    /* Qavsdan oldingi funksiya nomi yoki daraja belgisi ham birga ketadi. */
+    var from = open;
+    while (from > 0 && /[A-Za-z0-9_]/.test(value.charAt(from - 1))) { from -= 1; }
+    while (from < open && /[0-9]/.test(value.charAt(from))) { from += 1; }
+    if (from === open && value.charAt(from - 1) === "^") { from -= 1; }
+
+    return [from, close + 1];
+  }
+
   function backspace() {
     var input = state.input;
     if (!input) { return; }
@@ -312,12 +357,21 @@
     if (end === null || end === undefined) { end = start; }
     if (start === end && start === 0) { return; }
 
+    var value = input.value;
     pushUndo(input);
-    if (start === end) {
-      apply(input, input.value.slice(0, start - 1) + input.value.slice(end), start - 1);
-    } else {
-      apply(input, input.value.slice(0, start) + input.value.slice(end), start);
+
+    if (start !== end) {
+      apply(input, value.slice(0, start) + value.slice(end), start);
+      return;
     }
+
+    var shell = emptyShell(value, start);
+    if (shell) {
+      apply(input, value.slice(0, shell[0]) + value.slice(shell[1]), shell[0]);
+      return;
+    }
+
+    apply(input, value.slice(0, start - 1) + value.slice(start), start - 1);
   }
 
   function moveCaret(step) {

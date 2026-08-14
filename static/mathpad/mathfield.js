@@ -103,11 +103,13 @@
          expr  := unary (('+' | '-') unary)*
          unary := ('+' | '-') unary | term
          term  := power (('*' | '/') power | yashirin ko'paytirish)*
-         power := atom ('^' unary)?
+         power := atom ('^' expo)?
+         expo  := ('+' | '-') expo | power
          atom  := son | nom | funksiya(...) | (ifoda) | |ifoda|
 
      Shu sababli ekranda ko'ringan narsa SymPy hisoblaydigan narsa bilan
-     bir xil bo'ladi: `-2^2` -> −(2²), `1/2x` -> (1/2)·x, `2^3^2` -> 2^(3²).
+     bir xil bo'ladi: `-2^2` -> −(2²), `1/2x` -> (1/2)·x, `2^3^2` -> 2^(3²),
+     `2^(3)4` -> 2³·4.
      ===================================================================== */
 
   function parse(text) {
@@ -120,11 +122,34 @@
     function take() { return tokens[pos++]; }
     function guard() { steps += 1; return steps < MAX_STEPS; }
 
+    /* Oxirgi o'qilgan bo'lakdan keyingi o'rin. */
+    function lastEnd() {
+      var token = tokens[pos - 1];
+      return token ? token.start + token.text.length : 0;
+    }
+
+    /*
+       Tugunga uning matndagi tugash o'rnini yozadi.
+       Kursor tuzilmadan (masalan darajadan) chiqqanini shu orqali
+       bilamiz — chizishda «quyruq» belgisi qo'yiladi.
+    */
+    function fin(node) {
+      if (node) { node.end = lastEnd(); }
+      return node;
+    }
+
+    /*
+       Modul ichida turgan `|` — yopiluvchi tayoqcha, yangi modulning
+       boshi emas. Aks holda `|x-1|` da oxirgi tayoqcha ko'paytuvchi
+       bo'lib o'qilib, ifoda tugallanmagan bo'lib qolar edi.
+    */
+    var bars = 0;
+
     function startsAtom() {
       var token = peek();
       if (!token) { return false; }
-      return token.type === "num" || token.type === "name" ||
-             token.type === "(" || token.type === "|";
+      if (token.type === "|") { return bars === 0; }
+      return token.type === "num" || token.type === "name" || token.type === "(";
     }
 
     function parseExpr() {
@@ -132,7 +157,7 @@
       while ((at("+") || at("-")) && guard()) {
         var op = take();
         var right = parseUnary();
-        node = { type: "bin", op: op.text, left: node, right: right, start: op.start };
+        node = fin({ type: "bin", op: op.text, left: node, right: right, start: op.start });
       }
       return node;
     }
@@ -140,7 +165,7 @@
     function parseUnary() {
       if ((at("+") || at("-")) && guard()) {
         var op = take();
-        return { type: "unary", op: op.text, arg: parseUnary(), start: op.start };
+        return fin({ type: "unary", op: op.text, arg: parseUnary(), start: op.start });
       }
       return parseTerm();
     }
@@ -152,12 +177,15 @@
         if (at("*") || at("/")) {
           var op = take();
           var right = parsePower();
-          node = op.text === "/"
+          node = fin(op.text === "/"
             ? { type: "frac", num: node, den: right, start: op.start }
-            : { type: "bin", op: "·", left: node, right: right, start: op.start };
+            : { type: "bin", op: "·", left: node, right: right, start: op.start });
         } else if (startsAtom()) {
           /* Yashirin ko'paytirish: `2x`, `455 sqrt(3)` */
-          node = { type: "juxt", left: node, right: parsePower(), start: peek() ? peek().start : 0 };
+          node = fin({
+            type: "juxt", left: node, right: parsePower(),
+            start: peek() ? peek().start : 0
+          });
         } else {
           break;
         }
@@ -169,9 +197,23 @@
       var base = parseAtom();
       if (at("^") && guard()) {
         var op = take();
-        return { type: "pow", base: base, exp: parseUnary(), opAt: op.start };
+        return fin({ type: "pow", base: base, exp: parseExponent(), opAt: op.start });
       }
       return base;
+    }
+
+    /*
+       Ko'rsatkich — faqat bitta bo'lak (kerak bo'lsa ishorasi bilan).
+       Python/SymPy ham shunday hisoblaydi: `2^3x` = (2³)·x, `2^(3)4` = 8·4,
+       `2^3^2` = 2^(3²), `2^-1` = 0,5. Ya'ni darajadan keyin yozilgan son
+       ko'rsatkichga qo'shilib ketmaydi — u pastda, asosiy satrda qoladi.
+    */
+    function parseExponent() {
+      if ((at("+") || at("-")) && guard()) {
+        var op = take();
+        return fin({ type: "unary", op: op.text, arg: parseExponent(), start: op.start });
+      }
+      return parsePower();
     }
 
     function parseAtom() {
@@ -191,7 +233,7 @@
 
       if (token.type === "num") {
         take();
-        return { type: "num", text: token.text, start: token.start };
+        return fin({ type: "num", text: token.text, start: token.start });
       }
 
       if (token.type === "name") {
@@ -199,18 +241,22 @@
         if (at("(")) {
           var open = take();
           var args = [];
+          var commas = [];       // bo'sh argument qayerga yozilishini bilish uchun
           if (!at(")")) {
             args.push(parseExpr());
-            while (at(",") && guard()) { take(); args.push(parseExpr()); }
+            while (at(",") && guard()) {
+              commas.push(take().start);
+              args.push(parseExpr());
+            }
           }
           var closed = at(")");
           if (closed) { take(); }
-          return {
-            type: "call", name: token.text, args: args,
+          return fin({
+            type: "call", name: token.text, args: args, commas: commas,
             closed: closed, start: token.start, openAt: open.start
-          };
+          });
         }
-        return { type: "name", text: token.text, start: token.start };
+        return fin({ type: "name", text: token.text, start: token.start });
       }
 
       if (token.type === "(") {
@@ -218,20 +264,22 @@
         var body = at(")") ? null : parseExpr();
         var hasClose = at(")");
         if (hasClose) { take(); }
-        return { type: "group", body: body, closed: hasClose, start: token.start };
+        return fin({ type: "group", body: body, closed: hasClose, start: token.start });
       }
 
       if (token.type === "|") {
         take();
-        var inner = at("|") ? null : parseExpr();
+        bars += 1;
+        var inside = at("|") ? null : parseExpr();
+        bars -= 1;
         var hasBar = at("|");
         if (hasBar) { take(); }
-        return { type: "abs", body: inner, closed: hasBar, start: token.start };
+        return fin({ type: "abs", body: inside, closed: hasBar, start: token.start });
       }
 
       /* Kutilmagan belgi (masalan yopilmagan qavs) — o'zini chiqaramiz. */
       take();
-      return { type: "raw", text: token.text, start: token.start };
+      return fin({ type: "raw", text: token.text, start: token.start });
     }
 
     /*
@@ -253,7 +301,8 @@
     }
 
     if (!parts.length) { return null; }
-    return parts.length === 1 ? parts[0] : { type: "seq", items: parts };
+    if (parts.length === 1) { return parts[0]; }
+    return { type: "seq", items: parts, end: parts[parts.length - 1].end };
   }
 
   /* =====================================================================
@@ -278,6 +327,75 @@
     return FUNCTIONS.indexOf(String(name).toLowerCase()) !== -1;
   }
 
+  /*
+     Ifoda yopiladigan belgi bilan tugaydimi (`)` yoki `|`).
+
+     Tugasa, o'sha o'rin tuzilmaning aniq chegarasi bo'ladi: kursor
+     shu yerga kelganda daraja (yoki ildiz, kasr) ichida emas, balki
+     undan tashqarida — asosiy satrda turishi kerak.
+  */
+  function closesHere(node) {
+    if (!node) { return false; }
+    switch (node.type) {
+      case "group": case "abs": case "call": return !!node.closed;
+      case "bin": case "juxt": return closesHere(node.right);
+      case "unary": return closesHere(node.arg);
+      case "frac": return closesHere(node.den);
+      case "pow": return closesHere(node.exp);
+      case "seq": return closesHere(node.items[node.items.length - 1]);
+      default: return false;
+    }
+  }
+
+  /*
+     «Quyruq» — tuzilmadan keyingi ko'rinmas belgi.
+
+     Ekranda hech narsa chizmaydi, lekin kursor shu o'ringa kelganda
+     u tuzilmadan tashqarida turadi. Aynan shu narsa `2^(3)` da «›»
+     tugmasidan keyin kursorni darajadan pastga tushiradi.
+  */
+  function tail(node, when) {
+    if (!when || !node || node.hushed || typeof node.end !== "number") { return ""; }
+    return '<span class="mf-tail" data-s="' + node.end + '"></span>';
+  }
+
+  /*
+     Ichkaridagi tuzilmaning quyrug'ini o'chiradi.
+
+     `2^sqrt(3)` da ildiz ham, daraja ham bir xil o'rinda tugaydi. Ikkala
+     joyga ham belgi qo'yilsa kursor ichkaridagisiga — daraja ichiga —
+     ilashib qolishi mumkin. Shuning uchun ichkaridagisi olib tashlanadi:
+     o'sha o'rin endi faqat tashqi tuzilmaga tegishli.
+  */
+  function hush(node, offset) {
+    while (node && node.end === offset) {
+      node.hushed = true;
+      switch (node.type) {
+        case "group": node = node.body; break;
+        case "bin": case "juxt": node = node.right; break;
+        case "unary": node = node.arg; break;
+        case "frac": node = node.den; break;
+        case "pow": node = node.exp; break;
+        case "seq": node = node.items[node.items.length - 1]; break;
+        default: return;
+      }
+    }
+  }
+
+  /*
+     Tuzilma ichidagi ifoda.
+
+     Kasr, daraja, ildiz va modul o'zi guruhlab turadi — ichidagi qavslar
+     ortiqcha. Shuning uchun `2^(3)` ekranda `2³` bo'lib ko'rinadi,
+     `(1+2)/3` esa oddiy kasr bo'lib chiziladi.
+  */
+  function drawInner(node) {
+    if (node && node.type === "group") {
+      return draw(node.body) || slot(node.start + 1);
+    }
+    return draw(node);
+  }
+
   function draw(node) {
     if (!node) { return ""; }
 
@@ -299,7 +417,7 @@
         return node.items.map(draw).join("");
 
       case "unary":
-        return anchor(node.op === "-" ? "−" : "+", node.start, "mf-c mf-op") +
+        return anchor(node.op === "-" ? "−" : "+", node.start, "mf-c mf-op mf-neg") +
           (draw(node.arg) || slot(node.start + 1));
 
       case "bin":
@@ -311,25 +429,33 @@
         return draw(node.left) + '<span class="mf-gap"></span>' + draw(node.right);
 
       case "frac":
+        hush(node.den, node.end);
         return '<span class="mf-frac">' +
-          '<span class="mf-fnum">' + (draw(node.num) || slot(node.start)) + "</span>" +
+          '<span class="mf-fnum">' + (drawInner(node.num) || slot(node.start)) + "</span>" +
           '<span class="mf-fbar" data-s="' + node.start + '"></span>' +
-          '<span class="mf-fden">' + (draw(node.den) || slot(node.start + 1)) + "</span>" +
-          "</span>";
+          '<span class="mf-fden">' + (drawInner(node.den) || slot(node.start + 1)) +
+          "</span></span>" + tail(node, closesHere(node.den));
 
+      /*
+         Daraja. Ko'rsatkich qavs ichida yozilgani uchun qavslarning o'zi
+         chizilmaydi — yuqoriga ko'tarilganining o'zi yetarli. Qavs yopilgan
+         bo'lsa oxiriga «quyruq» qo'yiladi: kursor darajadan pastga tushadi.
+      */
       case "pow":
+        hush(node.exp, node.end);
         return (draw(node.base) || slot(node.opAt)) +
-          '<sup class="mf-sup">' + (draw(node.exp) || slot(node.opAt + 1)) + "</sup>";
+          '<sup class="mf-sup">' + (drawInner(node.exp) || slot(node.opAt + 1)) + "</sup>" +
+          tail(node, closesHere(node.exp));
 
       case "group":
         return '<span class="mf-paren" data-s="' + node.start + '">(</span>' +
           (draw(node.body) || slot(node.start + 1)) +
-          (node.closed ? '<span class="mf-paren">)</span>' : "");
+          (node.closed ? '<span class="mf-paren">)</span>' : "") + tail(node, node.closed);
 
       case "abs":
         return '<span class="mf-bar" data-s="' + node.start + '">|</span>' +
-          (draw(node.body) || slot(node.start + 1)) +
-          (node.closed ? '<span class="mf-bar">|</span>' : "");
+          (drawInner(node.body) || slot(node.start + 1)) +
+          (node.closed ? '<span class="mf-bar">|</span>' : "") + tail(node, node.closed);
 
       case "call":
         return drawCall(node);
@@ -350,58 +476,78 @@
       "></span>";
   }
 
-  function radical(degree, body, start, inner) {
+  function radical(degree, body, start) {
     return '<span class="mf-root">' +
       (degree ? '<span class="mf-deg">' + degree + "</span>" : "") +
       '<span class="mf-radical" data-s="' + start + '">√</span>' +
-      '<span class="mf-rad">' + (body || slot(inner)) + "</span></span>";
+      '<span class="mf-rad">' + body + "</span></span>";
   }
 
   function drawCall(node) {
+    return callBody(node) + tail(node, node.closed);
+  }
+
+  /*
+     Funksiyaning `n`-argumenti chizilgan ko'rinishi.
+
+     Argument bo'sh bo'lsa — bo'sh to'rtburchak chiziladi va u matndagi
+     o'z o'rniga bog'lanadi (birinchisi ochiladigan qavsdan keyin,
+     qolganlari o'zidan oldingi verguldan keyin). Shu tufayli kursor
+     `log(,)` dagi ikkala katakka ham to'g'ri tushadi.
+  */
+  function callArg(node, index, whole) {
+    var args = node.args || [];
+    var drawn = args.length > index ? (whole ? draw : drawInner)(args[index]) : "";
+    if (drawn) { return drawn; }
+
+    var commas = node.commas || [];
+    var at = index === 0
+      ? (node.openAt === undefined ? node.start : node.openAt) + 1
+      : (commas.length >= index ? commas[index - 1] + 1 : null);
+    return slot(at);
+  }
+
+  function callBody(node) {
     var name = String(node.name).toLowerCase();
     var args = node.args || [];
-    /* Qavs ichidagi birinchi bo'sh joy — ochiladigan qavsdan keyin. */
-    var inner = (node.openAt === undefined ? node.start : node.openAt) + 1;
-    var first = args.length ? draw(args[0]) : "";
 
-    if (name === "sqrt") { return radical("", first, node.start, inner); }
-    if (name === "cbrt") { return radical("3", first, node.start, inner); }
+    if (name === "sqrt") { return radical("", callArg(node, 0), node.start); }
+    if (name === "cbrt") { return radical("3", callArg(node, 0), node.start); }
     if (name === "root") {
-      var degree = args.length > 1 ? draw(args[1]) : "";
-      return radical(degree || slot(), first, node.start, inner);
+      return radical(callArg(node, 1), callArg(node, 0), node.start);
     }
     if (name === "abs") {
       return '<span class="mf-bar" data-s="' + node.start + '">|</span>' +
-        (first || slot(inner)) + '<span class="mf-bar">|</span>';
+        callArg(node, 0) + '<span class="mf-bar">|</span>';
     }
     if (name === "log10" || name === "lg") {
-      return chars("log", node.start, "mf-fn") + '<sub class="mf-sub">10</sub>' +
-        '<span class="mf-paren">(</span>' + (first || slot(inner)) +
-        '<span class="mf-paren">)</span>';
+      return logHtml(node, "10", callArg(node, 0, true));
     }
     if (name === "log2") {
-      return chars("log", node.start, "mf-fn") + '<sub class="mf-sub">2</sub>' +
-        '<span class="mf-paren">(</span>' + (first || slot(inner)) +
-        '<span class="mf-paren">)</span>';
+      return logHtml(node, "2", callArg(node, 0, true));
     }
     if (name === "log" && args.length > 1) {
-      return chars("log", node.start, "mf-fn") +
-        '<sub class="mf-sub">' + (draw(args[1]) || slot()) + "</sub>" +
-        '<span class="mf-paren">(</span>' + (first || slot(inner)) +
-        '<span class="mf-paren">)</span>';
+      return logHtml(node, callArg(node, 1), callArg(node, 0, true));
     }
     if (name === "factorial") {
-      return '<span class="mf-paren">(</span>' + (first || slot(inner)) +
+      return '<span class="mf-paren">(</span>' + callArg(node, 0, true) +
         '<span class="mf-paren">)</span><span class="mf-op">!</span>';
     }
 
     var body = "";
-    for (var i = 0; i < args.length; i += 1) {
+    for (var i = 0; i < Math.max(args.length, 1); i += 1) {
       if (i) { body += '<span class="mf-op">,</span>'; }
-      body += draw(args[i]) || slot();
+      body += callArg(node, i, true);
     }
     return chars(node.name, node.start, isFunction(node.name) ? "mf-fn" : "mf-var") +
-      '<span class="mf-paren">(</span>' + (body || slot(inner)) +
+      '<span class="mf-paren">(</span>' + body +
+      (node.closed ? '<span class="mf-paren">)</span>' : "");
+  }
+
+  function logHtml(node, base, body) {
+    return chars("log", node.start, "mf-fn") +
+      '<sub class="mf-sub">' + base + "</sub>" +
+      '<span class="mf-paren">(</span>' + body +
       (node.closed ? '<span class="mf-paren">)</span>' : "");
   }
 
@@ -443,35 +589,81 @@
     return position;
   }
 
+  /* Belgi maydonning ichida necha qavat chuqurlikda turibdi. */
+  function depthOf(node, root) {
+    var level = 0;
+    var walk = node.parentNode;
+    while (walk && walk !== root) { level += 1; walk = walk.parentNode; }
+    return level;
+  }
+
+  /*
+     Kursorni chizilgan formulada o'z o'rniga qo'yadi.
+
+     Qoida sodda: matndagi `offset` o'rniga aniq mos keladigan belgi
+     topilsa, kursor o'sha belgidan oldin turadi; topilmasa — undan
+     oldingi eng yaqin belgidan keyin turadi.
+
+     Bitta o'ringa bir nechta belgi to'g'ri kelsa (masalan daraja tugagan
+     joy bilan keyingi ko'paytuvchi boshlangan joy), eng tashqaridagisi
+     tanlanadi — shunda kursor daraja ichida qolib ketmaydi.
+  */
   function placeCaret(view, offset) {
     var caret = document.createElement("span");
     caret.className = "mf-caret";
 
     var nodes = view.querySelectorAll("[data-s]");
+    var exact = null;
+    var exactDepth = 0;
+    var before = null;
+    var beforeAt = -1;
+    var beforeDepth = 0;
+
     for (var i = 0; i < nodes.length; i += 1) {
       var node = nodes[i];
-      if (parseInt(node.dataset.s, 10) < offset) { continue; }
+      var at = parseInt(node.dataset.s, 10);
+      if (isNaN(at)) { continue; }
+      var level = depthOf(node, view);
 
-      /* Bo'sh to'rtburchak — kursor uning ichida turadi. */
-      if (node.classList.contains("mf-box")) {
-        node.classList.add("is-active");
-        node.appendChild(caret);
-        return;
+      if (at === offset) {
+        if (!exact || level < exactDepth) { exact = node; exactDepth = level; }
+      } else if (at < offset) {
+        if (at > beforeAt || (at === beforeAt && level < beforeDepth)) {
+          before = node;
+          beforeAt = at;
+          beforeDepth = level;
+        }
       }
+    }
 
-      /*
-         Kasr chizig'i — kursor suratning oxirida turishi kerak,
-         aks holda u chiziq bilan surat orasiga tushib qolar edi.
-      */
-      if (node.classList.contains("mf-fbar")) {
-        var numerator = node.previousElementSibling;
-        if (numerator) { numerator.appendChild(caret); return; }
-      }
+    if (exact) { putCaret(exact, false, caret); return; }
+    if (before) { putCaret(before, true, caret); return; }
+    view.insertBefore(caret, view.firstChild);
+  }
 
-      node.parentNode.insertBefore(caret, node);
+  function putCaret(node, after, caret) {
+    /* Bo'sh to'rtburchak — kursor uning ichida turadi. */
+    if (node.classList.contains("mf-box")) {
+      node.classList.add("is-active");
+      node.appendChild(caret);
       return;
     }
-    view.appendChild(caret);
+
+    /*
+       Kasr chizig'i — kursor chiziq bilan surat orasiga tushib qolmasin:
+       chiziqdan oldingi o'rin suratning oxiri, keyingisi esa maxrajning
+       boshi hisoblanadi.
+    */
+    if (node.classList.contains("mf-fbar")) {
+      var part = after ? node.nextElementSibling : node.previousElementSibling;
+      if (part) {
+        if (after) { part.insertBefore(caret, part.firstChild); }
+        else { part.appendChild(caret); }
+        return;
+      }
+    }
+
+    node.parentNode.insertBefore(caret, after ? node.nextSibling : node);
   }
 
   function scrollCaretIntoView(view) {

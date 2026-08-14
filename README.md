@@ -218,6 +218,17 @@ Xuddi shunday: `√`, `□^□`, `log□(□)` va boshqa tugmalar ham bosilishi
 bilan bo‘sh to‘rtburchaklarini ko‘rsatadi. Formula to‘liq to‘ldirilmaguncha
 jonli tekshiruv xato haqida ogohlantirmaydi.
 
+**Darajadan chiqish.** Daraja tugmalari ko‘rsatkichni qavs bilan yozadi
+(`2^(3)`), shuning uchun uning chegarasi aniq: `›` tugmasi bosilishi bilan
+kursor darajadan **pastga tushadi** va keyingi son ko‘rsatkichga qo‘shilib
+ketmaydi — `2³·4` bo‘ladi, `2³⁴` emas. Qavslar ekranda ko‘rsatilmaydi
+(faqat `2³` ko‘rinadi), qiymat esa SymPy uchun to‘g‘ri matn bo‘lib qoladi.
+Xuddi shu qoida ildiz, kasr, modul va logarifmga ham tegishli.
+
+Bo‘sh tuzilma ustida `⌫` bosilsa (masalan `√□` yoki `□^□` xato bosilgan
+bo‘lsa), bitta belgi emas — butun tuzilma o‘chadi, ekranda yolg‘iz qavs
+qolib ketmaydi.
+
 Har bir maydonning o‘ng chetida ikkita tugma bor: **klaviatura** belgisi
 matematik klaviaturani ochadi/yopadi, **ro‘yxat** belgisi esa maydonni
 matn ko‘rinishiga o‘tkazadi (nusxa ko‘chirish yoki oddiy klaviatura bilan
@@ -418,7 +429,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (529 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (538 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -491,7 +502,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 529 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 538 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

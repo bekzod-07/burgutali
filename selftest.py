@@ -1955,7 +1955,7 @@ def test_mathpad() -> None:
     rows = {
         "raqamlar": [str(digit) for digit in range(10)],
         "belgilar": ["pi", "e", "a", "b", "c", "x", "y", "z", "."],
-        "amallar": ["(", ")", "/", "sqrt()", "^", "^2", "^3", "cbrt()", "root(,3)"],
+        "amallar": ["(", ")", "/", "sqrt()", "^()", "^(2)", "^(3)", "cbrt()", "root(,3)"],
         "trigonometriya": ["+", "-", "sin()", "cos()", "tan()", "cot()"],
         "teskari trigonometriya": ["arcsin()", "arccos()", "arctan()", "arcctg()"],
         "logarifmlar": ["ln()", "log10()", "log(,)", "exp()"],
@@ -1971,6 +1971,8 @@ def test_mathpad() -> None:
         ("arcsin(0)", 0), ("arccos(1)", 0), ("arctan(0)", 0),
         ("ln(1)", 0), ("log10(100)", 2), ("log(100,10)", 2), ("exp(0)", 1),
         ("2^3", 8), ("cot(pi/4)", 1), ("arcctg(1)", None),
+        # Daraja qavs bilan yoziladi — keyingi son ko'rsatkichga qo'shilmaydi.
+        ("2^(3)", 8), ("2^(2)", 4), ("2^(3)4", 32), ("2^(2)5", 20), ("2^(-1)", 0.5),
     ]
     for expression, expected in functions:
         parsed = parse_expression(expression)
@@ -2034,6 +2036,18 @@ def test_mathpad() -> None:
         'data-mp="frac"' in source or '"frac"' in source,
     )
     R.check("Bo'sh kasr uchun maxsus amal bor", "function insertFraction(" in source)
+
+    # --- Darajadan chiqish: kursor pastga tushadi ---
+    R.check(
+        "Ko'rsatkich alohida o'qiladi (keyingi son darajaga qo'shilmaydi)",
+        "function parseExponent(" in field_source,
+    )
+    R.check("Tuzilma oxiri belgilanadi", "mf-tail" in field_source)
+    R.check("Tuzilma oxiri uslubi bor", ".mf-tail" in styles)
+    R.check(
+        "Bo'sh tuzilma butunlay o'chadi",
+        "function emptyShell(" in source,
+    )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
     for path in (
