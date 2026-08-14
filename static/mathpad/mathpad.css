@@ -436,15 +436,33 @@
   z-index: 1;
 }
 
-/* To'ldirilmagan joy. */
+/*
+   To'ldirilmagan joy — bo'sh to'rtburchak. Kursor shu joyda bo'lsa,
+   to'rtburchak yorqinlashadi va kursor uning ichida ko'rinadi.
+*/
 .mf-box {
-  display: inline-block;
-  width: .58em;
-  height: .58em;
-  border: 1.3px solid var(--mf-mute);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: .70em;
+  height: .95em;
+  border: 1.4px solid var(--mf-mute);
+  border-radius: 2px;
   margin: 0 .06em;
-  vertical-align: .02em;
+  vertical-align: -.13em;
 }
+
+.mf-box.is-active {
+  border-color: var(--mf-caret);
+  background: rgba(29, 78, 126, .07);
+}
+
+.mf-box .mf-caret { height: .68em; margin: 0; }
+
+/* Kasr va indekslar ichidagi to'rtburchak — biroz kichikroq. */
+.mf-frac .mf-box { width: .74em; height: .96em; }
+.mf-sup .mf-box, .mf-sub .mf-box { width: .78em; height: 1em; }
 
 .mf-ph { color: var(--mf-mute); font-family: inherit; font-size: .78em; font-style: italic; }
 

@@ -168,8 +168,8 @@
     function parsePower() {
       var base = parseAtom();
       if (at("^") && guard()) {
-        take();
-        return { type: "pow", base: base, exp: parseUnary() };
+        var op = take();
+        return { type: "pow", base: base, exp: parseUnary(), opAt: op.start };
       }
       return base;
     }
@@ -177,6 +177,17 @@
     function parseAtom() {
       var token = peek();
       if (!token) { return null; }
+
+      /*
+         Amal belgisi atom o'rnida turibdi — masalan foydalanuvchi son
+         yozmasdan kasr yoki daraja tugmasini bosgan (`/`, `^`). Belgini
+         yuqoridagi qoidalar o'zi oladi, biz esa bo'sh joy qoldiramiz —
+         natijada ekranda bo'sh to'rtburchak chiziladi.
+      */
+      if (token.type === "/" || token.type === "*" || token.type === "^" ||
+          token.type === "," || token.type === ")") {
+        return null;
+      }
 
       if (token.type === "num") {
         take();
@@ -186,7 +197,7 @@
       if (token.type === "name") {
         take();
         if (at("(")) {
-          take();
+          var open = take();
           var args = [];
           if (!at(")")) {
             args.push(parseExpr());
@@ -196,7 +207,7 @@
           if (closed) { take(); }
           return {
             type: "call", name: token.text, args: args,
-            closed: closed, start: token.start
+            closed: closed, start: token.start, openAt: open.start
           };
         }
         return { type: "name", text: token.text, start: token.start };
@@ -223,14 +234,26 @@
       return { type: "raw", text: token.text, start: token.start };
     }
 
+    /*
+       Asosiy ifodadan keyin qolgan bo'laklar (masalan ortiqcha yopiladigan
+       qavs) ham chiziladi — hech narsa ko'rinmay qolib ketmasin.
+    */
+    var parts = [];
     var root = parseExpr();
+    if (root) { parts.push(root); }
+
     while (pos < tokens.length && guard()) {
       var before = pos;
       var extra = parseExpr();
-      if (pos === before) { pos += 1; continue; }
-      root = extra && root ? { type: "juxt", left: root, right: extra } : (root || extra);
+      if (pos === before) {
+        var stray = take();
+        extra = { type: "raw", text: stray.text, start: stray.start };
+      }
+      if (extra) { parts.push(extra); }
     }
-    return root;
+
+    if (!parts.length) { return null; }
+    return parts.length === 1 ? parts[0] : { type: "seq", items: parts };
   }
 
   /* =====================================================================
@@ -272,37 +295,40 @@
       case "raw":
         return chars(node.text, node.start, "mf-raw");
 
+      case "seq":
+        return node.items.map(draw).join("");
+
       case "unary":
         return anchor(node.op === "-" ? "−" : "+", node.start, "mf-c mf-op") +
-          draw(node.arg);
+          (draw(node.arg) || slot(node.start + 1));
 
       case "bin":
-        return draw(node.left) +
+        return (draw(node.left) || slot(node.start)) +
           anchor(node.op === "-" ? "−" : node.op, node.start, "mf-c mf-op") +
-          draw(node.right);
+          (draw(node.right) || slot(node.start + 1));
 
       case "juxt":
         return draw(node.left) + '<span class="mf-gap"></span>' + draw(node.right);
 
       case "frac":
         return '<span class="mf-frac">' +
-          '<span class="mf-fnum">' + (draw(node.num) || placeholder()) + "</span>" +
+          '<span class="mf-fnum">' + (draw(node.num) || slot(node.start)) + "</span>" +
           '<span class="mf-fbar" data-s="' + node.start + '"></span>' +
-          '<span class="mf-fden">' + (draw(node.den) || placeholder()) + "</span>" +
+          '<span class="mf-fden">' + (draw(node.den) || slot(node.start + 1)) + "</span>" +
           "</span>";
 
       case "pow":
-        return draw(node.base) +
-          '<sup class="mf-sup">' + (draw(node.exp) || placeholder()) + "</sup>";
+        return (draw(node.base) || slot(node.opAt)) +
+          '<sup class="mf-sup">' + (draw(node.exp) || slot(node.opAt + 1)) + "</sup>";
 
       case "group":
         return '<span class="mf-paren" data-s="' + node.start + '">(</span>' +
-          draw(node.body) +
+          (draw(node.body) || slot(node.start + 1)) +
           (node.closed ? '<span class="mf-paren">)</span>' : "");
 
       case "abs":
         return '<span class="mf-bar" data-s="' + node.start + '">|</span>' +
-          draw(node.body) +
+          (draw(node.body) || slot(node.start + 1)) +
           (node.closed ? '<span class="mf-bar">|</span>' : "");
 
       case "call":
@@ -313,56 +339,69 @@
     }
   }
 
-  function placeholder() {
-    return '<span class="mf-box"></span>';
+  /*
+     To'ldirilmagan joy — bo'sh to'rtburchak. `offset` shu joyga yozilganda
+     matn qaysi o'ringa tushishini bildiradi: kursor ham aynan shu
+     to'rtburchakning ichida ko'rinadi.
+  */
+  function slot(offset) {
+    return '<span class="mf-box"' +
+      (offset === undefined || offset === null ? "" : ' data-s="' + offset + '"') +
+      "></span>";
   }
 
-  function radical(degree, body, start) {
+  function radical(degree, body, start, inner) {
     return '<span class="mf-root">' +
       (degree ? '<span class="mf-deg">' + degree + "</span>" : "") +
       '<span class="mf-radical" data-s="' + start + '">√</span>' +
-      '<span class="mf-rad">' + (body || placeholder()) + "</span></span>";
+      '<span class="mf-rad">' + (body || slot(inner)) + "</span></span>";
   }
 
   function drawCall(node) {
     var name = String(node.name).toLowerCase();
     var args = node.args || [];
+    /* Qavs ichidagi birinchi bo'sh joy — ochiladigan qavsdan keyin. */
+    var inner = (node.openAt === undefined ? node.start : node.openAt) + 1;
     var first = args.length ? draw(args[0]) : "";
 
-    if (name === "sqrt") { return radical("", first, node.start); }
-    if (name === "cbrt") { return radical("3", first, node.start); }
+    if (name === "sqrt") { return radical("", first, node.start, inner); }
+    if (name === "cbrt") { return radical("3", first, node.start, inner); }
     if (name === "root") {
-      return radical(args.length > 1 ? draw(args[1]) : "", first, node.start);
+      var degree = args.length > 1 ? draw(args[1]) : "";
+      return radical(degree || slot(), first, node.start, inner);
     }
     if (name === "abs") {
-      return '<span class="mf-bar" data-s="' + node.start + '">|</span>' + first +
-        '<span class="mf-bar">|</span>';
+      return '<span class="mf-bar" data-s="' + node.start + '">|</span>' +
+        (first || slot(inner)) + '<span class="mf-bar">|</span>';
     }
     if (name === "log10" || name === "lg") {
       return chars("log", node.start, "mf-fn") + '<sub class="mf-sub">10</sub>' +
-        '<span class="mf-paren">(</span>' + first + '<span class="mf-paren">)</span>';
+        '<span class="mf-paren">(</span>' + (first || slot(inner)) +
+        '<span class="mf-paren">)</span>';
     }
     if (name === "log2") {
       return chars("log", node.start, "mf-fn") + '<sub class="mf-sub">2</sub>' +
-        '<span class="mf-paren">(</span>' + first + '<span class="mf-paren">)</span>';
+        '<span class="mf-paren">(</span>' + (first || slot(inner)) +
+        '<span class="mf-paren">)</span>';
     }
     if (name === "log" && args.length > 1) {
       return chars("log", node.start, "mf-fn") +
-        '<sub class="mf-sub">' + draw(args[1]) + "</sub>" +
-        '<span class="mf-paren">(</span>' + first + '<span class="mf-paren">)</span>';
+        '<sub class="mf-sub">' + (draw(args[1]) || slot()) + "</sub>" +
+        '<span class="mf-paren">(</span>' + (first || slot(inner)) +
+        '<span class="mf-paren">)</span>';
     }
     if (name === "factorial") {
-      return '<span class="mf-paren">(</span>' + first +
+      return '<span class="mf-paren">(</span>' + (first || slot(inner)) +
         '<span class="mf-paren">)</span><span class="mf-op">!</span>';
     }
 
     var body = "";
     for (var i = 0; i < args.length; i += 1) {
       if (i) { body += '<span class="mf-op">,</span>'; }
-      body += draw(args[i]);
+      body += draw(args[i]) || slot();
     }
     return chars(node.name, node.start, isFunction(node.name) ? "mf-fn" : "mf-var") +
-      '<span class="mf-paren">(</span>' + (body || placeholder()) +
+      '<span class="mf-paren">(</span>' + (body || slot(inner)) +
       (node.closed ? '<span class="mf-paren">)</span>' : "");
   }
 
@@ -410,10 +449,27 @@
 
     var nodes = view.querySelectorAll("[data-s]");
     for (var i = 0; i < nodes.length; i += 1) {
-      if (parseInt(nodes[i].dataset.s, 10) >= offset) {
-        nodes[i].parentNode.insertBefore(caret, nodes[i]);
+      var node = nodes[i];
+      if (parseInt(node.dataset.s, 10) < offset) { continue; }
+
+      /* Bo'sh to'rtburchak — kursor uning ichida turadi. */
+      if (node.classList.contains("mf-box")) {
+        node.classList.add("is-active");
+        node.appendChild(caret);
         return;
       }
+
+      /*
+         Kasr chizig'i — kursor suratning oxirida turishi kerak,
+         aks holda u chiziq bilan surat orasiga tushib qolar edi.
+      */
+      if (node.classList.contains("mf-fbar")) {
+        var numerator = node.previousElementSibling;
+        if (numerator) { numerator.appendChild(caret); return; }
+      }
+
+      node.parentNode.insertBefore(caret, node);
+      return;
     }
     view.appendChild(caret);
   }
@@ -551,11 +607,24 @@
     fields = fields.filter(function (field) { return document.contains(field); });
   }
 
+  /*
+     Formulada to'ldirilmagan joy (bo'sh to'rtburchak) bormi.
+
+     Bor bo'lsa, ifoda hali tugallanmagan — jonli tekshiruv bekorga
+     «tahlil qilib bo'lmadi» deb ogohlantirmasligi kerak.
+  */
+  function incomplete(input) {
+    var state = stateOf(input);
+    if (!state || state.raw) { return false; }
+    return state.view.querySelectorAll(".mf-box").length > 0;
+  }
+
   global.MathField = {
     attach: attach,
     refresh: refresh,
     reset: detached,
     setRaw: setRaw,
+    incomplete: incomplete,
     /* Sinov va boshqa modullar uchun: matnni HTML ga o'girish. */
     toHtml: function (text) { return draw(parse(String(text || ""))); }
   };

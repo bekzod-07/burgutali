@@ -105,6 +105,13 @@
       updateSubmitState();
       return;
     }
+    /* Formulada bo'sh to'rtburchak bor — hali tugallanmagan, xato demaymiz. */
+    if (window.MathField && window.MathField.incomplete(target)) {
+      setHint(hint, "");
+      setPreview("Formulani to‘ldiring", null);
+      updateSubmitState();
+      return;
+    }
     if (!apiUrl) {
       setPreview(value, null);
       updateSubmitState();

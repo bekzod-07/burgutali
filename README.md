@@ -202,6 +202,22 @@ baholash, saqlash va SymPy tekshiruvi shu matn bilan ishlaydi, o‘zgargani
 faqat ko‘rinish. Kursor formulaning ichida ko‘rinadi; uni `‹ ›` tugmalari
 bilan yoki formulani bosib siljitish mumkin.
 
+To‘ldirilmagan joy **bo‘sh to‘rtburchak** bo‘lib turadi. Masalan, hech
+narsa yozmasdan kasr tugmasi bosilsa, darhol ustma-ust ikkita to‘rtburchak
+va ular orasida chiziq chiziladi, kursor esa yuqoridagi to‘rtburchakning
+ichida turadi:
+
+```
+□          ⌐‾‾¬          □
+─          |□|          □
+□                       (daraja)
+kasr       ildiz
+```
+
+Xuddi shunday: `√`, `□^□`, `log□(□)` va boshqa tugmalar ham bosilishi
+bilan bo‘sh to‘rtburchaklarini ko‘rsatadi. Formula to‘liq to‘ldirilmaguncha
+jonli tekshiruv xato haqida ogohlantirmaydi.
+
 Har bir maydonning o‘ng chetida ikkita tugma bor: **klaviatura** belgisi
 matematik klaviaturani ochadi/yopadi, **ro‘yxat** belgisi esa maydonni
 matn ko‘rinishiga o‘tkazadi (nusxa ko‘chirish yoki oddiy klaviatura bilan
@@ -402,7 +418,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (523 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (529 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -475,7 +491,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 523 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 529 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

@@ -665,6 +665,13 @@
     var value = input.value.trim();
     if (!value) { fx.textContent = ""; fx.className = "fx"; return; }
 
+    /* Formulada bo'sh to'rtburchak bor — hali tugallanmagan, xato demaymiz. */
+    if (window.MathField && MathField.incomplete(input)) {
+      fx.textContent = "Formulani to‘ldiring";
+      fx.className = "fx";
+      return;
+    }
+
     api("ifoda/", { method: "POST", body: { expr: value } }).then(function (data) {
       if (document.getElementById(id) !== input) { return; }   // ekran almashgan
       fx.textContent = data.pretty + (data.value ? " ≈ " + data.value : "");

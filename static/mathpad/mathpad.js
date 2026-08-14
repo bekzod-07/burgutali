@@ -78,7 +78,9 @@
       keys: [
         ["(", "(", 0, "mpad-op"],
         [")", ")", 0, "mpad-op"],
-        ['<span class="mpad-frac">' + BOX + '<i class="mpad-line"></i>' + BOX + "</span>", "/"],
+        /* Kasr: son yozilmagan bo'lsa ham bo'sh to'rtburchaklar chiziladi. */
+        ['<span class="mpad-frac">' + BOX + '<i class="mpad-line"></i>' + BOX + "</span>",
+          "/", 0, "", "frac"],
         ['<span class="mpad-root">&#8730;' + BOX + "</span>", "sqrt()", -1],
         [BOX + "<sup>" + BOX + "</sup>", "^"],
         [BOX + "<sup>2</sup>", "^2"],
@@ -282,6 +284,25 @@
     apply(input, value, start + text.length + (shift || 0));
   }
 
+  /*
+     Kasr tugmasi.
+
+     Kursordan oldin son yoki ifoda turgan bo'lsa, u surat bo'ladi va
+     kursor maxrajga tushadi (`455` -> `455/|`). Oldin hech narsa
+     bo'lmasa — bo'sh kasr chiziladi va kursor **suratda** qoladi
+     (`|/` -> ustma-ust ikkita bo'sh to'rtburchak).
+  */
+  function insertFraction() {
+    var input = state.input;
+    if (!input) { flash("Avval javob maydonini tanlang"); return; }
+
+    var before = input.value.slice(0, caretOf(input)).replace(/\s+$/, "");
+    var last = before.slice(-1);
+    var hasNumerator = last !== "" && "+-*/^(,|".indexOf(last) === -1;
+
+    insert("/", hasNumerator ? 0 : -1);
+  }
+
   function backspace() {
     var input = state.input;
     if (!input) { return; }
@@ -389,11 +410,12 @@
      Panelni qurish
      ===================================================================== */
 
+  /* [yorliq, matn, kursor siljishi, klass, maxsus amal] */
   function keyHtml(key) {
     var extra = key[3] ? " " + key[3] : "";
-    return '<button type="button" class="mpad-key' + extra + '" data-mp="ins"' +
-      ' data-ins="' + esc(key[1]) + '" data-caret="' + (key[2] || 0) + '">' +
-      key[0] + "</button>";
+    return '<button type="button" class="mpad-key' + extra + '" data-mp="' +
+      (key[4] || "ins") + '" data-ins="' + esc(key[1]) +
+      '" data-caret="' + (key[2] || 0) + '">' + key[0] + "</button>";
   }
 
   function buildHtml() {
@@ -444,6 +466,9 @@
     if (action === "ins") {
       hit(button);
       insert(button.dataset.ins, parseInt(button.dataset.caret, 10) || 0);
+    } else if (action === "frac") {
+      hit(button);
+      insertFraction();
     } else if (action === "del") {
       backspace();
     } else if (action === "left") {

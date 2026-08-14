@@ -70,6 +70,12 @@
 
     if (!expression) { window.MathPad.hint("", ""); return; }
 
+    /* Formulada bo'sh to'rtburchak bor — hali tugallanmagan, xato demaymiz. */
+    if (window.MathField && window.MathField.incomplete(input)) {
+      window.MathPad.hint("to‘ldirilmagan joy bor", "");
+      return;
+    }
+
     fetch(VALIDATE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

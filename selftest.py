@@ -2017,10 +2017,23 @@ def test_mathpad() -> None:
                 '"%s"' % name in field_source)
 
     R.check("Formula maydonida emoji yo'q", not _has_emoji(field_source))
+
+    styles = css.read_text(encoding="utf-8")
+    R.check("Formula uslublari umumiy faylda", ".mf-frac" in styles)
+
+    # --- To'ldirilmagan joy bo'sh to'rtburchak bo'lib chiziladi ---
+    R.check("Bo'sh joy to'rtburchagi tavsiflangan", "function slot(" in field_source)
+    R.check("Bo'sh joyda kursor ko'rinadi", 'classList.contains("mf-box")' in field_source)
+    R.check("Bo'sh to'rtburchak uslubi bor", ".mf-box.is-active" in styles)
     R.check(
-        "Formula uslublari umumiy faylda",
-        ".mf-frac" in css.read_text(encoding="utf-8"),
+        "Tugallanmagan formulada xato ko'rsatilmaydi",
+        "incomplete" in field_source,
     )
+    R.check(
+        "Kasr tugmasi bo'sh kasr chizadi",
+        'data-mp="frac"' in source or '"frac"' in source,
+    )
+    R.check("Bo'sh kasr uchun maxsus amal bor", "function insertFraction(" in source)
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
     for path in (
