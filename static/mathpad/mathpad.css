@@ -472,6 +472,10 @@
 .mf-frac .mf-box { width: .74em; height: .96em; }
 .mf-sup .mf-box, .mf-sub .mf-box { width: .78em; height: 1em; }
 
+/* Ildiz darajasi hali yozilmagan — to'rtburchak radikalga yopishmasin. */
+.mf-deg.is-empty { font-size: .62em; margin-right: -.08em; }
+.mf-deg.is-empty .mf-box { width: .92em; height: 1.1em; margin: 0; }
+
 .mf-ph { color: var(--mf-mute); font-family: inherit; font-size: .78em; font-style: italic; }
 
 /* Kursor. */

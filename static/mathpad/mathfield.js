@@ -396,6 +396,20 @@
     return draw(node);
   }
 
+  /*
+     Ko'paytmaning bir tomoni.
+
+     Kasr o'zi guruhlab turadi, shuning uchun `455/3 · (2/5)` dagi qavslar
+     ortiqcha — ikkala kasr yonma-yon chiziladi.
+  */
+  function factor(node, op) {
+    if (op === "·" && node && node.type === "group" &&
+        node.body && node.body.type === "frac") {
+      return drawInner(node) + tail(node, node.closed);
+    }
+    return draw(node);
+  }
+
   function draw(node) {
     if (!node) { return ""; }
 
@@ -421,9 +435,9 @@
           (draw(node.arg) || slot(node.start + 1));
 
       case "bin":
-        return (draw(node.left) || slot(node.start)) +
+        return (factor(node.left, node.op) || slot(node.start)) +
           anchor(node.op === "-" ? "−" : node.op, node.start, "mf-c mf-op") +
-          (draw(node.right) || slot(node.start + 1));
+          (factor(node.right, node.op) || slot(node.start + 1));
 
       case "juxt":
         return draw(node.left) + '<span class="mf-gap"></span>' + draw(node.right);
@@ -477,8 +491,10 @@
   }
 
   function radical(degree, body, start) {
+    /* Daraja hali yozilmagan bo'lsa, to'rtburchakka biroz ko'proq joy kerak. */
+    var cls = "mf-deg" + (degree.indexOf("mf-box") === -1 ? "" : " is-empty");
     return '<span class="mf-root">' +
-      (degree ? '<span class="mf-deg">' + degree + "</span>" : "") +
+      (degree ? '<span class="' + cls + '">' + degree + "</span>" : "") +
       '<span class="mf-radical" data-s="' + start + '">√</span>' +
       '<span class="mf-rad">' + body + "</span></span>";
   }
@@ -615,6 +631,7 @@
     var nodes = view.querySelectorAll("[data-s]");
     var exact = null;
     var exactDepth = 0;
+    var exactBox = false;
     var before = null;
     var beforeAt = -1;
     var beforeDepth = 0;
@@ -626,7 +643,17 @@
       var level = depthOf(node, view);
 
       if (at === offset) {
-        if (!exact || level < exactDepth) { exact = node; exactDepth = level; }
+        /*
+           Bo'sh to'rtburchak ustunroq: kursor o'sha katakning ichida
+           ko'rinishi kerak. Qolganlarida eng tashqaridagisi tanlanadi —
+           shunda kursor daraja yoki ildiz ichida qolib ketmaydi.
+        */
+        var box = node.classList.contains("mf-box");
+        if (!exact || (box && !exactBox) || (box === exactBox && level < exactDepth)) {
+          exact = node;
+          exactDepth = level;
+          exactBox = box;
+        }
       } else if (at < offset) {
         if (at > beforeAt || (at === beforeAt && level < beforeDepth)) {
           before = node;

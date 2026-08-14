@@ -229,6 +229,18 @@ Bo‘sh tuzilma ustida `⌫` bosilsa (masalan `√□` yoki `□^□` xato bosil
 bo‘lsa), bitta belgi emas — butun tuzilma o‘chadi, ekranda yolg‘iz qavs
 qolib ketmaydi.
 
+**Ildiz darajasi.** `ⁿ√□` tugmasida daraja ham bo‘sh to‘rtburchak bo‘lib
+turadi — unga istalgan butun son yoziladi (`⁵√32`, `⁴√16`). Kursor avval
+ildiz ostidagi katakka tushadi, `›` bilan daraja katagiga o‘tiladi.
+
+**Kasr tugmasi** uch xil ishlaydi:
+
+| Kursordan oldin | Natija |
+|-----------------|--------|
+| hech narsa yoki amal (`2+`) | bo‘sh kasr chiziladi, yozilgan son o‘z joyida qoladi: `2 + □/□` |
+| son yoki ifoda (`455`) | u surat bo‘ladi, kursor maxrajga tushadi: `455/□` |
+| tayyor kasr (`455/3`) | eski kasr suratga **ko‘tarilmaydi**, yangisi yonida chiziladi: `455/3 · □/□` |
+
 Har bir maydonning o‘ng chetida ikkita tugma bor: **klaviatura** belgisi
 matematik klaviaturani ochadi/yopadi, **ro‘yxat** belgisi esa maydonni
 matn ko‘rinishiga o‘tkazadi (nusxa ko‘chirish yoki oddiy klaviatura bilan
@@ -429,7 +441,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (538 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (545 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -502,7 +514,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 538 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 545 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

@@ -92,8 +92,14 @@
         [BOX + "<sup>3</sup>", "^(3)"],
         ['<span class="mpad-root"><span class="mpad-deg">3</span>&#8730;' + BOX + "</span>",
           "cbrt()", -1],
+        /*
+           Ixtiyoriy darajali ildiz. Daraja ham bo'sh to'rtburchak bo'lib
+           chiziladi — unga istalgan butun son yoziladi. Kursor avval
+           ildiz ostidagi katakka tushadi, «›» bilan daraja katagiga
+           o'tiladi (matndagi tartib ham shunday: `root(ifoda, daraja)`).
+        */
         ['<span class="mpad-root"><span class="mpad-deg">n</span>&#8730;' + BOX + "</span>",
-          "root(,3)", -3]
+          "root(,)", -2]
       ]
     },
     {
@@ -290,12 +296,42 @@
   }
 
   /*
+     Kursordan oldingi had allaqachon kasrmi.
+
+     Oxirgi had ichida (qavslardan tashqarida) `/` uchrasa — kasr.
+     `+`, `-`, `,`, `|` va ochiq qavs hadni tugatadi; `*` esa tugatmaydi
+     (u `/` bilan bir darajada).
+  */
+  function endsWithFraction(text) {
+    var depth = 0;
+    for (var i = text.length - 1; i >= 0; i -= 1) {
+      var ch = text.charAt(i);
+      if (ch === ")") { depth += 1; continue; }
+      if (ch === "(") {
+        if (depth === 0) { return false; }
+        depth -= 1;
+        continue;
+      }
+      if (depth) { continue; }
+      if (ch === "/") { return true; }
+      if ("+-,|".indexOf(ch) !== -1) { return false; }
+    }
+    return false;
+  }
+
+  /*
      Kasr tugmasi.
 
-     Kursordan oldin son yoki ifoda turgan bo'lsa, u surat bo'ladi va
-     kursor maxrajga tushadi (`455` -> `455/|`). Oldin hech narsa
-     bo'lmasa — bo'sh kasr chiziladi va kursor **suratda** qoladi
-     (`|/` -> ustma-ust ikkita bo'sh to'rtburchak).
+     Uchta holat bor:
+
+       * oldida hech narsa yoki amal turibdi (`2+`) — bo'sh kasr
+         chiziladi, kursor **suratda** qoladi va yozilgan son o'z
+         joyida qoladi (`2 + □/□`);
+       * oldida son yoki ifoda turibdi (`455`) — u surat bo'ladi,
+         kursor maxrajga tushadi (`455/|`);
+       * oldida tayyor kasr turibdi (`455/3`) — u yangi kasrning
+         suratiga ko'tarilib ketmaydi: yangi kasr alohida ko'paytuvchi
+         bo'lib qo'shiladi (`455/3 · □/□`).
   */
   function insertFraction() {
     var input = state.input;
@@ -303,9 +339,14 @@
 
     var before = input.value.slice(0, caretOf(input)).replace(/\s+$/, "");
     var last = before.slice(-1);
-    var hasNumerator = last !== "" && "+-*/^(,|".indexOf(last) === -1;
 
-    insert("/", hasNumerator ? 0 : -1);
+    if (last === "" || "+-*/^(,|".indexOf(last) !== -1) {
+      insert("/", -1);
+    } else if (endsWithFraction(before)) {
+      insert("*(/)", -2);
+    } else {
+      insert("/", 0);
+    }
   }
 
   /*
@@ -318,32 +359,36 @@
      Natija: [boshi, oxiri] yoki `null`.
   */
   function emptyShell(value, caret) {
+    /*
+       Qavs ichida faqat shu belgilar bo'lsa, tuzilma bo'sh hisoblanadi.
+       Son yozilgan bo'lsa — yo'q: yozilgani bekorga o'chib ketmasin.
+    */
+    var FILLER = ",/";
     var left = value.charAt(caret - 1);
     var right = value.charAt(caret);
     /* Kursor bo'sh argument joyida bo'lishi shart. */
     if (!left || "(,".indexOf(left) === -1) { return null; }
-    if (!right || ",)".indexOf(right) === -1) { return null; }
+    if (!right || ",/)".indexOf(right) === -1) { return null; }
 
-    /* Qavs ichida faqat vergul va (masalan ildiz darajasi kabi) son bo'lsin. */
     var open = caret - 1;
     while (open >= 0 && value.charAt(open) !== "(") {
-      if (",0123456789".indexOf(value.charAt(open)) === -1) { return null; }
+      if (FILLER.indexOf(value.charAt(open)) === -1) { return null; }
       open -= 1;
     }
     if (open < 0) { return null; }
 
     var close = caret;
     while (close < value.length && value.charAt(close) !== ")") {
-      if (",0123456789".indexOf(value.charAt(close)) === -1) { return null; }
+      if (FILLER.indexOf(value.charAt(close)) === -1) { return null; }
       close += 1;
     }
     if (close >= value.length) { return null; }
 
-    /* Qavsdan oldingi funksiya nomi yoki daraja belgisi ham birga ketadi. */
+    /* Qavsdan oldingi funksiya nomi yoki amal belgisi ham birga ketadi. */
     var from = open;
     while (from > 0 && /[A-Za-z0-9_]/.test(value.charAt(from - 1))) { from -= 1; }
     while (from < open && /[0-9]/.test(value.charAt(from))) { from += 1; }
-    if (from === open && value.charAt(from - 1) === "^") { from -= 1; }
+    if (from === open && "^*".indexOf(value.charAt(from - 1)) !== -1) { from -= 1; }
 
     return [from, close + 1];
   }

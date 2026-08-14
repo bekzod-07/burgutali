@@ -1955,7 +1955,7 @@ def test_mathpad() -> None:
     rows = {
         "raqamlar": [str(digit) for digit in range(10)],
         "belgilar": ["pi", "e", "a", "b", "c", "x", "y", "z", "."],
-        "amallar": ["(", ")", "/", "sqrt()", "^()", "^(2)", "^(3)", "cbrt()", "root(,3)"],
+        "amallar": ["(", ")", "/", "sqrt()", "^()", "^(2)", "^(3)", "cbrt()", "root(,)"],
         "trigonometriya": ["+", "-", "sin()", "cos()", "tan()", "cot()"],
         "teskari trigonometriya": ["arcsin()", "arccos()", "arctan()", "arcctg()"],
         "logarifmlar": ["ln()", "log10()", "log(,)", "exp()"],
@@ -1973,6 +1973,10 @@ def test_mathpad() -> None:
         ("2^3", 8), ("cot(pi/4)", 1), ("arcctg(1)", None),
         # Daraja qavs bilan yoziladi — keyingi son ko'rsatkichga qo'shilmaydi.
         ("2^(3)", 8), ("2^(2)", 4), ("2^(3)4", 32), ("2^(2)5", 20), ("2^(-1)", 0.5),
+        # Ildiz darajasi — ixtiyoriy butun son.
+        ("root(32,5)", 2), ("root(16,4)", 2),
+        # Tayyor kasrdan keyin qo'yilgan yangi kasr — alohida ko'paytuvchi.
+        ("455/3*(2/5)", None), ("1/2*(3/4)", 0.375),
     ]
     for expression, expected in functions:
         parsed = parse_expression(expression)
@@ -2047,6 +2051,20 @@ def test_mathpad() -> None:
     R.check(
         "Bo'sh tuzilma butunlay o'chadi",
         "function emptyShell(" in source,
+    )
+
+    # --- Yangi kasr eskisining suratiga ko'tarilmaydi ---
+    R.check(
+        "Tayyor kasr ustiga yangi kasr chiqmaydi",
+        "function endsWithFraction(" in source,
+    )
+    R.check(
+        "Ko'paytmadagi ortiqcha qavslar chizilmaydi",
+        "function factor(" in field_source,
+    )
+    R.check(
+        "Ildiz darajasi bo'sh to'rtburchak bo'lib chiziladi",
+        '"root(,)"' in source and ".mf-deg.is-empty" in styles,
     )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
