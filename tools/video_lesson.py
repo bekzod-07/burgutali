@@ -29,7 +29,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -39,6 +38,9 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from playwright.sync_api import sync_playwright  # noqa: E402
+
+from tools import video_voice  # noqa: E402
+from tools.video_voice import Narrator  # noqa: E402
 
 # --------------------------------------------------------------------------
 #  Sozlamalar
@@ -56,12 +58,37 @@ PANEL_PASSWORD = "RaschDemo2026"
 # Web ilovaga shu foydalanuvchi nomidan kiramiz (demo ishtirokchi).
 VIDEO_USER_ID = 900000001
 
+# Ilova faqat Telegram ichida ochiladi; brauzerda `debug_user` bilan kiriladi
+# (faqat DEBUG=True da ishlaydi — `apps/miniapp/auth.py`).
+APP_URL = f"{SITE}/app/?debug_user={VIDEO_USER_ID}"
+
 # Tezlik koeffitsiyenti: 1.0 — odatiy sur'at.
 SPEED = float(os.environ.get("VIDEO_SPEED", "1.0"))
+
+# Ovoz: 0 — jim yozuv; VIDEO_VOICE_WAIT=0 — ovoz keshga yig'iladi, lekin
+# sahna uni kutmaydi (oqimni tez sinash uchun).
+VOICE_ON = os.environ.get("VIDEO_VOICE_OFF", "") != "1"
+VOICE_WAIT = os.environ.get("VIDEO_VOICE_WAIT", "1") != "0"
+
+# Ekran ustidagi matn qatlamlari (pastdagi izoh yo'lagi, chapdagi izoh
+# paneli va o'ng yuqoridagi yorliq). Diktor hammasini gapirib bergani
+# uchun ular standart holatda o'chirilgan: ekranda faqat ilovaning o'zi
+# ko'rinadi. Kerak bo'lsa: VIDEO_CAPTIONS=1.
+CAPTIONS = os.environ.get("VIDEO_CAPTIONS", "0") == "1"
 
 
 def pause(page, seconds: float) -> None:
     page.wait_for_timeout(int(seconds * 1000 * SPEED))
+
+
+def hold(page, seconds: float) -> None:
+    """Ovoz uchun kutish — tezlik koeffitsiyentiga bog'liq emas."""
+    if seconds > 0:
+        page.wait_for_timeout(int(seconds * 1000))
+
+
+def warn(message: str) -> None:
+    print(f"  [!] {message}")
 
 
 # ==========================================================================
@@ -119,6 +146,20 @@ OVERLAY_JS = r"""
       border-radius: 50%; border: 3px solid #f0b429; pointer-events: none;
       left: 0; top: 0; opacity: 0;
     }
+    /* Chap izoh paneli ochiq bo'lganda sahifa o'ng tomonga suriladi —
+       aks holda panel ilovaning chap qismini yopib qo'yadi. */
+    html.ls-shift body { padding-left: 356px !important; }
+    /* chapga yopishgan qatlamlar */
+    html.ls-shift .finish-bar,
+    html.ls-shift .modal-backdrop { left: 356px !important; }
+    /* markazlashtirilgan qatlamlar (left 50% + translateX -50%) */
+    html.ls-shift .app-bar,
+    html.ls-shift .tabbar,
+    html.ls-shift .mpad,
+    html.ls-shift .toast { left: calc(50% + 178px) !important; }
+    html.ls-shift .app-bar,
+    html.ls-shift .tabbar { width: calc(100% - 356px) !important;
+                            max-width: calc(100% - 356px) !important; }
   `;
   document.documentElement.appendChild(style);
 
@@ -150,8 +191,13 @@ OVERLAY_JS = r"""
   };
   window.__lsSide = (title, items) => {
     const el = mk('ls-side');
-    if (!title && !items) { el.style.display = 'none'; return; }
+    if (!title && !items) {
+      el.style.display = 'none';
+      document.documentElement.classList.remove('ls-shift');
+      return;
+    }
     el.style.display = 'block';
+    document.documentElement.classList.add('ls-shift');
     el.innerHTML = '<h4>' + (title || '') + '</h4>' +
       (items || []).map(t => '<p>' + t + '</p>').join('');
   };
@@ -181,16 +227,39 @@ OVERLAY_JS = r"""
 class Lesson:
     """Sahnalarni ketma-ket ko'rsatib, izohlarni ekranga chiqaradi."""
 
-    def __init__(self, page) -> None:
+    def __init__(self, page, narrator: Narrator | None = None) -> None:
         self.page = page
         self._chip = ""
         self._started = time.time()
         self.chapters: list[tuple[float, str]] = []
+        self.voice = narrator or Narrator(enabled=False)
+        # Diktor stsenariydagi tanaffusdan ko'proq gapirsa, ortiqcha vaqt
+        # keyingi jim tanaffuslardan ushlab qolinadi — «o'lik» kadr bo'lmasin.
+        self._debt = 0.0
 
     # ----------------------------------------------------------------
+    def now(self) -> float:
+        return time.time() - self._started
+
     def chapter(self, name: str) -> None:
         """Bob boshlanishini vaqti bilan belgilaydi (YouTube uchun)."""
-        self.chapters.append((time.time() - self._started, name))
+        self.chapters.append((self.now(), name))
+
+    # ----------------------------------------------------------------
+    #  Diktor
+    # ----------------------------------------------------------------
+    def tell(self, text: str, *, block: bool = True, scripted: float = 0.0) -> None:
+        """Gapni ovozga qo'yadi va (kerak bo'lsa) tugashini kutadi."""
+        if not text:
+            return
+        started = self.now()
+        end = self.voice.queue(text, started)
+        spoken = max(0.0, end - started - video_voice.GAP)
+        if not spoken:
+            return
+        if block and VOICE_WAIT:
+            hold(self.page, max(0.0, started + spoken - self.now()))
+            self._debt = min(8.0, self._debt + max(0.0, spoken - scripted))
 
     # ----------------------------------------------------------------
     #  Asosiy yordamchilar
@@ -201,31 +270,54 @@ class Lesson:
             self.page.evaluate("t => window.__lsChip(t)", self._chip)
 
     def chip(self, text: str) -> None:
-        """O'ng yuqoridagi modul yorlig'i."""
+        """O'ng yuqoridagi modul yorlig'i (faqat CAPTIONS rejimida)."""
+        if not CAPTIONS:
+            return
         self._chip = text
         self._ensure()
 
-    def say(self, text: str, seconds: float = 3.2) -> None:
-        """Pastdagi izoh matni."""
-        self._ensure()
-        self.page.evaluate("t => window.__lsSub(t)", text)
-        pause(self.page, seconds)
+    def say(self, text: str, seconds: float = 3.2, *, voice: str | None = None) -> None:
+        """Sahna izohi — diktor shu matnni o'qiydi.
 
-    def side(self, title: str, items: list[str], seconds: float = 0.0) -> None:
-        """Chap paneldagi izoh (Mini App sahnalari uchun)."""
+        `CAPTIONS` yoqilgan bo'lsa, matn ekran pastida ham chiqadi.
+        """
         self._ensure()
-        self.page.evaluate(
-            "([t, i]) => window.__lsSide(t, i)", [title, items]
-        )
+        if CAPTIONS:
+            self.page.evaluate("t => window.__lsSub(t)", text)
+        started = self.now()
+        self.tell(voice if voice is not None else text, scripted=seconds)
+        left = seconds * SPEED - (self.now() - started)
+        if left > 0:
+            hold(self.page, left)
+
+    def side(self, title: str, items: list[str], seconds: float = 0.0,
+             *, voice: str | None = None) -> None:
+        """Uzunroq izoh. Ekranda — faqat CAPTIONS rejimida chap panelda."""
+        self._ensure()
+        if CAPTIONS:
+            self.page.evaluate(
+                "([t, i]) => window.__lsSide(t, i)", [title, items]
+            )
+        pause(self.page, 0.45)
+        self.tell(voice if voice is not None else " ".join(items))
         if seconds:
             pause(self.page, seconds)
 
     def clear_side(self) -> None:
+        if not CAPTIONS:
+            return
         self._ensure()
         self.page.evaluate("() => window.__lsSide(null, null)")
 
     def goto(self, url: str, *, wait: float = 1.6) -> None:
-        self.page.goto(url, wait_until="domcontentloaded")
+        try:
+            self.page.goto(url, wait_until="domcontentloaded")
+        except Exception:
+            warn(f"sahifa sekin ochildi: {url}")
+            try:
+                self.page.goto(url, wait_until="commit", timeout=20000)
+            except Exception:
+                warn(f"sahifa ochilmadi: {url}")
         try:
             self.page.wait_for_load_state("networkidle", timeout=8000)
         except Exception:
@@ -234,7 +326,10 @@ class Lesson:
         pause(self.page, wait)
 
     def beat(self, seconds: float = 1.0) -> None:
-        pause(self.page, seconds)
+        """Jim tanaffus. Diktor allaqachon gapirgan bo'lsa — qisqaradi."""
+        take = min(self._debt, max(0.0, seconds - 0.7))
+        self._debt -= take
+        pause(self.page, seconds - take)
 
     # ----------------------------------------------------------------
     #  Kursor bilan bosish
@@ -314,6 +409,7 @@ class Lesson:
         *,
         seconds: float = 4.6,
         accent: str = "#f0b429",
+        voice: str | None = None,
     ) -> None:
         items = "".join(
             f'<li style="animation-delay:{0.25 + i * 0.16}s">{line}</li>'
@@ -345,7 +441,13 @@ class Lesson:
 </div></body>"""
         self.page.set_content(html)
         self._chip = ""
-        pause(self.page, seconds)
+        started = self.now()
+        if voice:
+            pause(self.page, 0.5)
+            self.tell(voice, scripted=seconds)
+        left = seconds * SPEED - (self.now() - started)
+        if left > 0:
+            hold(self.page, left)
 
 
 # ==========================================================================
@@ -407,6 +509,11 @@ CHAT_SHELL = """<!doctype html><meta charset="utf-8"><body style="margin:0">
   @keyframes blink { 0%,60%,100%{opacity:.3} 30%{opacity:1} }
   #note-body p { margin:0 0 15px; animation:pop .35s ease both }
   #note-body p b { color:#fff; font-weight:600 }
+  /* Izohsiz rejim: chap panel yashiriladi, suhbat markazga tortiladi. */
+  #wrap.no-note aside { display:none }
+  #wrap.no-note main { max-width:900px; margin:0 auto; width:100%;
+                       border-left:1px solid rgba(255,255,255,.06);
+                       border-right:1px solid rgba(255,255,255,.06) }
 </style>
 <script>
   const feed = document.getElementById('feed');
@@ -459,6 +566,7 @@ CHAT_SHELL = """<!doctype html><meta charset="utf-8"><body style="margin:0">
     replybar.innerHTML = buttons.map(b => '<div class="rb">' + b + '</div>').join('');
   };
   window.lsClear = () => { feed.innerHTML = ''; replybar.style.display = 'none'; };
+  window.lsNoNote = () => { document.getElementById('wrap').classList.add('no-note'); };
 </script>
 </body>"""
 
@@ -466,15 +574,24 @@ CHAT_SHELL = """<!doctype html><meta charset="utf-8"><body style="margin:0">
 class Chat:
     """Telegram suhbatini kadr-kadr ko'rsatadi."""
 
-    def __init__(self, page) -> None:
+    def __init__(self, page, lesson: "Lesson | None" = None) -> None:
         self.page = page
+        self.lesson = lesson
 
     def open(self) -> None:
         self.page.set_content(CHAT_SHELL)
+        if not CAPTIONS:
+            self.page.evaluate("() => window.lsNoNote()")
         pause(self.page, 0.6)
 
-    def note(self, items: list[str]) -> None:
-        self.page.evaluate("i => window.lsNote(i)", items)
+    def note(self, items: list[str], *, voice: str | None = None) -> None:
+        """Suhbat bo'limining izohi — diktor uni suhbat ustidan o'qiydi."""
+        if CAPTIONS:
+            self.page.evaluate("i => window.lsNote(i)", items)
+        if self.lesson is not None:
+            pause(self.page, 0.5)
+            self.lesson.tell(voice if voice is not None else " ".join(items),
+                             block=False)
 
     def who(self, name: str, sub: str) -> None:
         self.page.evaluate("([n, s]) => window.lsChatTitle(n, s)", [name, sub])
@@ -635,6 +752,32 @@ def collect_facts() -> dict:
     else:
         facts["access_code"] = ""
 
+    # Javob kalitlari — videoda savollarga to'g'ri javob berish uchun.
+    def keys_of(exam) -> dict[int, str]:
+        if exam is None:
+            return {}
+        return {
+            q.order: (q.correct_key or "")
+            for q in exam.questions.all().order_by("order")
+        }
+
+    facts["open_keys"] = keys_of(facts["open_exam"])
+    facts["national_keys"] = keys_of(facts["live_national"])
+
+    # Panelda ko'rsatiladigan bitta urinish
+    facts["attempt_id"] = None
+    try:
+        from apps.attempts.models import Attempt
+
+        attempt = (
+            Attempt.objects.filter(exam=facts["rasch_exam"])
+            .order_by("-id")
+            .first()
+        )
+        facts["attempt_id"] = attempt.pk if attempt else None
+    except Exception:
+        pass
+
     return facts
 
 
@@ -653,6 +796,11 @@ def scene_intro(lesson: Lesson) -> None:
             "Web ilova, boshqaruv paneli va PDF sertifikatlar",
         ],
         seconds=6.0,
+        voice="Assalomu alaykum! Bu videoda men o‘zim ishlab chiqqan "
+              "matematika test platformasini boshidan oxirigacha ko‘rsatib "
+              "beraman. Platforma Telegram bot va web ilova orqali Milliy "
+              "sertifikat formatidagi testlarni o‘tkazadi, natijalarni esa "
+              "Rash modeli asosida adolatli baholaydi va sertifikat beradi.",
     )
     lesson.title_card(
         "Darsda nimalar bor",
@@ -666,6 +814,15 @@ def scene_intro(lesson: Lesson) -> None:
             "6 — Xulosa",
         ],
         seconds=6.5,
+        voice="Darsni olti bosqichga bo‘ldim. Avval platforma bilan "
+              "tanishamiz. So‘ng Telegram botni ro‘yxatdan o‘tishdan tortib "
+              "natijagacha ko‘ramiz. Uchinchi bosqichda web ilovada testni "
+              "o‘zimiz topshiramiz. To‘rtinchisida boshqaruv paneliga "
+              "kiramiz va Rash hisobini ko‘ramiz. Beshinchi bosqichda "
+              "sertifikatni tekshiramiz, oxirida esa xulosa qilamiz. Men bu "
+              "yerda platforma egasi, ya’ni administrator nomidan ish "
+              "yuritaman — shuning uchun hamma bo‘limni ichkaridan "
+              "ko‘rsataman.",
     )
 
 
@@ -675,6 +832,7 @@ def scene_home(lesson: Lesson) -> None:
         "Platforma bilan tanishuv",
         ["Ommaviy sahifa · imkoniyatlar · baholash shkalasi"],
         seconds=3.6,
+        voice="Birinchi bosqich — platforma bilan tanishuv.",
     )
     lesson.chip("1 — TANISHUV")
     lesson.goto(f"{SITE}/")
@@ -682,17 +840,28 @@ def scene_home(lesson: Lesson) -> None:
         "Platformaning ommaviy sahifasi. Bu yerda testlar soni, topshirilgan "
         "javoblar va berilgan sertifikatlar ko‘rinib turadi.",
         4.4,
+        voice="Mana platformaning ommaviy sahifasi. U ro‘yxatdan o‘tmagan "
+              "odamga ham ochiq. Yuqorida jonli hisoblagichlar turibdi: "
+              "nechta test o‘tkazilgan, nechta javob topshirilgan va nechta "
+              "sertifikat berilgan.",
     )
     lesson.say(
         "Maksimal ball — <b>90.14</b>. Bu Milliy sertifikat shkalasidagi eng yuqori "
         "natija; barcha ballar shu shkalaga keltiriladi.",
         4.2,
+        voice="Maksimal ball — to‘qson butun o‘n to‘rt. Bu Milliy sertifikat "
+              "shkalasidagi eng yuqori natija; platformadagi barcha ballar "
+              "aynan shu shkalaga keltiriladi.",
     )
     lesson.scroll(520)
     lesson.say(
         "Platformaning to‘rt asosiy imkoniyati: uch xil test turi, Rasch baholash, "
         "matematik klaviatura va bir martalik ID kodlar.",
         4.6,
+        voice="Platformaning to‘rtta asosiy imkoniyati bor: uch xil test "
+              "turi, Rash modeli asosida baholash, matematik klaviatura va "
+              "bir martalik Ay-Di kodlar. Bularning har birini video "
+              "davomida alohida ko‘rsataman.",
     )
     lesson.scroll(560)
     lesson.say(
@@ -700,15 +869,29 @@ def scene_home(lesson: Lesson) -> None:
         "matritsasidan hisoblanadi, o‘quvchining darajasi esa aynan shu qiyinlikni "
         "hisobga olib baholanadi.",
         5.0,
+        voice="Rash modelining mohiyati shunda: har bir savolning qiyinligi "
+              "javoblar matritsasidan hisoblab chiqiladi, o‘quvchining "
+              "darajasi esa aynan shu qiyinlikni hisobga olib baholanadi. "
+              "Ya’ni oson savolga javob bergan bilan qiyin savolni yechgan "
+              "bir xil ball olmaydi.",
     )
     lesson.scroll(560)
     lesson.say(
         "Baholash shkalasi: 70 balldan yuqori — A+, 46 balldan past bo‘lsa daraja "
         "berilmaydi. Chegaralar texnik topshiriqqa aynan mos.",
         4.6,
+        voice="Baholash shkalasi ham shu yerda. Yetmish balldan yuqori "
+              "natija A plyus darajasini beradi, qirq oltidan past bo‘lsa "
+              "daraja berilmaydi. Chegaralar texnik topshiriqqa aynan mos "
+              "qilib qo‘yilgan.",
     )
     lesson.scroll(600)
-    lesson.say("Sahifa oxirida bot va sertifikat tekshiruviga havolalar bor.", 3.2)
+    lesson.say(
+        "Sahifa oxirida bot va sertifikat tekshiruviga havolalar bor.",
+        3.2,
+        voice="Sahifaning eng pastida botga va sertifikat tekshiruvi "
+              "sahifasiga havolalar turibdi.",
+    )
 
 
 def scene_bot(chat: Chat, lesson: Lesson, tape: DialogTape) -> None:
@@ -721,31 +904,51 @@ def scene_bot(chat: Chat, lesson: Lesson, tape: DialogTape) -> None:
             "Testni topshirish va natijani ko‘rish",
         ],
         seconds=4.4,
+        voice="Ikkinchi bosqich — Telegram bot. Ekranda ko‘rinadigan har bir "
+              "xabar va tugma botning haqiqiy kodidan olingan: bu montaj "
+              "emas, botning o‘z javoblari.",
     )
 
     chat.open()
 
     # --- 2.1 Ro'yxatdan o'tish -------------------------------------
     chat.who("Rasch Math Bot", "Sardor Aliyev bilan suhbat")
-    chat.note([
-        "<b>Ro‘yxatdan o‘tish</b>",
-        "Bot avval kanalga a’zolikni tekshiradi.",
-        "So‘ng ism-familiya va telefon raqami so‘raladi.",
-        "Ism kamida ikki so‘zdan iborat bo‘lishi shart — sertifikatda "
-        "to‘liq ism chiqishi uchun.",
-    ])
+    chat.note(
+        [
+            "<b>Ro‘yxatdan o‘tish</b>",
+            "Bot avval kanalga a’zolikni tekshiradi.",
+            "So‘ng ism-familiya va telefon raqami so‘raladi.",
+            "Ism kamida ikki so‘zdan iborat bo‘lishi shart — sertifikatda "
+            "to‘liq ism chiqishi uchun.",
+        ],
+        voice="Foydalanuvchi botni ishga tushirganda birinchi bo‘lib "
+              "majburiy obuna tekshiriladi: kanalga a’zo bo‘lmagan odam "
+              "testga kira olmaydi. Keyin bot ism-familiyani va telefon "
+              "raqamini so‘raydi. Ism kamida ikki so‘zdan iborat bo‘lishi "
+              "shart, chunki keyinchalik sertifikatda to‘liq ism chiqishi "
+              "kerak. Telefon raqami esa bitta tugma bilan yuboriladi.",
+    )
     play(chat, tape.slice(0, 16), bot_wait=2.6)
     lesson.beat(1.4)
 
     # --- 2.2 Test yaratish ------------------------------------------
     chat.clear()
     chat.who("Rasch Math Bot", "Nodira Qodirova bilan suhbat")
-    chat.note([
-        "<b>Test yaratish sehrgari</b>",
-        "O‘qituvchi test turini tanlaydi, nom beradi, savollar sonini "
-        "ko‘rsatadi va javob kalitini kiritadi.",
-        "Oxirida test kodi beriladi — o‘quvchilar shu kod bilan kiradi.",
-    ])
+    chat.note(
+        [
+            "<b>Test yaratish sehrgari</b>",
+            "O‘qituvchi test turini tanlaydi, nom beradi, savollar sonini "
+            "ko‘rsatadi va javob kalitini kiritadi.",
+            "Oxirida test kodi beriladi — o‘quvchilar shu kod bilan kiradi.",
+        ],
+        voice="Endi o‘qituvchi nomidan test yaratamiz. Bot sehrgar "
+              "ko‘rinishida ishlaydi: avval test turini tanlaydi — oddiy "
+              "test, bepul Rash testi yoki pullik Rash testi. Keyin testga "
+              "nom beradi, savollar sonini ko‘rsatadi va javob kalitini "
+              "bitta qatorda kiritadi. Tugash vaqtini tayyor variantdan "
+              "yoki kalendardan tanlash mumkin. Oxirida bot test kodini "
+              "beradi — o‘quvchilar aynan shu kod bilan kiradi.",
+    )
     start = tape.find("Yangi test yaratish")
     play(chat, tape.slice(start - 1, start + 15), bot_wait=2.5)
     lesson.beat(1.6)
@@ -753,42 +956,69 @@ def scene_bot(chat: Chat, lesson: Lesson, tape: DialogTape) -> None:
     # --- 2.3 Testni topshirish --------------------------------------
     chat.clear()
     chat.who("Rasch Math Bot", "Sardor Aliyev bilan suhbat")
-    chat.note([
-        "<b>Testni topshirish</b>",
-        "O‘quvchi kodni kiritadi. Noto‘g‘ri kod kiritilsa, bot ogohlantiradi.",
-        "Har bir javob darhol saqlanadi — internet uzilsa ham yo‘qolmaydi.",
-        "Savollar orasida erkin yurish mumkin.",
-    ])
+    chat.note(
+        [
+            "<b>Testni topshirish</b>",
+            "O‘quvchi kodni kiritadi. Noto‘g‘ri kod kiritilsa, bot ogohlantiradi.",
+            "Har bir javob darhol saqlanadi — internet uzilsa ham yo‘qolmaydi.",
+            "Savollar orasida erkin yurish mumkin.",
+        ],
+        voice="Endi yana o‘quvchi tomoniga qaytamiz. U testga kirish uchun "
+              "kodni kiritadi. Noto‘g‘ri kod kiritilsa, bot xatoni "
+              "tushuntirib aytadi. Test boshlangach har bir javob darhol "
+              "bazaga saqlanadi, shuning uchun internet uzilib qolsa ham "
+              "javoblar yo‘qolmaydi.",
+    )
     start = tape.find("Test kodini kiriting")
     play(chat, tape.slice(start - 1, start + 8), bot_wait=2.4)
 
-    chat.note([
-        "<b>Savollarga javob berish</b>",
-        "Progress chizig‘i qancha savol bajarilganini ko‘rsatadi.",
-        "Tanlangan variant <b>●</b> belgisi bilan belgilanadi.",
-        "«Ko‘rib chiqish» — barcha javoblarni bir ekranda tekshirish.",
-    ])
+    chat.note(
+        [
+            "<b>Savollarga javob berish</b>",
+            "Progress chizig‘i qancha savol bajarilganini ko‘rsatadi.",
+            "Tanlangan variant <b>●</b> belgisi bilan belgilanadi.",
+            "«Ko‘rib chiqish» — barcha javoblarni bir ekranda tekshirish.",
+        ],
+        voice="Savollar birin-ketin keladi. Yuqoridagi chiziq qancha savol "
+              "bajarilganini ko‘rsatadi, tanlangan variant esa alohida "
+              "belgi bilan ajratiladi. Savollar orasida erkin yurish "
+              "mumkin, «Ko‘rib chiqish» tugmasi esa barcha javoblarni "
+              "bitta ekranda ko‘rsatadi.",
+    )
     q = tape.find("1-savol")
     play(chat, tape.slice(q, q + 10), bot_wait=1.35, me_wait=0.7)
 
     # --- 2.4 Yakunlash va natija ------------------------------------
-    chat.note([
-        "<b>Yakunlash</b>",
-        "Bot avval tasdiq so‘raydi — yuborilgandan keyin javoblarni "
-        "o‘zgartirib bo‘lmaydi.",
-        "Natija darhol chiqadi: to‘g‘ri javoblar, foiz va tahlil.",
-    ])
+    chat.note(
+        [
+            "<b>Yakunlash</b>",
+            "Bot avval tasdiq so‘raydi — yuborilgandan keyin javoblarni "
+            "o‘zgartirib bo‘lmaydi.",
+            "Natija darhol chiqadi: to‘g‘ri javoblar, foiz va tahlil.",
+        ],
+        voice="Testni yakunlashda bot avval tasdiq so‘raydi, chunki "
+              "yuborilgandan keyin javoblarni o‘zgartirib bo‘lmaydi. "
+              "Tasdiqlangach natija darhol chiqadi: to‘g‘ri javoblar soni, "
+              "foiz va batafsil tahlil.",
+    )
     fin = tape.find("Javoblaringiz</b>")
     if fin < 0:
         fin = tape.find("Javob berilgan")
     play(chat, tape.slice(fin, fin + 8), bot_wait=2.8)
     lesson.beat(1.8)
 
-    chat.note([
-        "<b>Javoblar tahlili</b>",
-        "Har bir savol bo‘yicha: qaysi javob berilgan va qaysi javob to‘g‘ri.",
-        "✓ — to‘g‘ri, ✗ — xato.",
-    ])
+    chat.note(
+        [
+            "<b>Javoblar tahlili</b>",
+            "Har bir savol bo‘yicha: qaysi javob berilgan va qaysi javob to‘g‘ri.",
+            "✓ — to‘g‘ri, ✗ — xato.",
+        ],
+        voice="Javoblar tahlilida har bir savol bo‘yicha qaysi javob "
+              "berilgani va qaysi javob to‘g‘ri ekani yonma-yon "
+              "ko‘rsatiladi. To‘g‘ri javoblar belgi bilan, xatolari esa "
+              "krestcha bilan ajratiladi. Rash testlarida bunga qo‘shimcha "
+              "ravishda har bir savolning qiyinlik darajasi ham qo‘shiladi.",
+    )
     ans = tape.find("javoblaringiz")
     if ans > 0:
         play(chat, tape.slice(ans - 1, ans + 1), bot_wait=4.5)
@@ -808,9 +1038,12 @@ def scene_app(lesson: Lesson, facts: dict) -> None:
             "Test topshirish, natija tahlili, sertifikat",
         ],
         seconds=4.2,
+        voice="Uchinchi bosqich — web ilova. Bu Telegram Mini App: u "
+              "botning menyu tugmasidan yoki asosiy menyudagi «Ilovani "
+              "ochish» tugmasidan ochiladi va Telegramning ichida ishlaydi.",
     )
     lesson.chip("3 — WEB ILOVA")
-    lesson.goto(f"{SITE}/app/", wait=2.6)
+    lesson.goto(APP_URL, wait=2.6)
 
     lesson.side(
         "WEB ILOVA",
@@ -821,49 +1054,102 @@ def scene_app(lesson: Lesson, facts: dict) -> None:
             "Yuqorida profil va uchta hisoblagich: natijalar, sertifikatlar, "
             "o‘z testlari.",
         ],
+        voice="Ilovaga kirish uchun alohida login va parol kerak emas: har "
+              "bir so‘rov Telegramning init-data imzosi bilan tekshiriladi. "
+              "Ya’ni foydalanuvchi kim ekanini Telegramning o‘zi "
+              "tasdiqlaydi. Yuqorida profil va uchta hisoblagich turibdi: "
+              "natijalar, sertifikatlar va o‘zi yaratgan testlar soni.",
     )
-    lesson.beat(5.2)
 
     lesson.side(
         "TEZ AMALLAR",
         [
             "To‘rtta asosiy amal bir bosishda:",
-            "<b>Testda qatnashish</b> — ochiq testlar va kod orqali kirish.",
+            "<b>Testda qatnashish</b> — kod orqali testga kirish.",
             "<b>Test yaratish</b> — o‘z testingizni ochish.",
             "<b>Natijalarim</b> — ball, daraja, javoblar tahlili.",
             "<b>Sertifikatlar</b> — PDF yuklab olish.",
         ],
+        voice="Pastda tez amallar bo‘limi bor. To‘rtta asosiy ish bir "
+              "bosishda bajariladi: testda qatnashish, o‘z testingni "
+              "yaratish, natijalarni ko‘rish va sertifikatni yuklab olish. "
+              "Agar tugallanmagan test qolgan bo‘lsa, u ham shu yerda "
+              "alohida kartochka bo‘lib chiqadi.",
     )
-    lesson.beat(5.0)
+    lesson.beat(1.2)
 
     # --- Testlar bo'limi --------------------------------------------
     lesson.click(tab(lesson, "exams"), after=2.2)
     lesson.side(
         "TESTLAR",
         [
-            "Ochiq testlar ro‘yxati.",
-            "Yopiq test uchun <b>test kodi</b> kiritiladi — kod o‘qituvchida.",
-            "Har bir kartochkada test turi va savollar soni ko‘rinadi.",
+            "Testga <b>faqat kod orqali</b> kiriladi.",
+            "Testlar ro‘yxati ishtirokchilarga ko‘rsatilmaydi — uni faqat "
+            "adminlar ko‘radi.",
+            "Kod — oddiy ikki yoki uch xonali son, u testdan keyin bo‘shab, "
+            "qayta ishlatiladi.",
         ],
+        voice="«Testlar» bo‘limi. Bu yerda faqat kod maydoni bor: testga "
+              "faqat tashkilotchi bergan kod orqali kiriladi, ro‘yxat esa "
+              "ishtirokchilarga umuman ko‘rsatilmaydi — uni faqat adminlar "
+              "ko‘radi. Kod oddiy ikki yoki uch xonali son bo‘lgani uchun "
+              "uni sinfga aytish oson. Test yakunlangach kod bo‘shaydi va "
+              "keyingi testga qayta beriladi.",
     )
-    lesson.beat(4.8)
-
-
-def current_question_no(page, *, fallback: int = 1) -> int:
-    """Ekrandagi joriy savol raqamini o'qiydi («7-savol» -> 7)."""
-    try:
-        text = page.locator(".q-no").first.inner_text(timeout=4000)
-        return int(text.split("-")[0].strip())
-    except Exception:
-        return fallback
+    lesson.beat(1.0)
 
 
 def open_exam(lesson: Lesson, code: str) -> bool:
-    """Testlar ro'yxatidan berilgan kodli testni ochadi."""
-    card = lesson.page.locator(f'[data-act="open-exam"][data-code="{code}"]').first
+    """Testga kiradi.
+
+    Ishtirokchiga testlar ro'yxati ko'rsatilmaydi — testga faqat
+    tashkilotchi bergan kod orqali kiriladi. Shuning uchun avval kod
+    maydoni, so'ng (admin ko'rinishida) ro'yxatdagi kartochka sinaladi.
+    """
+    page = lesson.page
+    field = page.locator("#exam-code").first
+    if field.count():
+        lesson.type_into(field, str(code), delay=180, after=0.7)
+        if lesson.click(page.locator('[data-act="find-exam"]').first, after=2.4):
+            if page.locator('[data-act="start-exam"]').first.count():
+                return True
+
+    card = page.locator(f'[data-act="open-exam"][data-code="{code}"]').first
     if card.count() == 0:
+        warn(f"{code} kodli test ochilmadi")
         return False
     return lesson.click(card, after=2.2)
+
+
+def sheet_orders(page) -> list[int]:
+    """Javoblar varaqasidagi savol tartiblari."""
+    try:
+        return page.eval_on_selector_all(
+            ".qitem", "els => els.map(e => parseInt(e.dataset.order, 10))"
+        ) or []
+    except Exception:
+        return []
+
+
+def answer(lesson: Lesson, order: int, letter: str, *,
+           after: float = 0.6, settle: float = 0.32) -> bool:
+    """Varaqadagi bitta savolga javob belgilaydi."""
+    choice = lesson.page.locator(
+        f'.choice[data-order="{order}"][data-letter="{letter}"]'
+    ).first
+    if choice.count() == 0:
+        warn(f"{order}-savolda «{letter}» varianti topilmadi")
+        return False
+    return lesson.click(choice, after=after, settle=settle)
+
+
+def jump_to(lesson: Lesson, order: int, *, after: float = 1.6) -> bool:
+    """Palitradan kerakli savolga o'tadi."""
+    button = lesson.page.locator(f'.palette button[data-order="{order}"]').first
+    if button.count() == 0:
+        warn(f"palitrada {order}-savol topilmadi")
+        return False
+    return lesson.click(button, after=after)
 
 
 def scene_taking(lesson: Lesson, facts: dict) -> None:
@@ -871,12 +1157,27 @@ def scene_taking(lesson: Lesson, facts: dict) -> None:
     page = lesson.page
     simple = facts.get("open_exam")
     if simple is None:
+        warn("faol oddiy test yo'q — «Testni topshirish» sahnasi tashlab ketildi")
         return
 
+    lesson.side(
+        "TESTGA KIRISH",
+        [
+            "Testlar ro‘yxati ishtirokchiga ko‘rsatilmaydi.",
+            "Testga faqat tashkilotchi bergan <b>kod</b> orqali kiriladi.",
+            "Kod — oddiy ikki yoki uch xonali son.",
+        ],
+        voice="Endi testni o‘zimiz topshirib ko‘ramiz. Ishtirokchiga testlar "
+              "ro‘yxati ko‘rsatilmaydi: testga faqat tashkilotchi bergan kod "
+              "orqali kiriladi. Kod — oddiy ikki yoki uch xonali son, uni "
+              "eslab qolish oson.",
+    )
+
     if not open_exam(lesson, simple.code):
-        lesson.goto(f"{SITE}/app/", wait=1.6)
+        lesson.goto(APP_URL, wait=1.6)
         lesson.click(tab(lesson, "exams"), after=1.6)
-        open_exam(lesson, simple.code)
+        if not open_exam(lesson, simple.code):
+            return
 
     lesson.side(
         "TEST HAQIDA",
@@ -885,42 +1186,42 @@ def scene_taking(lesson: Lesson, facts: dict) -> None:
             "va tugash vaqti ko‘rsatiladi.",
             "Pullik testda aynan shu bosqichda <b>ID kod</b> so‘raladi.",
         ],
+        voice="Kod to‘g‘ri bo‘lsa, test haqidagi ma’lumot chiqadi: test turi, "
+              "savollar soni, maksimal ball va tugash vaqti. Agar bu pullik "
+              "test bo‘lsa, aynan shu bosqichda bir martalik Ay-Di kod "
+              "so‘raladi.",
     )
-    lesson.beat(4.4)
+    lesson.beat(2.4)
 
-    lesson.click(page.locator('[data-act="start-exam"]').first, after=2.4)
+    if not lesson.click(page.locator('[data-act="start-exam"]').first, after=2.6):
+        warn("«Boshlash» tugmasi bosilmadi")
+        return
 
     lesson.side(
-        "TEST TOPSHIRISH",
+        "JAVOBLAR VARAQASI",
         [
-            "Yuqorida — <b>savollar palitrasi</b>: qaysi savolga javob "
-            "berilgan, qaysisi bo‘sh.",
+            "Barcha savollar <b>bitta varaqada</b> — imtihon blankasi kabi.",
+            "Yuqorida savollar palitrasi va bajarilish chizig‘i.",
             "Javob tanlanishi bilan darhol serverga saqlanadi.",
-            "Ilova yopilib qolsa ham, javoblar joyida qoladi.",
         ],
+        voice="Mana javoblar varaqasi. Barcha savollar bitta ekranda "
+              "joylashgan, xuddi imtihon blankasidek. Eng yuqorida savollar "
+              "palitrasi va bajarilish chizig‘i turibdi. Har bir javob "
+              "tanlangan zahoti serverga saqlanadi.",
     )
-    lesson.beat(4.6)
 
-    # --- Savollarga javob berish ------------------------------------
-    #  Javob kaliti — «ABCDABCDAB». Joriy savol raqami ekrandan o'qiladi,
-    #  shunda javob har doim o'z savoliga tushadi. 3- va 7-savolga ataylab
-    #  xato javob beriladi — natija tahlili videoda ko'rinsin.
-    key = "ABCDABCDAB"
-    wrong_at = {3, 7}
-    total = simple.questions.count()
-    for i in range(total):
-        order = current_question_no(page, fallback=i + 1)
-        correct = key[(order - 1) % len(key)]
+    keys = facts.get("open_keys") or {}
+    orders = sheet_orders(page) or sorted(keys)
+    wrong_at = {3, 7}          # tahlil bo'sh ko'rinmasligi uchun ataylab xato
+
+    for i, order in enumerate(orders):
+        correct = (keys.get(order) or "A")[:1]
         letter = correct if order not in wrong_at else ("A" if correct != "A" else "C")
-
-        choice = page.locator(f'.choice[data-letter="{letter}"]').first
-        if choice.count() == 0:
-            break
         fast = i >= 2
-        lesson.click(
-            choice,
-            after=0.55 if fast else 1.5,
-            settle=0.3 if fast else 0.7,
+        answer(
+            lesson, order, letter,
+            after=0.55 if fast else 1.3,
+            settle=0.3 if fast else 0.6,
         )
 
         if i == 1:
@@ -928,38 +1229,50 @@ def scene_taking(lesson: Lesson, facts: dict) -> None:
                 "JAVOB DARHOL SAQLANADI",
                 [
                     "Har bosishdan keyin javob serverga yuboriladi.",
-                    "Bitta javobli savolda ilova <b>o‘zi keyingi savolga</b> "
-                    "o‘tadi — ortiqcha bosish shart emas.",
-                    "Palitradan istalgan savolga qaytib, javobni "
-                    "o‘zgartirish mumkin.",
+                    "Ilova yopilib qolsa ham javoblar joyida qoladi.",
+                    "Bitta javobli savolda tanlov <b>radio</b> kabi ishlaydi: "
+                    "ikkinchi variant bosilsa, birinchisi o‘chadi.",
                 ],
+                voice="E’tibor bering: har bir bosishdan keyin javob darhol "
+                      "serverga yuboriladi. Internet uzilib qolsa yoki ilova "
+                      "yopilsa ham, javoblar joyida qoladi. Bitta javobli "
+                      "savolda tanlov radio tugma kabi ishlaydi: ikkinchi "
+                      "variantni bossangiz, birinchisi o‘chadi.",
             )
-            lesson.beat(3.6)
 
-        # Bitta javobli savolda ilova o'zi keyingi savolga o'tadi.
-        # Oxirgi savolda o'tish bo'lmaydi — kutish ham shart emas.
-        if i < total - 1:
-            try:
-                page.wait_for_function(
-                    "n => { const el = document.querySelector('.q-no');"
-                    " return el && parseInt(el.textContent) !== n; }",
-                    arg=order,
-                    timeout=6000,
-                )
-            except Exception:
-                pass
+        if i == 4:
+            lesson.side(
+                "PALITRA",
+                [
+                    "Yuqoridagi raqamlar — savollar palitrasi.",
+                    "Javob berilgan savol rangi bilan ajralib turadi.",
+                    "Istalgan savolga qaytib, javobni o‘zgartirish mumkin.",
+                ],
+                voice="Yuqoridagi raqamlar — savollar palitrasi. Javob "
+                      "berilgan savollar rangi bilan ajralib turadi, shuning "
+                      "uchun qaysi savol bo‘sh qolgani bir qarashda "
+                      "ko‘rinadi. Istalgan savolga qaytib, javobni "
+                      "o‘zgartirish mumkin.",
+            )
 
-    # --- Yakunlash --------------------------------------------------
+    # Palitra orqali orqaga qaytish — javobni o'zgartirish mumkinligi
+    if orders:
+        jump_to(lesson, orders[0], after=1.5)
+        lesson.beat(1.2)
+
     lesson.side(
         "YAKUNLASH",
         [
             "Yuborishdan oldin ilova tasdiq so‘raydi.",
+            "Javobsiz savollar qolsa — ularning raqamlari aytiladi.",
             "Yuborilgandan keyin javoblarni o‘zgartirib bo‘lmaydi.",
         ],
+        voice="Testni yakunlaymiz. Yuborishdan oldin ilova tasdiq so‘raydi; "
+              "agar javobsiz savollar qolgan bo‘lsa, ularning raqamlarini "
+              "aytadi. Yuborilgandan keyin javoblarni o‘zgartirib bo‘lmaydi.",
     )
-    lesson.beat(2.2)
     lesson.click(page.locator('[data-act="finish"]').first, after=1.6)
-    lesson.click(page.locator("#modal-ok").first, after=3.0)
+    lesson.click(page.locator("#modal-ok").first, after=3.2)
 
 
 def scene_mathpad(lesson: Lesson, facts: dict) -> None:
@@ -967,6 +1280,7 @@ def scene_mathpad(lesson: Lesson, facts: dict) -> None:
     page = lesson.page
     national = facts.get("live_national")
     if national is None:
+        warn("faol milliy shablon testi yo'q — klaviatura sahnasi tashlab ketildi")
         return
 
     lesson.title_card(
@@ -977,70 +1291,87 @@ def scene_mathpad(lesson: Lesson, facts: dict) -> None:
             "36–45-savollarda variant yo‘q — javob yoziladi",
         ],
         seconds=4.2,
+        voice="Endi eng qiziq qismiga o‘tamiz — Milliy sertifikat shabloni. "
+              "Bu qirq besh savolli test bo‘lib, uning oxirgi o‘nta savolida "
+              "variantlar umuman yo‘q: javobni o‘zingiz yozasiz.",
     )
     lesson.chip("3 — WEB ILOVA")
 
-    lesson.goto(f"{SITE}/app/", wait=2.0)
+    lesson.goto(APP_URL, wait=2.0)
     lesson.click(tab(lesson, "exams"), after=1.8)
 
     lesson.side(
         "MILLIY SHABLON",
         [
             "45 ta savol: <b>1–32</b> — A/B/C/D, <b>33–35</b> — A–F "
-            "(bir nechta to‘g‘ri javob), <b>36–45</b> — ochiq javob.",
+            "(moslashtirish, bitta to‘g‘ri javob), <b>36–45</b> — ochiq javob.",
             "Ochiq savollar Rasch matritsasida <b>ikkita birlik</b> sifatida "
             "hisoblanadi: a) va b) qismlari.",
         ],
+        voice="Shablon quyidagicha: birinchidan o‘ttiz ikkinchi savolgacha "
+              "A, B, C, D variantlari; o‘ttiz uchdan o‘ttiz beshinchisigacha "
+              "moslashtirish savollari — A dan F gacha oltita variant, "
+              "ulardan bittasi to‘g‘ri; "
+              "o‘ttiz oltidan qirq beshinchisigacha esa ochiq savollar. "
+              "Ochiq savollar Rash matritsasida ikkita alohida birlik "
+              "sifatida hisoblanadi: a va b qismlari.",
     )
-    lesson.beat(4.4)
 
     if not open_exam(lesson, national.code):
         return
-    lesson.click(page.locator('[data-act="start-exam"]').first, after=2.6)
+    if not lesson.click(page.locator('[data-act="start-exam"]').first, after=2.6):
+        warn("milliy test boshlanmadi")
+        return
+
+    keys = facts.get("national_keys") or {}
 
     # --- Ko'p javobli savol (33) ------------------------------------
-    jump = page.locator('[data-act="jump"][data-index="32"]').first
-    if jump.count():
-        lesson.click(jump, after=1.8)
+    if jump_to(lesson, 33, after=1.8):
         lesson.side(
-            "KO‘P JAVOBLI SAVOL",
+            "MOSLASHTIRISH SAVOLI",
             [
                 "33–35-savollarda <b>A dan F gacha</b> oltita variant bor.",
-                "To‘g‘ri javob bittadan ko‘p bo‘lishi mumkin — "
-                "belgilar kvadrat shaklda.",
+                "Ulardan faqat <b>bittasi</b> to‘g‘ri — tanlov «radio» kabi "
+                "ishlaydi: ikkinchi variant bosilsa, birinchisi o‘chadi.",
             ],
+            voice="Mana o‘ttiz uchinchi savol. Bu yerda A dan F gacha oltita "
+                  "variant bor, lekin ulardan faqat bittasi to‘g‘ri. Tanlov "
+                  "radio tugma kabi ishlaydi: ikkinchi variantni bossangiz, "
+                  "birinchisi avtomatik o‘chadi.",
         )
-        lesson.beat(3.6)
-        for letter in ("A", "B"):
-            choice = page.locator(f'.choice[data-letter="{letter}"]').first
-            if choice.count():
-                lesson.click(choice, after=0.8, settle=0.4)
+        answer(lesson, 33, (keys.get(33) or "A")[:1] or "A", after=0.9, settle=0.4)
 
     # --- Ochiq savol (36) -------------------------------------------
-    jump = page.locator('[data-act="jump"][data-index="35"]').first
-    if jump.count():
-        lesson.click(jump, after=2.0)
+    if not jump_to(lesson, 36, after=2.0):
+        return
 
     lesson.side(
         "MATEMATIK KLAVIATURA",
         [
             "Variantlar o‘rniga — <b>a)</b> va <b>b)</b> javob maydonlari.",
-            "Pastda maxsus klaviatura: kasr, ildiz, daraja, π, e, "
-            "sin, cos, tg, ctg, ln, log, |x|.",
-            "Telefon klaviaturasi ochilmaydi — matematik belgilar "
-            "shu yerda.",
+            "Maydon bosilsa, pastdan maxsus klaviatura ochiladi: kasr, "
+            "ildiz, daraja, π, e, sin, cos, tg, ctg, ln, log, |x|.",
+            "Telefonning oddiy klaviaturasi ochilmaydi.",
         ],
+        voice="O‘ttiz oltinchi savol — ochiq savol. Variantlar o‘rniga a va b "
+              "javob maydonlari turibdi. Maydonni bossak, pastdan maxsus "
+              "matematik klaviatura ochiladi: kasr, ildiz, daraja, pi, "
+              "sinus, kosinus, logarifm va modul belgilarigacha. Telefonning "
+              "oddiy klaviaturasi umuman ochilmaydi.",
     )
-    lesson.beat(4.6)
 
-    # Javobni klaviatura orqali kiritamiz: 1/2
-    field = page.locator("#ans-a").first
+    field = page.locator("#ans-36-a").first
     if field.count():
-        lesson.click(field, after=0.7, settle=0.4)
-    for label in ("1", "a⁄b", "2"):
-        key = page.locator(f'.mkey:has-text("{label}")').first
+        lesson.click(field, after=0.9, settle=0.4)
+    else:
+        warn("36-savolning «a» maydoni topilmadi")
+
+    for ins in ("1", "/", "2"):
+        key = page.locator(f'.mpad-key[data-ins="{ins}"]').first
         if key.count():
-            lesson.click(key, after=0.75, settle=0.35)
+            lesson.click(key, after=0.8, settle=0.35)
+        else:
+            warn(f"klaviaturada «{ins}» tugmasi topilmadi")
 
     lesson.side(
         "JONLI TEKSHIRUV",
@@ -1050,11 +1381,17 @@ def scene_mathpad(lesson: Lesson, facts: dict) -> None:
             "<b>1/2 = 0.5 = 2⁻¹</b>, <b>sin(π/6) = 0.5</b>.",
             "Ya’ni javobning yozilish shakli emas, <b>qiymati</b> muhim.",
         ],
+        voice="Yozilgan ifoda darhol serverga yuboriladi va SimPay "
+              "kutubxonasi yordamida tekshiriladi. Tekshiruv matematik "
+              "ekvivalentlik bo‘yicha ketadi: bir bo‘lingan ikki, nol butun "
+              "besh va ikkining minus birinchi darajasi — bularning hammasi "
+              "bitta javob hisoblanadi. Ya’ni javobning yozilish shakli "
+              "emas, uning qiymati muhim.",
     )
-    lesson.beat(5.2)
+    lesson.beat(2.0)
 
     lesson.scroll(360, after=1.0)
-    lesson.beat(2.6)
+    lesson.beat(1.6)
 
     # Testni yakunlamay chiqamiz — javoblar saqlanib qoladi
     leave = page.locator('[data-act="leave"]').first
@@ -1067,8 +1404,11 @@ def scene_mathpad(lesson: Lesson, facts: dict) -> None:
                 "Bosh sahifada <b>«Tugallanmagan test»</b> kartochkasi "
                 "paydo bo‘ladi va bir bosishda davom ettiriladi.",
             ],
+            voice="Testdan chiqib ketsak ham javoblar saqlanib qoladi. Bosh "
+                  "sahifada tugallanmagan test kartochkasi paydo bo‘ladi va "
+                  "bir bosishda o‘sha joydan davom ettirish mumkin.",
         )
-        lesson.beat(4.2)
+        lesson.beat(3.0)
 
 
 def scene_result(lesson: Lesson, facts: dict) -> None:
@@ -1082,10 +1422,14 @@ def scene_result(lesson: Lesson, facts: dict) -> None:
             "standart ball va daraja.",
             "Quyida har bir savol bo‘yicha to‘g‘ri/xato tahlili.",
         ],
+        voice="Mana natija ekrani. Oddiy testda to‘g‘ri javoblar soni va "
+              "foiz ko‘rsatiladi. Rash testida esa bundan ko‘proq: teta — "
+              "ya’ni qobiliyat bahosi, to‘qson butun o‘n to‘rtlik shkaladagi "
+              "standart ball, daraja va reyting. Quyida har bir savol "
+              "bo‘yicha to‘g‘ri va xato javoblar tahlili turibdi.",
     )
-    lesson.beat(4.8)
     lesson.scroll(420, after=1.2)
-    lesson.beat(2.2)
+    lesson.beat(1.6)
     lesson.scroll_top()
 
     # --- Natijalar bo'limi ------------------------------------------
@@ -1097,8 +1441,12 @@ def scene_result(lesson: Lesson, facts: dict) -> None:
             "RASH testlarida ball <b>90.14</b> lik shkalada, yonida daraja.",
             "Kartochkani bosib, javoblar tahliliga o‘tiladi.",
         ],
+        voice="«Natijalarim» bo‘limida foydalanuvchining barcha urinishlari "
+              "bitta ro‘yxatda turadi. Rash testlarida ball to‘qson butun "
+              "o‘n to‘rtlik shkalada, yonida esa olingan daraja "
+              "ko‘rsatiladi. Istalgan kartochkani bossak, javoblar "
+              "tahliliga o‘tamiz.",
     )
-    lesson.beat(4.6)
 
     first = page.locator('[data-act="open-result"]').first
     if first.count():
@@ -1111,10 +1459,13 @@ def scene_result(lesson: Lesson, facts: dict) -> None:
                 "ham ko‘rsatiladi.",
                 "Shu yerdan reytingga va sertifikatga o‘tish mumkin.",
             ],
+            voice="Tahlilda har bir savol uchun berilgan javob va to‘g‘ri "
+                  "javob yonma-yon turadi. Rash testida bunga savolning "
+                  "qiyinlik ko‘rsatkichi ham qo‘shiladi. Shu yerdan "
+                  "reytingga o‘tish yoki sertifikatni olish mumkin.",
         )
-        lesson.beat(4.4)
         lesson.scroll(420, after=1.0)
-        lesson.beat(2.4)
+        lesson.beat(1.8)
 
 
 def scene_certificate(lesson: Lesson, facts: dict) -> None:
@@ -1129,8 +1480,13 @@ def scene_certificate(lesson: Lesson, facts: dict) -> None:
             "PDF ichida <b>QR kod</b> bor: uni skanerlab, sertifikat "
             "haqiqiyligini har kim tekshira oladi.",
         ],
+        voice="Sertifikatlar bo‘limi. Sertifikat faqat pullik Rash testi "
+              "uchun beriladi va natijalar e’lon qilingandan keyin "
+              "avtomatik yaratiladi. Bitta tugma bilan Pe-De-Ef yuklab "
+              "olinadi. Hujjat ichida noyob raqam va Kyu-Ar kod bor: uni "
+              "skanerlab, sertifikatning haqiqiyligini istalgan odam "
+              "tekshira oladi.",
     )
-    lesson.beat(5.2)
 
     lesson.click(tab(lesson, "my-exams"), after=2.4)
     lesson.side(
@@ -1141,8 +1497,14 @@ def scene_certificate(lesson: Lesson, facts: dict) -> None:
             "Shu yerdan test nusxalanadi yoki o‘chiriladi.",
             "Test kodi va ID kodlar ham shu bo‘limda.",
         ],
+        voice="«Testlarim» bo‘limida foydalanuvchi o‘zi yaratgan testlarni "
+              "boshqaradi: testni faollashtiradi, yopadi, natijalarni "
+              "hisoblaydi va e’lon qiladi. Shu yerdan testning to‘liq "
+              "nusxasini olish yoki uni butunlay o‘chirish mumkin. "
+              "O‘chirishdan oldin ilova nima yo‘qolishini oldindan "
+              "ko‘rsatadi va tasdiq so‘raydi.",
     )
-    lesson.beat(4.6)
+    lesson.beat(1.0)
     lesson.clear_side()
 
 
@@ -1157,6 +1519,9 @@ def scene_panel(lesson: Lesson, facts: dict) -> None:
             "Excel va PDF hisobotlar",
         ],
         seconds=4.4,
+        voice="To‘rtinchi bosqich — boshqaruv paneli. Bu platforma egasining "
+              "asosiy ish joyi: testlar, savollar, ishtirokchilar, Ay-Di "
+              "kodlar, Rash hisobi va hisobotlar — hammasi shu yerda.",
     )
     lesson.chip("4 — PANEL")
 
@@ -1165,6 +1530,11 @@ def scene_panel(lesson: Lesson, facts: dict) -> None:
         "Panelga kirish. Django ning standart admin paneli ishlatilmaydi — "
         "barcha boshqaruv shu yerda, o‘z dizaynida.",
         4.0,
+        voice="Panelga ikki xil kirish mumkin: login va parol bilan yoki "
+              "to‘g‘ridan-to‘g‘ri botdagi «Web panel» tugmasi orqali. "
+              "E’tibor bering: Django ning standart admin paneli butunlay "
+              "olib tashlangan — barcha boshqaruv shu yerda, o‘zbek tilida "
+              "va bitta dizaynda.",
     )
 
     lesson.type_into(page.locator("input[name='username']"), PANEL_USER)
@@ -1175,9 +1545,12 @@ def scene_panel(lesson: Lesson, facts: dict) -> None:
         "Umumiy ko‘rsatkichlar: foydalanuvchilar, testlar, urinishlar va "
         "sertifikatlar soni bir ekranda.",
         4.2,
+        voice="Kirdik. Bosh sahifada umumiy ko‘rsatkichlar: foydalanuvchilar "
+              "soni, testlar, urinishlar va berilgan sertifikatlar — "
+              "hammasi bitta ekranda ko‘rinadi.",
     )
     lesson.scroll(460)
-    lesson.beat(2.2)
+    lesson.beat(1.8)
 
     # --- Testlar ro'yxati -------------------------------------------
     lesson.goto(f"{SITE}/panel/testlar/", wait=1.8)
@@ -1185,12 +1558,34 @@ def scene_panel(lesson: Lesson, facts: dict) -> None:
         "Testlar ro‘yxati. Har bir test uchun turi, holati, savollar soni "
         "va ishtirokchilar ko‘rinadi.",
         4.2,
+        voice="Testlar ro‘yxati. Har bir test uchun uning turi, holati, "
+              "savollar soni va nechta ishtirokchi topshirgani ko‘rinib "
+              "turibdi.",
     )
     lesson.say(
         "Holatlar zanjiri: <b>Qoralama → Faol → Yopilgan → Hisoblangan → "
         "E’lon qilingan</b>.",
         4.0,
+        voice="Testning hayotiy sikli beshta holatdan iborat: qoralama, "
+              "faol, yopilgan, hisoblangan va e’lon qilingan. Test yopilgach "
+              "admin «Hisoblash» tugmasini bosadi — aynan shu paytda Rash "
+              "kalibrlashi ishga tushadi. Natijalar e’lon qilinganda esa "
+              "sertifikatlar avtomatik yaratiladi.",
     )
+
+    lesson.goto(f"{SITE}/panel/testlar/yangi/", wait=1.8)
+    lesson.say(
+        "Test yaratish paneldan ham mumkin — tur, tuzilma, kalitlar va "
+        "sozlamalar bitta sahifada.",
+        4.4,
+        voice="Test yaratish uch joyda mavjud: botdagi sehrgarda, web "
+              "ilovada va shu panelda. Uchalasi ham bitta xizmat qatlamidan "
+              "foydalanadi, ya’ni natija bir xil bo‘ladi. Panelda esa "
+              "hammasi bitta sahifada: test turi, tuzilmasi, javob "
+              "kalitlari va sozlamalar.",
+    )
+    lesson.scroll(420)
+    lesson.beat(1.6)
 
     exam = facts.get("rasch_exam")
     if exam is not None:
@@ -1199,24 +1594,62 @@ def scene_panel(lesson: Lesson, facts: dict) -> None:
             "Test tafsiloti. Bu — 45 savolli milliy sertifikat shabloni: "
             "1–32 bitta javobli, 33–35 ko‘p javobli, 36–45 ochiq savollar.",
             5.0,
+            voice="Mana test tafsiloti. Bu qirq besh savolli milliy "
+                  "sertifikat shabloni: birinchidan o‘ttiz ikkinchi "
+                  "savolgacha bitta javobli, o‘ttiz uchdan o‘ttiz "
+                  "beshinchisigacha ko‘p javobli, qolgan o‘ntasi esa ochiq "
+                  "savollar.",
         )
         lesson.scroll(440)
-        lesson.beat(2.0)
+        lesson.beat(1.6)
+
+        lesson.goto(f"{SITE}/panel/testlar/{exam.pk}/savollar/", wait=1.8)
+        lesson.say(
+            "Savollarni to‘liq tahrirlash: matn, turi, variantlar, kalit va "
+            "Rasch qiyinligi.",
+            4.4,
+            voice="Savollar sahifasida har bir savolni to‘liq tahrirlash "
+                  "mumkin: savol matni, turi, variantlari, to‘g‘ri javob "
+                  "kaliti, ochiq javoblar va Rash qiyinligi. Agar savolning "
+                  "qiyinligi oldindan ma’lum bo‘lsa, uni qo‘lda kiritib, "
+                  "«qulflab» qo‘yish ham mumkin — u holda kalibrlash bu "
+                  "qiymatga tegmaydi.",
+        )
+        lesson.scroll(420)
+        lesson.beat(1.6)
 
         lesson.goto(f"{SITE}/panel/testlar/{exam.pk}/natijalar/", wait=2.0)
         lesson.say(
             "Natijalar jadvali. Bu yerda Rasch hisobining mevasi ko‘rinadi: "
             "θ qiymati, standart ball va daraja.",
             4.6,
+            voice="Natijalar jadvali — bu yerda Rash hisobining natijasi "
+                  "ko‘rinadi: har bir ishtirokchi uchun teta qiymati, "
+                  "standart ball, foiz va daraja.",
         )
         lesson.scroll(420)
         lesson.say(
             "Ishonchlilik ko‘rsatkichlari — <b>KR-20</b> va ishtirokchilarni "
             "ajratish koeffitsiyenti — testning sifatini baholaydi.",
             4.4,
+            voice="Quyida ishonchlilik ko‘rsatkichlari: Ka-Er yigirma va "
+                  "ishtirokchilarni ajratish koeffitsiyenti. Ular testning "
+                  "o‘zi qanchalik sifatli tuzilganini baholaydi.",
         )
         lesson.scroll(420)
-        lesson.beat(2.0)
+        lesson.say(
+            "Savollar qiyinchiligi diagrammasi — ustun balandligi xato javob "
+            "bergan ishtirokchilar ulushi. Bu diagramma faqat adminga ko‘rinadi.",
+            4.8,
+            voice="Mana savollar qiyinchiligi diagrammasi. Har bir ustun "
+                  "balandligi — o‘sha savolga xato javob bergan "
+                  "ishtirokchilar ulushi. Yashil — oson, sariq — o‘rtacha, "
+                  "to‘q sariq — qiyin, qizil esa juda qiyin savol degani. "
+                  "Yonida ballar taqsimoti turibdi. Bu diagramma "
+                  "ishtirokchilarga ko‘rinmaydi — u faqat admin uchun.",
+        )
+        lesson.scroll(400)
+        lesson.beat(1.6)
 
     paid = facts.get("paid_exam")
     if paid is not None:
@@ -1225,46 +1658,81 @@ def scene_panel(lesson: Lesson, facts: dict) -> None:
             "Pullik test uchun bir martalik ID kodlar. Kod uch holatda bo‘ladi: "
             "<b>Ishlatilmagan → Faollashtirilgan → Ishlatilgan</b>.",
             4.8,
+            voice="Pullik test uchun bir martalik Ay-Di kodlar. Kod uchta "
+                  "holatda bo‘ladi: ishlatilmagan, faollashtirilgan va "
+                  "ishlatilgan. Yaratilgan kodlar adminga Excel fayl "
+                  "ko‘rinishida beriladi.",
         )
         lesson.say(
             "Kod faqat javoblar yakuniy yuborilgandan keyin «ishlatilgan» "
             "holatiga o‘tadi — test yarim yo‘lda uzilsa, kod yonib ketmaydi.",
             4.8,
+            voice="Muhim detal: kod foydalanuvchi uni kiritgan zahoti "
+                  "yopilmaydi. U faqat yakuniy javob bazaga muvaffaqiyatli "
+                  "saqlangandan keyin «ishlatilgan» holatiga o‘tadi. Shu "
+                  "sababli internet uzilishi kodni kuydirmaydi.",
         )
         lesson.scroll(400)
-        lesson.beat(1.8)
+        lesson.beat(1.4)
 
     lesson.goto(f"{SITE}/panel/urinishlar/", wait=1.8)
     lesson.say(
         "Barcha urinishlar bitta ro‘yxatda — kim, qaysi testni, qachon "
         "topshirgani va qanday natija olgani.",
         4.4,
+        voice="Urinishlar bo‘limida barcha topshiriqlar bitta ro‘yxatda: "
+              "kim, qaysi testni, qachon topshirgani va qanday natija "
+              "olgani ko‘rinadi.",
     )
     lesson.scroll(380)
-    lesson.beat(1.8)
+    lesson.beat(1.4)
+
+    attempt_id = facts.get("attempt_id")
+    if attempt_id:
+        lesson.goto(f"{SITE}/panel/urinish/{attempt_id}/", wait=1.8)
+        lesson.say(
+            "Urinish tafsiloti: har bir javob, qayta baholash, bekor qilish "
+            "va sertifikat berish.",
+            4.4,
+            voice="Bitta urinishni ochsak, uning har bir javobi ko‘rinadi. "
+                  "Admin bu yerdan urinishni qayta baholashi, bekor qilishi, "
+                  "o‘chirishi yoki qo‘lda sertifikat berishi mumkin.",
+        )
+        lesson.scroll(420)
+        lesson.beat(1.4)
 
     lesson.goto(f"{SITE}/panel/sertifikatlar/", wait=1.8)
     lesson.say(
         "Berilgan sertifikatlar. Har birining raqami, egasi va berilgan sanasi "
         "bor; kerak bo‘lsa bekor qilish mumkin.",
         4.4,
+        voice="Sertifikatlar bo‘limi. Har bir sertifikatning noyob raqami, "
+              "egasi va berilgan sanasi bor. Kerak bo‘lsa Pe-De-Ef ni qayta "
+              "yaratish, sertifikatni bekor qilish yoki tiklash mumkin.",
     )
-    lesson.beat(1.6)
+    lesson.beat(1.4)
 
     lesson.goto(f"{SITE}/panel/foydalanuvchilar/", wait=1.8)
     lesson.say(
         "Foydalanuvchilar: rollar, telefon raqamlari va bloklash imkoniyati.",
         3.8,
+        voice="Foydalanuvchilar bo‘limi: rollar, telefon raqamlari, "
+              "foydalanuvchini bloklash yoki unga admin huquqini berish. "
+              "Har bir odamning natijalari va o‘zi yaratgan testlari ham shu "
+              "yerdan ko‘rinadi.",
     )
-    lesson.beat(1.4)
+    lesson.beat(1.2)
 
     lesson.goto(f"{SITE}/panel/tarix/", wait=1.8)
     lesson.say(
         "Amallar tarixi — har bir muhim o‘zgarish yozib boriladi: kim, "
         "qachon, nimani o‘zgartirgan.",
         4.2,
+        voice="Va nihoyat amallar tarixi — audit jurnali. Har bir muhim "
+              "o‘zgarish shu yerga yozib boriladi: kim, qachon va nimani "
+              "o‘zgartirgan. Jurnalni filtrlar bilan saralash mumkin.",
     )
-    lesson.beat(1.6)
+    lesson.beat(1.4)
 
 
 def scene_verify(lesson: Lesson, facts: dict) -> None:
@@ -1274,6 +1742,7 @@ def scene_verify(lesson: Lesson, facts: dict) -> None:
         "Sertifikatni tekshirish",
         ["QR kod yoki sertifikat raqami orqali — hamma uchun ochiq"],
         seconds=3.8,
+        voice="Beshinchi bosqich — sertifikatni tekshirish.",
     )
     lesson.chip("5 — SERTIFIKAT")
 
@@ -1282,6 +1751,9 @@ def scene_verify(lesson: Lesson, facts: dict) -> None:
         "Sertifikatni tekshirish sahifasi ochiq — bu yerga kirish uchun "
         "ro‘yxatdan o‘tish shart emas.",
         4.0,
+        voice="Tekshirish sahifasi hamma uchun ochiq: bu yerga kirish uchun "
+              "ro‘yxatdan o‘tish ham, Telegram ham kerak emas. Sertifikat "
+              "raqamini kiritamiz.",
     )
 
     number = facts.get("cert_number") or ""
@@ -1296,14 +1768,21 @@ def scene_verify(lesson: Lesson, facts: dict) -> None:
             "Sertifikat haqiqiy: egasi, test nomi, ball, daraja va berilgan sana "
             "ko‘rinib turibdi.",
             4.6,
+            voice="Sertifikat haqiqiy ekan: egasining ismi, test nomi, ball, "
+                  "daraja va berilgan sana ko‘rinib turibdi. Agar sertifikat "
+                  "bekor qilingan bo‘lsa yoki bunday raqam umuman bo‘lmasa, "
+                  "sahifa buni aniq aytadi.",
         )
         lesson.scroll(360)
         lesson.say(
             "Ish beruvchi yoki oliy o‘quv yurti aynan shu sahifa orqali "
             "sertifikatning haqiqiyligiga ishonch hosil qiladi.",
             4.4,
+            voice="Demak ish beruvchi yoki oliy o‘quv yurti aynan shu sahifa "
+                  "orqali, Pe-De-Ef dagi Kyu-Ar kodni skanerlab, "
+                  "sertifikatning haqiqiyligiga ishonch hosil qiladi.",
         )
-        lesson.beat(1.6)
+        lesson.beat(1.4)
 
 
 def scene_outro(lesson: Lesson) -> None:
@@ -1317,6 +1796,12 @@ def scene_outro(lesson: Lesson) -> None:
             "Sertifikat: PDF va ochiq tekshiruv",
         ],
         seconds=6.5,
+        voice="Xulosa qilamiz. Biz botda ro‘yxatdan o‘tdik, test yaratdik va "
+              "testni topshirdik. Web ilovada javoblar varaqasini, matematik "
+              "klaviaturani va natijalar tahlilini ko‘rdik. Boshqaruv "
+              "panelida Rash hisobini, savollar qiyinchiligi diagrammasini, "
+              "Ay-Di kodlarni va hisobotlarni ko‘rib chiqdik. Oxirida "
+              "sertifikatni ochiq sahifada tekshirdik.",
     )
     lesson.title_card(
         "Keyingi qadam",
@@ -1329,56 +1814,25 @@ def scene_outro(lesson: Lesson) -> None:
         ],
         seconds=6.5,
         accent="#63b3ed",
+        voice="Agar platformani o‘zingizda sinab ko‘rmoqchi bo‘lsangiz: "
+              "ishga tushirish skripti butun tizimni bitta buyruqda "
+              "ko‘taradi, to‘xtatish skripti esa hammasini to‘xtatadi. "
+              "Namoyish ma’lumotlarini demo data skripti yaratadi. "
+              "O‘rnatish, arxitektura va texnik topshiriqqa moslik "
+              "hujjatlari hujjatlar papkasida turibdi.",
     )
     lesson.title_card(
         "",
         "Dars tugadi",
         ["Rasch Math Platform · matematik testlarni adolatli baholash"],
         seconds=4.5,
+        voice="Dars shu yerda yakunlandi. E’tiboringiz uchun rahmat!",
     )
 
 
 # ==========================================================================
 #  Ishga tushirish
 # ==========================================================================
-
-
-def find_ffmpeg() -> str | None:
-    """To'liq imkoniyatli ffmpeg ni topadi.
-
-    Playwright bilan kelgan ffmpeg faqat video yozish uchun qurilgan —
-    unda H.264 kodlagichi yo'q. Shuning uchun avval `imageio-ffmpeg`
-    paketidagi to'liq binar, so'ng tizimdagi ffmpeg qidiriladi.
-    """
-    try:
-        import imageio_ffmpeg
-
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        pass
-    return shutil.which("ffmpeg")
-
-
-def convert_to_mp4(webm: Path) -> Path | None:
-    """Videoni keng qo'llab-quvvatlanadigan mp4 formatiga o'giradi."""
-    exe = find_ffmpeg()
-    if not exe:
-        print("  [i] ffmpeg topilmadi — video faqat webm formatida qoldi.")
-        return None
-
-    mp4 = webm.with_suffix(".mp4")
-    cmd = [
-        exe, "-y", "-i", str(webm),
-        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-        str(mp4),
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print("  [!] mp4 ga o'girish bajarilmadi:")
-        print("     ", (result.stderr or "")[-400:])
-        return None
-    return mp4
 
 
 def main() -> int:
@@ -1396,6 +1850,7 @@ def main() -> int:
 
     print("Video yozish boshlandi...")
     started = time.time()
+    narrator = Narrator(enabled=VOICE_ON)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--force-color-profile=srgb"])
@@ -1406,12 +1861,23 @@ def main() -> int:
             extra_http_headers={"X-Debug-User": str(VIDEO_USER_ID)},
             device_scale_factor=1,
         )
+        # Telegram ning haqiqiy skripti brauzerda kerak emas: u sahifa
+        # yuklanishini sekinlashtiradi va o'rnatilgan taqlidni almashtirib
+        # yuboradi. Shuning uchun so'rov joyida bo'sh javob bilan yopiladi.
+        context.route(
+            "**://telegram.org/**",
+            lambda route: route.fulfill(
+                status=200, content_type="application/javascript",
+                body="/* video dars uchun o'chirilgan */",
+            ),
+        )
         context.add_init_script(TELEGRAM_STUB)
         page = context.new_page()
-        page.set_default_timeout(12000)
+        page.set_default_timeout(15000)
 
-        lesson = Lesson(page)
-        chat = Chat(page)
+        lesson = Lesson(page, narrator)
+        chat = Chat(page, lesson)
+        wall_started = time.time()
 
         scenes = [
             ("Kirish", lambda: scene_intro(lesson)),
@@ -1433,6 +1899,14 @@ def main() -> int:
                 run()
                 print(f"  · {name.lower()}")
         finally:
+            # Oxirgi gap tugab ulgursin — video ovozdan qisqa bo'lmasin.
+            try:
+                tail = narrator.free_at - lesson.now()
+                if tail > 0:
+                    hold(page, min(tail + 0.6, 30.0))
+            except Exception:
+                pass
+            wall_seconds = time.time() - wall_started
             context.close()
             browser.close()
 
@@ -1453,21 +1927,37 @@ def main() -> int:
     print()
     print(f"Tayyor: {target}  ({size_mb:.1f} MB, ~{minutes:.1f} daqiqa)")
 
-    mp4 = convert_to_mp4(target)
+    # --- Ovoz yo'lagi -----------------------------------------------
+    video_seconds = video_voice.media_duration(target) or wall_seconds
+    scale = (video_seconds / wall_seconds) if wall_seconds > 0 else 1.0
+    if not 0.9 <= scale <= 1.1:      # kutilmagan farq — vaqtni buzmaymiz
+        warn(f"video va soat farqi katta (x{scale:.3f}) — ovoz 1:1 qo'yiladi")
+        scale = 1.0
+
+    track = None
+    if narrator.clips:
+        track = video_voice.build_track(
+            narrator.clips, video_seconds, OUT_DIR / "dars_ovoz.wav", scale=scale
+        )
+        srt = video_voice.write_srt(narrator.clips, OUT_DIR / "dars.srt", scale=scale)
+        print(f"Ovoz   : {len(narrator.clips)} ta gap, subtitr: {srt}")
+
+    mp4 = video_voice.mux(target, track, target.with_suffix(".mp4"))
     if mp4:
         print(f"MP4    : {mp4}  ({mp4.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    write_chapters(lesson.chapters)
+    write_chapters(lesson.chapters, scale=scale)
     return 0
 
 
-def write_chapters(chapters: list[tuple[float, str]]) -> None:
+def write_chapters(chapters: list[tuple[float, str]], *, scale: float = 1.0) -> None:
     """Bob taymkodlarini faylga yozadi va ekranga chiqaradi."""
     if not chapters:
         return
 
     lines = []
     for seconds, name in chapters:
+        seconds *= scale
         stamp = f"{int(seconds) // 60:02d}:{int(seconds) % 60:02d}"
         lines.append(f"{stamp} {name}")
 

@@ -1,11 +1,14 @@
 /* ==========================================================================
-   Telegram Mini App — matematik klaviatura mantiqi.
+   Telegram Mini App — alohida matematik klaviatura sahifasi.
 
-   Vazifalari:
-     * tugmalar orqali ifodani faol maydonga kiritish;
-     * kursor holatini boshqarish (funksiya qavslari ichiga o'tish);
-     * serverda SymPy orqali ifodani jonli tekshirish;
-     * yakuniy javobni `Telegram.WebApp.sendData()` orqali botga yuborish.
+   Klaviaturaning o'zi umumiy modulda (`static/mathpad/mathpad.js`), shuning
+   uchun bu sahifada ham web ilova va boshqaruv panelidagi bilan **aynan bir
+   xil** klaviatura chiqadi.
+
+   Bu fayl faqat sahifaga xos qismni bajaradi:
+     * javob maydonlarini klaviaturaga ulaydi;
+     * serverda SymPy orqali ifodani jonli tekshiradi;
+     * yakuniy javobni `Telegram.WebApp.sendData()` orqali botga yuboradi.
    ========================================================================== */
 
 (function () {
@@ -13,23 +16,19 @@
 
   var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
-  var body        = document.body;
-  var apiUrl      = body.dataset.api || "";
-  var questionId  = body.dataset.question || "";
-  var examCode    = body.dataset.exam || "";
-  var parts       = parseInt(body.dataset.parts || "2", 10);
+  var body       = document.body;
+  var apiUrl     = body.dataset.api || "";
+  var questionId = body.dataset.question || "";
+  var examCode   = body.dataset.exam || "";
+  var parts      = parseInt(body.dataset.parts || "2", 10);
 
-  var inputA   = document.getElementById("answer-a");
-  var inputB   = document.getElementById("answer-b");
-  var hintA    = document.getElementById("hint-a");
-  var hintB    = document.getElementById("hint-b");
-  var fieldB   = document.getElementById("field-b");
-  var preview  = document.getElementById("preview");
-  var btnSend  = document.getElementById("btn-submit");
-  var btnClear = document.getElementById("btn-clear");
-  var btnNext  = document.getElementById("btn-next");
-
-  var activeInput = inputA;
+  var inputA  = document.getElementById("answer-a");
+  var inputB  = document.getElementById("answer-b");
+  var hintA   = document.getElementById("hint-a");
+  var hintB   = document.getElementById("hint-b");
+  var fieldB  = document.getElementById("field-b");
+  var preview = document.getElementById("preview");
+  var btnSend = document.getElementById("btn-submit");
 
   /* ------------------------------------------------------- Telegram sozlash */
 
@@ -45,143 +44,32 @@
     fieldB.classList.add("is-hidden");
   }
 
-  /* ------------------------------------------------------- maydonni tanlash */
+  /* ------------------------------------------------------------ klaviatura */
 
-  function setActive(input) {
-    activeInput = input;
-    document.querySelectorAll(".field").forEach(function (field) {
-      field.classList.toggle("is-active", field.contains(input));
-    });
-    input.focus({ preventScroll: true });
-  }
+  window.MathPad.mount({
+    inline: true,
+    container: document.getElementById("keyboard-slot"),
+    onEnter: function (input) {
+      /* «⏎» — a) dan b) ga o'tadi, b) da esa javobni yuboradi. */
+      if (parts >= 2 && input === inputA && inputB) {
+        window.MathPad.open(inputB);
+        return true;
+      }
+      submit();
+      return true;
+    }
+  });
 
-  [inputA, inputB].forEach(function (input) {
+  var fields = parts >= 2 && inputB ? [inputA, inputB] : [inputA];
+  fields.forEach(function (input) {
     if (!input) { return; }
-    input.addEventListener("focus", function () { setActive(input); });
-    input.addEventListener("click", function () { setActive(input); });
-    input.addEventListener("input", function () { scheduleCheck(); });
-  });
-
-  /* ------------------------------------------------------------- kiritish */
-
-  function insert(text, caretShift) {
-    if (!activeInput) { return; }
-    var start = activeInput.selectionStart;
-    var end = activeInput.selectionEnd;
-    if (start === null || start === undefined) {
-      start = activeInput.value.length;
-      end = start;
-    }
-    var value = activeInput.value;
-    activeInput.value = value.slice(0, start) + text + value.slice(end);
-
-    var position = start + text.length + (caretShift || 0);
-    position = Math.max(0, Math.min(position, activeInput.value.length));
-    try {
-      activeInput.setSelectionRange(position, position);
-    } catch (err) { /* ba'zi brauzerlarda mavjud emas */ }
-
-    activeInput.focus({ preventScroll: true });
-    haptic("light");
-    scheduleCheck();
-  }
-
-  function backspace() {
-    if (!activeInput) { return; }
-    var start = activeInput.selectionStart;
-    var end = activeInput.selectionEnd;
-    var value = activeInput.value;
-
-    if (start === end) {
-      if (start === 0) { return; }
-      activeInput.value = value.slice(0, start - 1) + value.slice(end);
-      start -= 1;
-    } else {
-      activeInput.value = value.slice(0, start) + value.slice(end);
-    }
-    try {
-      activeInput.setSelectionRange(start, start);
-    } catch (err) { /* ignore */ }
-    activeInput.focus({ preventScroll: true });
-    haptic("light");
-    scheduleCheck();
-  }
-
-  function clearAll() {
-    if (!activeInput) { return; }
-    activeInput.value = "";
-    activeInput.focus({ preventScroll: true });
-    haptic("medium");
-    scheduleCheck();
-  }
-
-  function moveCaret(step) {
-    if (!activeInput) { return; }
-    var position = activeInput.selectionStart;
-    if (position === null || position === undefined) { position = activeInput.value.length; }
-    position = Math.max(0, Math.min(position + step, activeInput.value.length));
-    try {
-      activeInput.setSelectionRange(position, position);
-    } catch (err) { /* ignore */ }
-    activeInput.focus({ preventScroll: true });
-    haptic("light");
-  }
-
-  /* «⏎» — a) dan b) ga o'tadi, b) da esa javobni yuboradi. */
-  function nextField() {
-    if (parts >= 2 && activeInput === inputA && inputB) {
-      setActive(inputB);
-      return;
-    }
-    submit();
-  }
-
-  function haptic(style) {
-    if (tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred) {
-      try { tg.HapticFeedback.impactOccurred(style); } catch (err) { /* ignore */ }
-    }
-  }
-
-  /* ------------------------------------------------------- sahifa almashish */
-
-  function setPage(page) {
-    var numeric = document.getElementById("mpage-num");
-    var functions = document.getElementById("mpage-fn");
-    if (numeric) { numeric.hidden = page === "fn"; }
-    if (functions) { functions.hidden = page !== "fn"; }
-  }
-
-  /* ------------------------------------------------------- tugmalar ulash */
-
-  document.querySelectorAll(".key[data-insert]").forEach(function (button) {
-    button.addEventListener("click", function (event) {
-      event.preventDefault();
-      var text = button.getAttribute("data-insert") || "";
-      var shift = parseInt(button.getAttribute("data-caret") || "0", 10);
-      insert(text, isNaN(shift) ? 0 : shift);
+    window.MathPad.bind(input, { label: input === inputB ? "b) javob" : "a) javob" });
+    input.addEventListener("input", function () {
+      scheduleCheck();
+      updateSubmitState();
     });
+    input.addEventListener("keyup", scheduleCheck);
   });
-
-  document.querySelectorAll(".key[data-page]").forEach(function (button) {
-    button.addEventListener("click", function (event) {
-      event.preventDefault();
-      setPage(button.getAttribute("data-page"));
-    });
-  });
-
-  document.querySelectorAll(".key[data-caret-move]").forEach(function (button) {
-    button.addEventListener("click", function (event) {
-      event.preventDefault();
-      moveCaret(parseInt(button.getAttribute("data-caret-move"), 10) || 0);
-    });
-  });
-
-  document.querySelectorAll("#btn-backspace, #btn-backspace-fn").forEach(function (button) {
-    button.addEventListener("click", function (e) { e.preventDefault(); backspace(); });
-  });
-
-  if (btnClear) { btnClear.addEventListener("click", function (e) { e.preventDefault(); clearAll(); }); }
-  if (btnNext)  { btnNext.addEventListener("click", function (e) { e.preventDefault(); nextField(); }); }
 
   /* ---------------------------------------------------- serverda tekshirish */
 
@@ -199,8 +87,15 @@
     if (state) { element.classList.add(state); }
   }
 
+  function setPreview(text, state) {
+    if (!preview) { return; }
+    preview.textContent = text;
+    preview.classList.remove("is-ok", "is-error");
+    if (state) { preview.classList.add(state); }
+  }
+
   function runCheck() {
-    var target = activeInput;
+    var target = window.MathPad.active() || inputA;
     var hint = target === inputB ? hintB : hintA;
     var value = (target && target.value ? target.value : "").trim();
 
@@ -243,13 +138,6 @@
       });
   }
 
-  function setPreview(text, state) {
-    if (!preview) { return; }
-    preview.textContent = text;
-    preview.classList.remove("is-ok", "is-error");
-    if (state) { preview.classList.add(state); }
-  }
-
   function updateSubmitState() {
     if (!btnSend) { return; }
     var hasA = inputA && inputA.value.trim().length > 0;
@@ -286,14 +174,13 @@
   if (btnSend) {
     btnSend.addEventListener("click", function (event) {
       event.preventDefault();
-      haptic("medium");
       submit();
     });
   }
 
   /* ------------------------------------------------------------ boshlanish */
 
-  setActive(inputA);
+  window.MathPad.open(inputA);
   updateSubmitState();
   scheduleCheck();
 })();

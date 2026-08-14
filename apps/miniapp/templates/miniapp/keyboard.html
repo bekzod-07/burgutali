@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Matematik klaviatura</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="{% static 'miniapp/css/keyboard.css' %}">
+  {# Klaviatura — web ilova va panel bilan umumiy uslub. #}
+  <link rel="stylesheet" href="{% static 'mathpad/mathpad.css' %}?v={{ asset_version }}">
+  <link rel="stylesheet" href="{% static 'miniapp/css/keyboard.css' %}?v={{ asset_version }}">
 </head>
 <body
   data-question="{{ question_order }}"
@@ -42,86 +44,11 @@
       </div>
     </section>
 
-    <!-- ================= Klaviatura ================= -->
     <!--
-       Ikkita sahifa: «123» (raqamlar va amallar) va «f(x)» (funksiyalar).
-       Yuqorida doimiy panel: x, y, π, e va daraja belgisi.
+       Klaviatura shu joyga qo'yiladi (`static/mathpad/mathpad.js`).
+       Web ilova va boshqaruv panelidagi bilan aynan bir xil.
     -->
-    <section class="keyboard" id="keyboard">
-
-      <div class="mstrip">
-        <button class="key sym" data-insert="x"  data-caret="0">x</button>
-        <button class="key sym" data-insert="y"  data-caret="0">y</button>
-        <button class="key sym" data-insert="pi" data-caret="0">π</button>
-        <button class="key sym" data-insert="e"  data-caret="0">e</button>
-        <button class="key sym" data-insert="°"  data-caret="0">□°</button>
-      </div>
-
-      <div class="mpage" id="mpage-num">
-        <div class="mgrid mgrid-5">
-          <button class="key num" data-insert="7">7</button>
-          <button class="key num" data-insert="8">8</button>
-          <button class="key num" data-insert="9">9</button>
-          <button class="key op"  data-insert="×">×</button>
-          <button class="key op"  data-insert="÷">÷</button>
-
-          <button class="key num" data-insert="4">4</button>
-          <button class="key num" data-insert="5">5</button>
-          <button class="key num" data-insert="6">6</button>
-          <button class="key op"  data-insert="+">+</button>
-          <button class="key op"  data-insert="−">−</button>
-
-          <button class="key num" data-insert="1">1</button>
-          <button class="key num" data-insert="2">2</button>
-          <button class="key num" data-insert="3">3</button>
-          <button class="key op"  data-insert=".">,</button>
-          <button class="key del" id="btn-backspace">⌫</button>
-
-          <button class="key switch" data-page="fn">f(x)</button>
-          <button class="key num" data-insert="0">0</button>
-          <button class="key nav" data-caret-move="-1">‹</button>
-          <button class="key nav" data-caret-move="1">›</button>
-          <button class="key enter" id="btn-next">⏎</button>
-        </div>
-      </div>
-
-      <div class="mpage" id="mpage-fn" hidden>
-        <div class="mgrid mgrid-4">
-          <button class="key fn" data-insert="/"          data-caret="0">□⁄□</button>
-          <button class="key fn" data-insert="^2"         data-caret="0">□²</button>
-          <button class="key fn" data-insert="^"          data-caret="0">□^□</button>
-          <button class="key fn" data-insert="sin()"      data-caret="-1">sin(□)</button>
-
-          <button class="key fn" data-insert="sqrt()"     data-caret="-1">√□</button>
-          <button class="key fn" data-insert="root(,3)"   data-caret="-3">ⁿ√□</button>
-          <button class="key fn" data-insert="cos()"      data-caret="-1">cos(□)</button>
-          <button class="key fn" data-insert="tg()"       data-caret="-1">tg(□)</button>
-
-          <button class="key fn" data-insert="log(,10)"   data-caret="-4">log□(□)</button>
-          <button class="key fn" data-insert="ln()"       data-caret="-1">ln(□)</button>
-          <button class="key fn" data-insert="ctg()"      data-caret="-1">ctg(□)</button>
-          <button class="key fn" data-insert="abs()"      data-caret="-1">|□|</button>
-
-          <button class="key fn" data-insert="arcsin()"   data-caret="-1">sin⁻¹(□)</button>
-          <button class="key fn" data-insert="arccos()"   data-caret="-1">cos⁻¹(□)</button>
-          <button class="key fn" data-insert="arctg()"    data-caret="-1">tg⁻¹(□)</button>
-          <button class="key fn" data-insert="!"          data-caret="0">□!</button>
-        </div>
-
-        <div class="mgrid mgrid-6 mgrid-tail">
-          <button class="key switch" data-page="num">123</button>
-          <button class="key op" data-insert="(" data-caret="0">(</button>
-          <button class="key op" data-insert=")" data-caret="0">)</button>
-          <button class="key nav" data-caret-move="-1">‹</button>
-          <button class="key nav" data-caret-move="1">›</button>
-          <button class="key del" id="btn-backspace-fn">⌫</button>
-        </div>
-      </div>
-
-      <div class="mgrid mgrid-tail">
-        <button class="key clear" id="btn-clear">Tozalash</button>
-      </div>
-    </section>
+    <section class="keyboard" id="keyboard-slot"></section>
 
   </main>
 
@@ -130,6 +57,7 @@
     <button class="submit" id="btn-submit">Javobni yuborish</button>
   </footer>
 
-  <script src="{% static 'miniapp/js/keyboard.js' %}"></script>
+  <script src="{% static 'mathpad/mathpad.js' %}?v={{ asset_version }}"></script>
+  <script src="{% static 'miniapp/js/keyboard.js' %}?v={{ asset_version }}"></script>
 </body>
 </html>

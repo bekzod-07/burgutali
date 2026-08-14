@@ -35,9 +35,18 @@ def asset_version() -> str:
     yangi nusxani oladi.
     """
     static_dir = Path(__file__).resolve().parent / "static" / "miniapp"
+    shared_dir = Path(settings.BASE_DIR) / "static" / "mathpad"
+    assets = [
+        static_dir / "css/app.css",
+        static_dir / "js/app.js",
+        static_dir / "css/keyboard.css",
+        static_dir / "js/keyboard.js",
+        # Umumiy matematik klaviatura ham shu versiya bilan yangilanadi.
+        shared_dir / "mathpad.css",
+        shared_dir / "mathpad.js",
+    ]
     stamps: list[float] = []
-    for relative in ("css/app.css", "js/app.js"):
-        path = static_dir / relative
+    for path in assets:
         try:
             stamps.append(path.stat().st_mtime)
         except OSError:  # pragma: no cover - fayl yo'q bo'lishi mumkin
@@ -120,6 +129,7 @@ def keyboard(request):
         "prefill_a": request.GET.get("a", ""),
         "prefill_b": request.GET.get("b", ""),
         "question_text": request.GET.get("text", ""),
+        "asset_version": asset_version(),
     }
     return render(request, "miniapp/keyboard.html", context)
 

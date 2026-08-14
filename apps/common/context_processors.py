@@ -8,9 +8,13 @@ from django.conf import settings
 
 #: Panel uslubi va skriptlari — versiya belgisini shu fayllar bo'yicha olamiz.
 _PANEL_STATIC = Path(__file__).resolve().parent.parent / "dashboard" / "static" / "dashboard"
+_SHARED_STATIC = Path(__file__).resolve().parent.parent.parent / "static" / "mathpad"
 _PANEL_ASSETS = (
     _PANEL_STATIC / "css" / "dashboard.css",
     _PANEL_STATIC / "js" / "mathpad.js",
+    # Umumiy matematik klaviatura ham shu versiya bilan yangilanadi.
+    _SHARED_STATIC / "mathpad.css",
+    _SHARED_STATIC / "mathpad.js",
 )
 
 

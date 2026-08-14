@@ -13,9 +13,9 @@ bajarilganini ko‘rsatadi.
 | 2 | Rollar: Administrator va Ishtirokchi | `apps/users/models.BotUser.is_admin`, `bot/middlewares/user_mw.py` |
 | 3 | Jami 45 ta savol | `core/constants.NATIONAL_TOTAL_QUESTIONS`, `apps/exams/structures.national_specs()` |
 | 3 | 1–32: A, B, C, D (bitta javob) | `Question.Kind.SINGLE`, `NATIONAL_SINGLE_RANGE` |
-| 3 | 33–35: A–F (bir yoki bir nechta javob) | `Question.Kind.MULTI`, `NATIONAL_MULTI_RANGE` |
+| 3 | 33–35: A–F (moslashtirish — bitta to‘g‘ri javob) | `Question.Kind.MULTI`, `NATIONAL_MULTI_RANGE` |
 | 3 | 36–45: variantsiz, a) va b) maydonlar | `Question.Kind.OPEN` + `parts=2`, `NATIONAL_OPEN_RANGE` |
-| 4 | Mini App matematik klaviatura | `apps/miniapp/` — web ilova ichida va alohida `/app/klaviatura/` sahifasida (kasr, ildiz, daraja, π, e, sin, cos, tg, ctg, ln, log, \|x\|, ≤ ≥ ≠, qavslar, + − × ÷) |
+| 4 | Mini App matematik klaviatura | `static/mathpad/` — web ilova, boshqaruv paneli va `/app/klaviatura/` sahifasi uchun **yagona** klaviatura (raqamlar, π, e, a–c, x–z, kasr, ildizlar, darajalar, sin/cos/tan/cot va teskarilari, ln, log, log□, exp, qavslar; ortga/oldinga qaytarish va buferdan qo‘yish) |
 | 4 | SymPy orqali ekvivalentlik (1/2 = 0.5, sin(pi/6)=0.5) | `core/math_expr.compare_answer()` |
 | 5 | 3000 ta noyob 7 xonali ID | `core/constants.DEFAULT_CODE_BATCH = 3000`; kod formati TZ dagi `R7K4-8251` ko‘rinishida (8 belgi) — «Rash bot» hujjati aynan shu formatni talab qiladi |
 | 5 | Har bir ID faqat bir marta ishlatiladi | `AccessCode.Status`, `uniq` cheklov, `consume_code()` |
@@ -155,5 +155,5 @@ Barcha chetlanishlar funksionallikni kamaytirmaydi.
 
 | Skript | Tekshiruvlar | Nimani qamrab oladi |
 |--------|--------------|---------------------|
-| `selftest.py` | 454 | konstantalar, matn, SymPy (xavfsizlik hujumlari bilan), Rasch algoritmi, kalit tahlili, ID generatori, migratsiyalar, 45-savollik to‘liq oqim, oddiy test, pullik test + sertifikat, eksport, Mini App imzosi, web sahifalar, panel, bot modullari, chegaraviy holatlar, test kodining qayta ishlatilishi, savollar qiyinchiligi diagrammasi |
+| `selftest.py` | 505 | konstantalar, matn, SymPy (xavfsizlik hujumlari bilan), Rasch algoritmi, kalit tahlili, ID generatori, migratsiyalar, 45-savollik to‘liq oqim, oddiy test, pullik test + sertifikat, eksport, Mini App imzosi, web sahifalar, panel, bot modullari, chegaraviy holatlar, test kodining qayta ishlatilishi, savollar qiyinchiligi diagrammasi |
 | `simulate.py` | 157 | botning haqiqiy oqimi: obuna → ro‘yxat → test yaratish → testga kirish → javob berish → yuborish → natija → admin paneli → ID kodlar → hisoblash → e'lon → sertifikat PDF |

@@ -1,0 +1,308 @@
+/* ==========================================================================
+   Matematik klaviatura — umumiy uslub.
+
+   Bitta manba: web ilova (Mini App), boshqaruv paneli va botning alohida
+   klaviatura sahifasi shu faylni ishlatadi. Shuning uchun klaviatura uchala
+   joyda ham bir xil ko'rinadi.
+
+   Tuzilishi:
+       [yopish]  belgisi                    [ortga] [oldinga] [qo'yish]
+       1 2 3 4 5 6 7 8 9 0
+       π e a b c x y z .
+       ( ) □/□ √□ □^□ □² □³ ³√□ ⁿ√□
+       + − sin□ cos□ tan□ cot□
+       arcsin□ arccos□ arctan□ arcctg□
+       ln□ log□ log□□ exp□
+                     ‹  ›  ⏎  ⌫
+
+   Emoji ishlatilmaydi — barcha belgilar SVG yoki tipografik.
+   ========================================================================== */
+
+.mpad {
+  --mpad-face: #ffffff;
+  --mpad-ink: #1b222c;
+  --mpad-bg: #e7eaef;
+  --mpad-hit: #0b8a3d;
+  --mpad-hit-bg: #e6f6ec;
+  --mpad-nav: #9ba3ad;
+  --mpad-nav-ink: #1f2833;
+  --mpad-mute: #6b7683;
+
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  box-sizing: border-box;
+  padding: 7px 7px 0;
+  background: var(--mpad-bg);
+  color: var(--mpad-ink);
+  box-shadow: 0 -8px 26px rgba(14, 26, 45, .22);
+  font-family: "Cambria Math", "Times New Roman", Georgia, serif;
+  font-size: 16px;
+  line-height: 1.1;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  max-height: 78vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mpad.is-open { display: block; }
+
+/* Alohida klaviatura sahifasida panel oqim ichida turadi (fixed emas). */
+.mpad.mpad-inline {
+  display: block;
+  position: static;
+  border-radius: 12px;
+  box-shadow: none;
+  max-height: none;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.mpad *,
+.mpad *::before,
+.mpad *::after { box-sizing: border-box; }
+
+/* ------------------------------------------------------------ yuqori qator */
+
+.mpad-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 3px 7px;
+  min-height: 30px;
+}
+
+.mpad-label {
+  flex: none;
+  max-width: 45%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mpad-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mpad-label.is-warn { color: #b3401d; }
+
+/* Jonli tekshiruv natijasi (panelda ishlatiladi). */
+.mpad-hint {
+  flex: 1;
+  min-width: 0;
+  font-family: "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
+  font-size: 11.5px;
+  color: var(--mpad-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.mpad-hint.is-ok { color: #0b7a37; }
+.mpad-hint.is-error { color: #b3401d; }
+
+.mpad-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+
+.mpad-tool {
+  width: 34px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #5b6673;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.mpad-tool:active { background: rgba(27, 34, 44, .09); }
+.mpad-tool[disabled] { opacity: .35; cursor: default; }
+.mpad-tool[disabled]:active { background: transparent; }
+
+.mpad-ico {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- tugmalar */
+
+.mpad-row {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.mpad-row-10 { grid-template-columns: repeat(10, 1fr); }
+.mpad-row-9  { grid-template-columns: repeat(9, 1fr); }
+.mpad-row-6  { grid-template-columns: repeat(6, 1fr); }
+.mpad-row-4  { grid-template-columns: repeat(4, 1fr); }
+.mpad-row-2  { grid-template-columns: repeat(2, 1fr); }
+
+.mpad-row[hidden] { display: none; }
+
+.mpad-key {
+  min-height: 38px;
+  border: none;
+  border-radius: 6px;
+  background: var(--mpad-face);
+  color: var(--mpad-ink);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  cursor: pointer;
+  box-shadow: 0 1px 1px rgba(21, 32, 48, .30);
+  transition: background .1s ease, color .1s ease;
+}
+
+.mpad-key:active,
+.mpad-key.is-hit {
+  background: var(--mpad-hit-bg);
+  color: var(--mpad-hit);
+}
+
+/* Harflar va o'zgaruvchilar — matematik kursiv. */
+.mpad-sym .mpad-key { font-style: italic; font-size: 18px; }
+
+/* Funksiya nomlari — tik yozuv, kichikroq shrift. */
+.mpad-fn .mpad-key { font-size: 15px; }
+.mpad-row-4 .mpad-key { font-size: 14px; }
+.mpad-key.mpad-op { font-size: 20px; }
+.mpad-key.mpad-wide {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------- formula belgilari */
+
+.mpad-box {
+  display: inline-block;
+  width: .66em;
+  height: .66em;
+  border: 1.3px solid currentColor;
+  vertical-align: .02em;
+  margin: 0 .06em;
+}
+
+.mpad-key sup,
+.mpad-key sub {
+  display: inline-block;
+  font-size: .60em;
+  line-height: 1;
+}
+
+.mpad-key sup { vertical-align: .70em; }
+.mpad-key sub { vertical-align: -.42em; margin-right: .06em; }
+
+/* Yuqori/quyi indeks ichidagi □ o'z o'rnida qolsin. */
+.mpad-key sup .mpad-box,
+.mpad-key sub .mpad-box { vertical-align: 0; margin: 0; }
+
+/* Kasr: □ ustida chiziq, tagida □ */
+.mpad-frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.mpad-frac .mpad-box { margin: 0; width: .6em; height: .6em; }
+.mpad-line {
+  display: block;
+  width: 1.15em;
+  height: 1.4px;
+  background: currentColor;
+  margin: 2px 0;
+}
+
+/* Ildiz: daraja ko'rsatkichi + radikal + □ */
+.mpad-root { display: inline; white-space: nowrap; }
+.mpad-deg {
+  display: inline-block;
+  font-size: .56em;
+  line-height: 1;
+  vertical-align: .78em;
+  margin-right: -.2em;
+}
+
+/* -------------------------------------------------------------- pastki qism */
+
+.mpad-navwrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 3px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mpad-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 9px 9px 0 0;
+  background: var(--mpad-nav);
+}
+
+.mpad.mpad-inline .mpad-nav { border-radius: 9px; margin-bottom: 2px; }
+
+.mpad-nav button {
+  min-width: 48px;
+  height: 34px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--mpad-nav-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.mpad-nav button:active { background: rgba(255, 255, 255, .38); }
+.mpad-nav .mpad-del { background: rgba(31, 40, 51, .16); }
+.mpad-nav .mpad-del:active { background: rgba(31, 40, 51, .30); }
+.mpad-nav .mpad-ico { width: 21px; height: 21px; stroke-width: 1.8; }
+
+/* ------------------------------------------------------------ faol maydon */
+
+.mpad-focus { caret-color: #0f2b46; }
+
+/* ---------------------------------------------------------------- ekranlar */
+
+@media (max-width: 340px) {
+  .mpad { font-size: 15px; padding: 6px 5px 0; }
+  .mpad-key { min-height: 35px; font-size: 16px; }
+  .mpad-fn .mpad-key { font-size: 13.5px; }
+  .mpad-row-4 .mpad-key { font-size: 12.5px; }
+  .mpad-row { gap: 4px; margin-bottom: 4px; }
+}
+
+@media (min-width: 700px) {
+  .mpad:not(.mpad-inline) {
+    left: 50%;
+    right: auto;
+    width: 100%;
+    max-width: 660px;
+    transform: translateX(-50%);
+    border-radius: 14px 14px 0 0;
+  }
+  .mpad-key { min-height: 42px; }
+}

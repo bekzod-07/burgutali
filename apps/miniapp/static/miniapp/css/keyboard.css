@@ -141,73 +141,12 @@ body {
 
 /* ------------------------------------------------------------- keyboard */
 
-.keyboard {
-  background: #14161b;
-  border-radius: 14px;
-  padding: 8px;
-}
-
-/* Doimiy yuqori panel: x | y | pi | e | daraja */
-.mstrip {
-  display: flex;
-  align-items: stretch;
-  gap: 1px;
-  background: #262b34;
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 8px;
-}
-.mstrip .key {
-  flex: 1;
-  background: transparent;
-  box-shadow: none;
-  min-height: 38px;
-  font-size: 18px;
-  font-style: italic;
-  font-family: "Times New Roman", Georgia, serif;
-  border-radius: 7px;
-  color: #f2f5f9;
-}
-.mstrip .key + .key { border-left: 1px solid #3a414d; }
-
-.mgrid { display: grid; gap: 6px; }
-.mgrid-4 { grid-template-columns: repeat(4, 1fr); }
-.mgrid-5 { grid-template-columns: repeat(5, 1fr); }
-.mgrid-6 { grid-template-columns: repeat(6, 1fr); }
-.mgrid-tail { margin-top: 6px; }
-
-.key {
-  min-height: 46px;
-  border: none;
-  border-radius: 10px;
-  background: #262b34;
-  color: #f2f5f9;
-  font-size: 16px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  user-select: none;
-  transition: transform .08s ease, filter .12s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  line-height: 1.15;
-}
-
-.key:active {
-  transform: scale(.94);
-  filter: brightness(1.25);
-}
-
-.key.num    { font-size: 21px; font-weight: 500; background: #1c2028; }
-.key.op     { font-size: 19px; }
-.key.fn     { font-size: 14px; }
-.key.nav    { font-size: 21px; color: #c3ccd9; }
-.key.switch { font-size: 14px; font-weight: 700; }
-.key.del    { background: #2f353f; font-size: 19px; }
-.key.enter  { background: var(--accent); color: #fff; font-size: 19px; }
-.key.clear  { min-height: 40px; font-size: 13.5px; background: #2f353f; color: #d7dde7; }
+/*
+   Klaviaturaning ko'rinishi umumiy faylda: `static/mathpad/mathpad.css`.
+   Bu sahifada u oqim ichida turadi (`mpad-inline`), shuning uchun bu yerda
+   faqat u joylashadigan bo'sh joy belgilanadi.
+*/
+.keyboard { margin-bottom: 4px; }
 
 /* ---------------------------------------------------------------- footer */
 
@@ -258,7 +197,6 @@ body {
 /* ----------------------------------------------------------- kichik ekran */
 
 @media (max-width: 340px) {
-  .key { min-height: 40px; font-size: 15px; }
   .field input { font-size: 17px; }
 }
 

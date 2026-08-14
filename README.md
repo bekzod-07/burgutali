@@ -163,17 +163,28 @@ paytda oladi.
 
 ### Matematik formulalar klaviaturasi (Telegram Mini App)
 
-Ochiq javob maydoni bosilganda ekran pastidan chiqadigan klaviatura ikkita
-sahifadan iborat:
+Ochiq javob maydoni bosilganda ekran pastidan **bitta oynali** klaviatura
+chiqadi — barcha belgilar bir joyda, sahifalar orasida o‘tish shart emas:
 
-* **123** — raqamlar, `× ÷ + −`, kasr nuqtasi, kursorni siljitish (`‹ ›`),
-  `⌫` va `⏎` (keyingi maydonga o‘tish);
-* **f(x)** — kasr, `□²`, `□^□`, `√`, `ⁿ√`, sin/cos/tg/ctg va ularning
-  teskarilari, `ln`, `log`, `|□|`, `□!`, qavslar.
+```
+[yopish]  36-savol · a) javob            [ortga] [oldinga] [qo‘yish]
 
-Ustidagi doimiy panelda `x`, `y`, `π`, `e` va daraja belgisi turadi.
-Xuddi shu klaviatura **test yaratishda** ham ishlatiladi — javob kalitlari
-varaqasidagi ochiq javob maydonlarida.
+  1  2  3  4  5  6  7  8  9  0
+  π  e  a  b  c  x  y  z  .
+  (  )  □/□  √□  □^□  □²  □³  ³√□  ⁿ√□
+  +  −  sin□  cos□  tan□  cot□
+  arcsin□  arccos□  arctan□  arcctg□
+  ln□  log□  log□□  exp□
+                    ‹   ›   ⏎   ⌫
+```
+
+Yuqoridagi qatorda uchta amal bor: **ortga qaytarish**, **oldinga
+qaytarish** va **buferdan qo‘yish**. Pastdagi yo‘lakda kursorni siljitish
+(`‹ ›`), keyingi maydonga o‘tish (`⏎`) va o‘chirish (`⌫`).
+
+Klaviatura **bitta manbadan** keladi (`static/mathpad/`), shuning uchun u
+uchala joyda aynan bir xil: web ilovada test topshirishda, test yaratishdagi
+javob kalitlari varaqasida va botning `/app/klaviatura/` sahifasida.
 
 Javoblar **SymPy** yordamida *matematik ekvivalentlik* bo‘yicha tekshiriladi:
 `1/2` = `0.5` = `2^-1`, `sin(pi/6)` = `0.5`, `30°` = `pi/6`.
@@ -370,7 +381,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (454 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (505 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -430,7 +441,11 @@ rashmodel_matematikabot/
 ├── templates/
 │   ├── base.html              ommaviy sahifalar asosi
 │   └── partials/icons.html    SVG ikonkalar to'plami (emoji o'rniga)
-├── static/css/site.css        ommaviy sahifalar uslubi
+├── static/
+│   ├── css/site.css           ommaviy sahifalar uslubi
+│   └── mathpad/               matematik klaviatura — uchala joy uchun
+│       ├── mathpad.css        yagona ko'rinish
+│       └── mathpad.js         yagona mantiq
 └── docs/                      hujjatlar
 ```
 
@@ -439,7 +454,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 454 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 505 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```
@@ -467,7 +482,8 @@ SymPy · NumPy · SciPy · openpyxl · pandas · ReportLab · qrcode · Pillow
 * [Texnik topshiriqqa moslik jadvali](docs/TZ_MOSLIK.md)
 * [Video dars stsenariysi](docs/VIDEO_DARS.md) — sahna-sahna, so‘zma-so‘z matn bilan
 * [Avtomatik video dars](docs/VIDEO_DARS_AVTOMATIK.md) — platforma o‘zini o‘zi
-  ko‘rsatadigan videoni bir buyruq bilan yozib olish
+  ko‘rsatadigan, **o‘zbekcha diktor ovozi bilan** videoni bir buyruq bilan
+  yozib olish (natija: `data/video/dars.mp4`, subtitr va bob taymkodlari)
 
 ---
 

@@ -1927,6 +1927,97 @@ def test_charts() -> None:
 
 
 # ==========================================================================
+#  21. Matematik klaviatura (uchala joyda bir xil)
+# ==========================================================================
+
+
+def test_mathpad() -> None:
+    from django.test import Client
+
+    from core.math_expr import parse_expression
+
+    R.head("21. Matematik klaviatura (umumiy modul)")
+
+    shared = BASE_DIR / "static" / "mathpad"
+    css = shared / "mathpad.css"
+    js = shared / "mathpad.js"
+
+    R.check("Umumiy uslub fayli bor", css.is_file())
+    R.check("Umumiy modul fayli bor", js.is_file())
+    if not (css.is_file() and js.is_file()):
+        return
+
+    source = js.read_text(encoding="utf-8")
+
+    # --- Tugmalar to'plami (rasmda ko'rsatilgan tartib) ---
+    rows = {
+        "raqamlar": [str(digit) for digit in range(10)],
+        "belgilar": ["pi", "e", "a", "b", "c", "x", "y", "z", "."],
+        "amallar": ["(", ")", "/", "sqrt()", "^", "^2", "^3", "cbrt()", "root(,3)"],
+        "trigonometriya": ["+", "-", "sin()", "cos()", "tan()", "cot()"],
+        "teskari trigonometriya": ["arcsin()", "arccos()", "arctan()", "arcctg()"],
+        "logarifmlar": ["ln()", "log10()", "log(,)", "exp()"],
+    }
+    for name, keys in rows.items():
+        missing = [key for key in keys if '"%s"' % key not in source]
+        R.check(f"Qator to'liq: {name} ({len(keys)} ta)", not missing, ", ".join(missing))
+
+    # --- Har bir funksiya SymPy da haqiqatan hisoblanadi ---
+    functions = [
+        ("sqrt(4)", 2), ("cbrt(8)", 2), ("root(8,3)", 2),
+        ("sin(0)", 0), ("cos(0)", 1), ("tan(0)", 0),
+        ("arcsin(0)", 0), ("arccos(1)", 0), ("arctan(0)", 0),
+        ("ln(1)", 0), ("log10(100)", 2), ("log(100,10)", 2), ("exp(0)", 1),
+        ("2^3", 8), ("cot(pi/4)", 1), ("arcctg(1)", None),
+    ]
+    for expression, expected in functions:
+        parsed = parse_expression(expression)
+        ok = parsed is not None
+        if ok and expected is not None:
+            ok = abs(float(parsed) - expected) < 1e-9
+        R.check(f"Tugma ishlaydi: {expression}", ok, repr(parsed))
+
+    # --- Boshqaruv amallari ---
+    for action in ("undo", "redo", "paste", "left", "right", "enter", "del", "close"):
+        R.check(f"Amal mavjud: {action}", 'data-mp="%s"' % action in source)
+
+    # --- Klaviatura uchala joyda bir xil manbadan keladi ---
+    pages = {
+        "Web ilova": BASE_DIR / "apps/miniapp/templates/miniapp/app.html",
+        "Klaviatura sahifasi": BASE_DIR / "apps/miniapp/templates/miniapp/keyboard.html",
+        "Boshqaruv paneli": BASE_DIR / "apps/dashboard/templates/dashboard/base.html",
+    }
+    for name, path in pages.items():
+        markup = path.read_text(encoding="utf-8")
+        R.check(
+            f"{name} umumiy klaviaturani ulaydi",
+            "mathpad/mathpad.css" in markup and "mathpad/mathpad.js" in markup,
+        )
+
+    # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
+    for path in (
+        BASE_DIR / "apps/miniapp/static/miniapp/js/app.js",
+        BASE_DIR / "apps/miniapp/static/miniapp/js/keyboard.js",
+        BASE_DIR / "apps/dashboard/static/dashboard/js/mathpad.js",
+    ):
+        text = path.read_text(encoding="utf-8")
+        R.check(
+            f"Eski klaviatura qoldig'i yo'q: {path.name}",
+            "mpage-num" not in text and "renderMathPad" not in text,
+        )
+
+    R.check("Klaviaturada emoji yo'q", not _has_emoji(source))
+
+    # --- Sahifa haqiqatan ochiladi ---
+    client = Client()
+    response = client.get("/app/klaviatura/?q=36&parts=2")
+    R.equal("Klaviatura sahifasi ochiladi", response.status_code, 200)
+    body = response.content.decode("utf-8", "replace")
+    R.check("Sahifada umumiy modul ulangan", "mathpad/mathpad.js" in body)
+    R.check("Javob maydonlari bor", 'id="answer-a"' in body and 'id="answer-b"' in body)
+
+
+# ==========================================================================
 #  Asosiy oqim
 # ==========================================================================
 
@@ -1958,6 +2049,7 @@ def main() -> int:
         test_edge_cases,
         test_exam_codes,
         test_charts,
+        test_mathpad,
     ]
 
     for step in steps:

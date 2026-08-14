@@ -507,8 +507,6 @@
     html += '<div class="finish-bar"><button class="btn" data-act="finish">' +
       ic("check-circle") + "Yakunlash va yuborish</button></div>";
 
-    if (hasOpen) { html += renderMathPad(); }
-
     el.screen.innerHTML = html;
     window.scrollTo(0, 0);
 
@@ -592,133 +590,39 @@
   /* =====================================================================
      Matematik klaviatura
 
-     Ikkita sahifadan iborat (namunadagi ko'rinish):
-       * «123»  — raqamlar, amallar, kursor va keyingi maydonga o'tish;
-       * «f(x)» — kasr, daraja, ildiz, trigonometriya, logarifmlar.
-     Ustidagi doimiy panelda x, y, π, e va daraja belgisi turadi.
+     Klaviatura umumiy modulda (`static/mathpad/mathpad.js`) — web ilova,
+     boshqaruv paneli va botning alohida klaviatura sahifasi bir xil
+     klaviaturani ishlatadi.
 
-     Klaviatura ikki joyda ishlatiladi: test topshirishda (ochiq javoblar)
-     va test yaratishda (javob kalitlari varaqasi). Shu sababli u aniq bir
-     savolga emas, «faol maydon»ga bog'langan.
+     Bu yerda faqat ilovaga xos qism qoladi: maydonlarni klaviaturaga
+     ulash va kiritilgan ifodani serverda jonli tekshirish.
      ===================================================================== */
 
-  var pad = {
-    input: null,    // klaviatura yozayotgan maydon
-    change: null,   // har bir o'zgarishdan keyin chaqiriladi
-    page: "num"
-  };
-
-  /* [belgi, kiritiladigan matn, kursor siljishi] */
-  var PAD_STRIP = [
-    ["x", "x", 0], ["y", "y", 0], ["π", "pi", 0], ["e", "e", 0], ["□°", "°", 0]
-  ];
-
-  var PAD_FUNCTIONS = [
-    ["□⁄□", "/", 0], ["□²", "^2", 0], ["□^□", "^", 0], ["sin(□)", "sin()", -1],
-    ["√□", "sqrt()", -1], ["ⁿ√□", "root(,3)", -3], ["cos(□)", "cos()", -1], ["tg(□)", "tg()", -1],
-    ["log□(□)", "log(,10)", -4], ["ln(□)", "ln()", -1], ["ctg(□)", "ctg()", -1], ["|□|", "abs()", -1],
-    ["sin⁻¹(□)", "arcsin()", -1], ["cos⁻¹(□)", "arccos()", -1],
-    ["tg⁻¹(□)", "arctg()", -1], ["□!", "!", 0]
-  ];
-
-  function padKey(label, insert, caret, cls) {
-    return '<button class="mkey' + (cls ? " " + cls : "") + '" data-act="mkey" data-ins="' +
-      esc(insert) + '" data-caret="' + (caret || 0) + '">' + esc(label) + "</button>";
-  }
-
-  function padAction(label, act, cls, extra) {
-    return '<button class="mkey' + (cls ? " " + cls : "") + '" data-act="' + act + '"' +
-      (extra || "") + ">" + esc(label) + "</button>";
-  }
-
-  /*
-     Klaviatura ekranning pastida turadi va javob maydoni tanlanganda
-     ochiladi — shu sababli u bitta nusxada bo'ladi va varaqni uzaytirmaydi.
-  */
-  function renderMathPad() {
-    var html = '<div class="mathpad" id="mathpad">' +
-      '<div class="mathpad-head"><span id="mathpad-label">Javob</span>' +
-      '<span class="mathpad-tools">' +
-      '<button class="mathpad-close" data-act="mclear">Tozalash</button>' +
-      '<button class="mathpad-close" data-act="mclose">Yopish</button></span></div>';
-
-    html += '<div class="mstrip">';
-    PAD_STRIP.forEach(function (key) {
-      html += padKey(key[0], key[1], key[2], "sym");
-    });
-    html += "</div>";
-
-    /* --- «123» sahifasi --- */
-    html += '<div class="mpage" id="mpage-num"><div class="mgrid mgrid-5">' +
-      padKey("7", "7", 0, "num") + padKey("8", "8", 0, "num") + padKey("9", "9", 0, "num") +
-      padKey("×", "×", 0, "op") + padKey("÷", "÷", 0, "op") +
-      padKey("4", "4", 0, "num") + padKey("5", "5", 0, "num") + padKey("6", "6", 0, "num") +
-      padKey("+", "+", 0, "op") + padKey("−", "−", 0, "op") +
-      padKey("1", "1", 0, "num") + padKey("2", "2", 0, "num") + padKey("3", "3", 0, "num") +
-      padKey(",", ".", 0, "op") + padAction("⌫", "mdel", "del") +
-      padAction("f(x)", "mpage", "switch", ' data-page="fn"') +
-      padKey("0", "0", 0, "num") +
-      padAction("‹", "mleft", "nav") + padAction("›", "mright", "nav") +
-      padAction("⏎", "mnext", "enter") +
-      "</div></div>";
-
-    /* --- «f(x)» sahifasi --- */
-    html += '<div class="mpage" id="mpage-fn" hidden><div class="mgrid mgrid-4">';
-    PAD_FUNCTIONS.forEach(function (key) {
-      html += padKey(key[0], key[1], key[2], "fn");
-    });
-    html += '</div><div class="mgrid mgrid-6 mgrid-tail">' +
-      padAction("123", "mpage", "switch", ' data-page="num"') +
-      padKey("(", "(", 0, "op") + padKey(")", ")", 0, "op") +
-      padAction("‹", "mleft", "nav") + padAction("›", "mright", "nav") +
-      padAction("⌫", "mdel", "del") +
-      "</div></div>";
-
-    return html + "</div>";
-  }
+  MathPad.mount({
+    onEnter: function (input) {
+      /* Ochiq savolda a) dan b) ga o'tamiz; oxirgi maydonda — yopamiz. */
+      var fields = Array.prototype.slice.call(
+        el.screen.querySelectorAll(".answer-field input")
+      );
+      var index = fields.indexOf(input);
+      if (index !== -1 && index + 1 < fields.length) {
+        var next = fields[index + 1];
+        MathPad.open(next);
+        var wrap = padWrap(next);
+        if (wrap) { wrap.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        return true;
+      }
+      MathPad.close();
+      return true;
+    }
+  });
 
   function padWrap(input) {
     return input && input.closest ? input.closest(".answer-field") : null;
   }
 
-  function openPad(input, label, onChange) {
-    if (!input) { return; }
-    pad.input = input;
-    pad.change = onChange || null;
-
-    Array.prototype.forEach.call(el.screen.querySelectorAll(".answer-field"), function (field) {
-      field.classList.remove("is-active");
-    });
-    var wrap = padWrap(input);
-    if (wrap) { wrap.classList.add("is-active"); }
-
-    var box = document.getElementById("mathpad");
-    if (!box) { return; }
-    box.classList.add("is-open");
-    body.classList.add("pad-open");
-
-    var tag = document.getElementById("mathpad-label");
-    if (tag) { tag.textContent = label || "Javob"; }
-    setPadPage(pad.page);
-  }
-
   function closeMathPad() {
-    var box = document.getElementById("mathpad");
-    if (box) { box.classList.remove("is-open"); }
-    body.classList.remove("pad-open");
-    pad.input = null;
-    pad.change = null;
-    Array.prototype.forEach.call(el.screen.querySelectorAll(".answer-field"), function (field) {
-      field.classList.remove("is-active");
-    });
-  }
-
-  function setPadPage(page) {
-    pad.page = page === "fn" ? "fn" : "num";
-    var numeric = document.getElementById("mpage-num");
-    var functions = document.getElementById("mpage-fn");
-    if (numeric) { numeric.hidden = pad.page !== "num"; }
-    if (functions) { functions.hidden = pad.page !== "fn"; }
+    MathPad.close();
   }
 
   var checkTimers = {};
@@ -730,12 +634,13 @@
        changeFn — qiymat o'zgarganda chaqiriladi.
   */
   function bindPadFields(scope, labelFn, changeFn) {
+    MathPad.reset();
+    var box = scope || el.screen;
+
     Array.prototype.forEach.call(
-      (scope || el.screen).querySelectorAll(".answer-field input"),
+      box.querySelectorAll(".answer-field input"),
       function (input) {
-        function open() { openPad(input, labelFn ? labelFn(input) : "", changeFn); }
-        input.addEventListener("focus", open);
-        input.addEventListener("click", open);
+        MathPad.bind(input, { label: labelFn ? labelFn(input) : "" });
         input.addEventListener("input", function () {
           scheduleCheck(input);
           if (changeFn) { changeFn(input); }
@@ -769,78 +674,6 @@
       fx.textContent = error.message;
       fx.className = "fx err";
     });
-  }
-
-  function padApply(input) {
-    haptic("light");
-    scheduleCheck(input);
-    if (pad.change) { pad.change(input); }
-  }
-
-  function insertText(text, caretShift) {
-    var input = pad.input;
-    if (!input) { toast("Avval javob maydonini tanlang.", true); return; }
-    var start = input.selectionStart;
-    var end = input.selectionEnd;
-    if (start === null || start === undefined) { start = input.value.length; end = start; }
-    input.value = input.value.slice(0, start) + text + input.value.slice(end);
-    var position = Math.max(0, Math.min(start + text.length + (caretShift || 0), input.value.length));
-    try { input.setSelectionRange(position, position); } catch (e) { /* ignore */ }
-    input.focus({ preventScroll: true });
-    padApply(input);
-  }
-
-  function backspace() {
-    var input = pad.input;
-    if (!input) { return; }
-    var start = input.selectionStart, end = input.selectionEnd;
-    if (start === null || start === undefined) { start = input.value.length; end = start; }
-    if (start === end) {
-      if (start === 0) { return; }
-      input.value = input.value.slice(0, start - 1) + input.value.slice(end);
-      start -= 1;
-    } else {
-      input.value = input.value.slice(0, start) + input.value.slice(end);
-    }
-    try { input.setSelectionRange(start, start); } catch (e) { /* ignore */ }
-    input.focus({ preventScroll: true });
-    padApply(input);
-  }
-
-  function moveCaret(step) {
-    var input = pad.input;
-    if (!input) { return; }
-    var position = input.selectionStart;
-    if (position === null || position === undefined) { position = input.value.length; }
-    position = Math.max(0, Math.min(position + step, input.value.length));
-    try { input.setSelectionRange(position, position); } catch (e) { /* ignore */ }
-    input.focus({ preventScroll: true });
-    haptic("light");
-  }
-
-  function clearField() {
-    var input = pad.input;
-    if (!input) { return; }
-    input.value = "";
-    try { input.setSelectionRange(0, 0); } catch (e) { /* ignore */ }
-    input.focus({ preventScroll: true });
-    padApply(input);
-  }
-
-  /* «⏎» — keyingi javob maydoniga o'tadi, oxirgisida klaviaturani yopadi. */
-  function padNext() {
-    var inputs = Array.prototype.slice.call(
-      el.screen.querySelectorAll(".answer-field input")
-    );
-    var index = inputs.indexOf(pad.input);
-    if (index !== -1 && index + 1 < inputs.length) {
-      var next = inputs[index + 1];
-      next.focus();
-      var wrap = padWrap(next);
-      if (wrap) { wrap.scrollIntoView({ behavior: "smooth", block: "center" }); }
-      return;
-    }
-    closeMathPad();
   }
 
   var saveTimers = {};
@@ -1260,7 +1093,6 @@
 
     html += '<button class="btn btn-green" data-act="create-exam">' + ic("check") + "Testni yaratish</button>";
     html += '<div id="create-errors"></div>';
-    html += renderMathPad();
 
     el.screen.innerHTML = html;
     bindCreateForm();
@@ -1915,18 +1747,6 @@
     if (act === "jump") { jumpToQuestion(parseInt(target.dataset.order, 10)); return; }
     if (act === "finish") { finishAttempt(); return; }
     if (act === "leave") { closeMathPad(); state.stack = []; go("home", {}, true); return; }
-
-    if (act === "mkey") {
-      insertText(target.dataset.ins, parseInt(target.dataset.caret, 10) || 0);
-      return;
-    }
-    if (act === "mdel") { backspace(); return; }
-    if (act === "mclose") { closeMathPad(); return; }
-    if (act === "mclear") { clearField(); return; }
-    if (act === "mleft") { moveCaret(-1); return; }
-    if (act === "mright") { moveCaret(1); return; }
-    if (act === "mnext") { padNext(); return; }
-    if (act === "mpage") { setPadPage(target.dataset.page); return; }
 
     if (act === "get-certificate") {
       setBusy(true);

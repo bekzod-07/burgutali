@@ -540,121 +540,21 @@ a:focus-visible {
 
 /* ==========================================================================
    Matematik klaviatura (javob kalitlarini kiritish uchun)
-   Mini App dagi bilan bir xil ko'rinish: to'q panel, doimiy x/y/pi/e/daraja
-   qatori va ikkita sahifa — «123» hamda «f(x)».
+
+   Klaviaturaning ko'rinishi umumiy faylda: `static/mathpad/mathpad.css`.
+   Panelda ham web ilovadagi bilan aynan bir xil klaviatura chiqadi, bu
+   yerda faqat sahifaning unga moslashuvi qoladi.
    ========================================================================== */
 
-.mp {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: 90;
-  padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
-  background: #14161b;
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -10px 32px rgba(15, 43, 70, .3);
-  max-height: 66vh;
-  overflow-y: auto;
-}
-
 /* Klaviatura ochilganda pastdagi maydonlar berkilib qolmasin. */
-body.mp-open { padding-bottom: 380px; }
-
-.mp-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 2px 4px 8px;
-  font-size: 12px;
-  color: #8d97a8;
-}
-.mp-label { font-weight: 700; white-space: nowrap; }
-.mp-preview {
-  flex: 1;
-  min-width: 0;
-  font-family: "SF Mono", "Cascadia Mono", Consolas, monospace;
-  font-size: 12px;
-  color: #8d97a8;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mp-preview.is-ok    { color: #5fd68f; }
-.mp-preview.is-error { color: #f2938f; }
-.mp-tools { display: flex; gap: 6px; flex: none; }
-.mp-flat {
-  min-height: 30px !important;
-  padding: 0 12px;
-  font-size: 12px !important;
-  font-weight: 650 !important;
-  background: #262b34;
-  color: #d7dde7;
-}
-
-/* Doimiy yuqori panel: x | y | pi | e | daraja */
-.mp-strip {
-  display: flex;
-  align-items: stretch;
-  gap: 1px;
-  background: #262b34;
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 8px;
-}
-.mp-strip .mp-key {
-  flex: 1;
-  background: transparent;
-  min-height: 36px;
-  font-size: 17px;
-  font-style: italic;
-  font-family: "Times New Roman", Georgia, serif;
-  border-radius: 7px;
-}
-.mp-strip .mp-key + .mp-key { border-left: 1px solid #3a414d; }
-
-.mp-grid { display: grid; gap: 6px; }
-.mp-grid.g2 { grid-template-columns: repeat(2, 1fr); }
-.mp-grid.g4 { grid-template-columns: repeat(4, 1fr); }
-.mp-grid.g5 { grid-template-columns: repeat(5, 1fr); }
-.mp-grid.g6 { grid-template-columns: repeat(6, 1fr); }
-.mp-tail, .mp-extra { margin-top: 6px; }
-
-.mp-key {
-  min-height: 44px;
-  border: none;
-  border-radius: 10px;
-  background: #262b34;
-  color: #f2f5f9;
-  font-size: 16px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  line-height: 1.15;
-}
-.mp-key:hover { background: #333a45; }
-.mp-key:active { transform: scale(.96); }
-.mp-key.num { font-size: 20px; font-weight: 500; background: #1c2028; }
-.mp-key.op { font-size: 19px; }
-.mp-key.fn { font-size: 14px; }
-.mp-key.nav { font-size: 20px; color: #c3ccd9; }
-.mp-key.switch { font-size: 14px; font-weight: 700; }
-.mp-key.del { background: #2f353f; font-size: 18px; }
-.mp-key.enter { background: var(--navy-600); color: #fff; font-size: 18px; }
-.mp-key.wide { font-size: 13px; font-weight: 650; background: #2f353f; }
+body.mpad-open { padding-bottom: calc(var(--mpad-h, 340px) + 24px); }
 
 /* Klaviaturaga ulangan maydon ajralib tursin. */
-[data-mathpad]:focus {
+[data-mathpad]:focus,
+[data-mathpad].mpad-focus {
   border-color: var(--navy-400);
   box-shadow: 0 0 0 3px rgba(75, 127, 176, .18);
 }
 
 /* «⏎» bilan keyingi maydonga o'tilganda u klaviatura ostida qolmasin. */
-[data-mathpad] { scroll-margin-bottom: 340px; }
-
-@media (min-width: 900px) {
-  .mp { max-width: 720px; left: auto; right: 24px; border-radius: 16px 16px 0 0; }
-  body.mp-open { padding-bottom: 300px; }
-}
+[data-mathpad] { scroll-margin-bottom: calc(var(--mpad-h, 340px) + 24px); }
