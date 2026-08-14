@@ -2076,6 +2076,14 @@ def test_mathpad() -> None:
         "Tuzilma qavslari ustida kursor to'xtamaydi",
         "function hiddenParen(" in source,
     )
+    R.check(
+        "«Bo'sh joy» joriy bo'lakni tugatadi",
+        "function leaveSlot(" in source and "function slotEnd(" in source,
+    )
+    R.check(
+        "Matn ko'rinishidagi maydonlarda bo'sh joy odatdagidek yoziladi",
+        'input.dataset.mpadRaw === "1"' in source,
+    )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
     for path in (

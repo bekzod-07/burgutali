@@ -250,6 +250,24 @@ sezdirmasdan qavsga olinadi (`5/(2)`) — ko‘rinish o‘zgarmaydi, `‹` bilan
 maxrajga qaytish ham ishlayveradi. Tuzilma qavslari ustida kursor
 to‘xtamaydi — `‹ ›` ularni sakrab o‘tadi.
 
+**«Bo‘sh joy» — bo‘lakni tugatish.** Oddiy klaviaturadagi bo‘sh joy
+tugmasi matnga hech narsa yozmaydi, balki joriy bo‘lakni tugatadi:
+suratdan maxrajga, maxrajdan esa kasrdan tashqariga olib chiqadi. Xuddi
+shu tarzda ildiz, daraja va logarifm asosidan ham chiqiladi:
+
+```
+455/3 [bo‘sh joy] 2   ->   455        (455/3 · 2)
+                            ─── · 2
+                             3
+
+√2   [bo‘sh joy] 3    ->   √2 · 3
+2³   [bo‘sh joy] 4    ->   2³ · 4
+log(100 [bo‘sh joy] 10 ->  log₁₀(100)
+```
+
+Matn ko‘rinishiga o‘tkazilgan maydonlarda va kalitlar varaqasidagi
+`a ; b` maydonlarida bo‘sh joy odatdagidek yoziladi.
+
 Har bir maydonning o‘ng chetida ikkita tugma bor: **klaviatura** belgisi
 matematik klaviaturani ochadi/yopadi, **ro‘yxat** belgisi esa maydonni
 matn ko‘rinishiga o‘tkazadi (nusxa ko‘chirish yoki oddiy klaviatura bilan
@@ -450,7 +468,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (551 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (553 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -523,7 +541,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 551 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 553 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

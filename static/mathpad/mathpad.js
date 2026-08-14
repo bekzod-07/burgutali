@@ -462,6 +462,32 @@
       "/^".indexOf(value.charAt(index - 1)) !== -1;
   }
 
+  function setCaretAt(input, position) {
+    try { input.setSelectionRange(position, position); } catch (error) { /* qo'llamaydi */ }
+    try { input.focus({ preventScroll: true }); } catch (error) { input.focus(); }
+    historyOf(input).caret = position;
+    /* Chizilgan formulada kursor yangi joyga ko'chsin. */
+    fire(input, "mpad:change");
+  }
+
+  /*
+     Maxrajni qavsga oladi va kursorni kasrdan tashqariga chiqaradi.
+
+     Matn tugagan joyda kursorning «maxraj ichida» va «kasrdan keyin»
+     holatlari bir xil o'ringa to'g'ri keladi. Qavs shu ikkisini
+     ajratadi — ko'rinish esa o'zgarmaydi (`455/3` xuddi shundayligicha
+     chiziladi).
+  */
+  function closeDenominator(input, value) {
+    var slash = openDenominator(value, value.length);
+    if (slash === -1 || slash + 1 >= value.length) { return false; }
+    pushUndo(input);
+    apply(input,
+          value.slice(0, slash + 1) + "(" + value.slice(slash + 1) + ")",
+          value.length + 2);
+    return true;
+  }
+
   function moveCaret(step) {
     var input = state.input;
     if (!input) { return; }
@@ -469,23 +495,9 @@
     var value = input.value;
     var caret = caretOf(input);
 
-    /*
-       Maxrajning oxiridan o'ngga chiqish.
-
-       Matn tugagan joyda kursorning «maxraj ichida» va «kasrdan keyin»
-       holatlari bir xil o'ringa to'g'ri keladi. Shuning uchun maxraj
-       qavsga olinadi — ko'rinish o'zgarmaydi (`455/3` xuddi shundayligicha
-       chiziladi), lekin kursor kasrdan chiqadigan joy paydo bo'ladi.
-    */
-    if (step > 0 && caret >= value.length) {
-      var slash = openDenominator(value, caret);
-      if (slash !== -1 && slash + 1 < value.length) {
-        pushUndo(input);
-        apply(input,
-              value.slice(0, slash + 1) + "(" + value.slice(slash + 1) + ")",
-              value.length + 2);
-        return;
-      }
+    /* Maxrajning oxiridan o'ngga chiqish uchun joy yo'q — qavs qo'yamiz. */
+    if (step > 0 && caret >= value.length && closeDenominator(input, value)) {
+      return;
     }
 
     var position = Math.max(0, Math.min(caret + step, value.length));
@@ -495,11 +507,57 @@
       position = next;
     }
 
-    try { input.setSelectionRange(position, position); } catch (error) { /* qo'llamaydi */ }
-    try { input.focus({ preventScroll: true }); } catch (error) { input.focus(); }
-    historyOf(input).caret = position;
-    /* Chizilgan formulada kursor yangi joyga ko'chsin. */
-    fire(input, "mpad:change");
+    setCaretAt(input, position);
+  }
+
+  /*
+     Joriy bo'lakning oxiri.
+
+     Surat ichida bo'lsak — kasr chizig'idan keyingi o'rin (maxrajning
+     boshi); qavs ichida bo'lsak — yopiladigan qavsdan keyingi o'rin;
+     had tugasa — o'sha yer.
+  */
+  function slotEnd(value, caret) {
+    var depth = 0;
+    for (var i = caret; i < value.length; i += 1) {
+      var ch = value.charAt(i);
+      if (ch === "(") { depth += 1; continue; }
+      if (ch === ")") {
+        if (depth === 0) { return i + 1; }
+        depth -= 1;
+        continue;
+      }
+      if (depth) { continue; }
+      /* Kasr chizig'i va vergul — keyingi katakning boshi. */
+      if (ch === "/" || ch === ",") { return i + 1; }
+      if ("+-*|".indexOf(ch) !== -1) { return i; }
+    }
+    return value.length;
+  }
+
+  /*
+     «Bo'sh joy» tugmasi — joriy bo'lakni tugatish.
+
+     Suratga yozib bo'lingach kursor maxrajga, maxrajga yozib bo'lingach
+     esa kasrdan tashqariga chiqadi. Xuddi shunday ildiz, daraja va
+     funksiya qavsidan ham chiqiladi. Matnga bo'sh joy yozilmaydi —
+     u formulada hech qanday ma'no bermaydi.
+  */
+  function leaveSlot() {
+    var input = state.input;
+    if (!input) { return; }
+
+    var value = input.value;
+    var caret = caretOf(input);
+    var target = slotEnd(value, caret);
+
+    if (target >= value.length && closeDenominator(input, value)) { return; }
+    if (target === caret) { return; }
+
+    for (var guard = 0; guard < 8 && hiddenParen(value, target); guard += 1) {
+      target += 1;
+    }
+    setCaretAt(input, Math.min(target, value.length));
   }
 
   function undo() {
@@ -806,6 +864,7 @@
     if (meta.label) { input.dataset.mpadLabel = meta.label; }
     if (meta.enter) { input.dataset.mpadEnter = meta.enter; }
     if (meta.extra) { input.dataset.mpadExtra = "1"; }
+    if (meta.raw) { input.dataset.mpadRaw = "1"; }
 
     input.setAttribute("autocomplete", "off");
     input.setAttribute("spellcheck", "false");
@@ -817,6 +876,25 @@
     input.addEventListener("click", function () { open(input); });
     input.addEventListener("input", function () { trackTyping(input); });
     input.addEventListener("keyup", function () { historyOf(input).caret = caretOf(input); });
+
+    /*
+       Oddiy klaviaturadagi «bo'sh joy» — formulaning joriy bo'lagini
+       tugatadi: kursor surat, maxraj, ildiz yoki darajadan chiqadi.
+       Matn ko'rinishidagi maydonlarda (`a ; b`, ko'p qatorli kalitlar)
+       bo'sh joy odatdagidek yoziladi.
+    */
+    input.addEventListener("keydown", function (event) {
+      if (input.dataset.mpadRaw === "1") { return; }
+      if (event.key !== " " && event.key !== "Spacebar" && event.keyCode !== 32) {
+        return;
+      }
+      /* Maydon vaqtincha matn ko'rinishiga o'tkazilgan bo'lsa — tegmaymiz. */
+      var wrap = input.closest ? input.closest(".mfield") : null;
+      if (wrap && wrap.classList.contains("is-raw")) { return; }
+      event.preventDefault();
+      if (state.input !== input) { open(input); }
+      leaveSlot();
+    });
 
     /*
        Maydon javobni chizilgan formula ko'rinishida ko'rsatadi.
