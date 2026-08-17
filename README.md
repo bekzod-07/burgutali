@@ -468,7 +468,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (553 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (563 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -541,7 +541,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 553 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 563 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

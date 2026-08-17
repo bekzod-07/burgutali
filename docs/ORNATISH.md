@@ -51,8 +51,18 @@ cp .env.example .env            # Linux / macOS
 ### Majburiy obuna
 
 Bot kanaldagi a’zolikni tekshirishi uchun **bot kanalda administrator**
-bo‘lishi kerak. Aks holda tekshiruv ishlamaydi va bot foydalanuvchilarni
-to‘smaydi (log faylida ogohlantirish chiqadi).
+bo‘lishi kerak — `getChatMember` faqat shunda javob beradi.
+
+Tekshiruv qat’iy: a’zolik tasdiqlanmaguncha botdan ham, Mini App’dan ham
+foydalanib bo‘lmaydi. Tekshirib bo‘lmagan holatda ham (bot kanaldan
+chiqarilgan, Telegram javob bermadi) foydalanuvchi kiritilmaydi. Faqat
+`ADMIN_IDS` dagi adminlar bundan mustasno.
+
+> **Diqqat:** shu sababli botni kanaldan chiqarish barcha foydalanuvchilarni
+> to‘sib qo‘yadi. Bot ishga tushganda kanalda administrator ekanini
+> tekshiradi va natijani logga yozadi:
+> `Majburiy obuna yoqilgan: @Burgutali (bot kanalda administrator).`
+> Muammo bo‘lsa log’da `MAJBURIY OBUNA ISHLAMAYDI` satri chiqadi.
 
 Majburiy obunani butunlay o‘chirish: `SUBSCRIPTION_REQUIRED=0`.
 
@@ -214,7 +224,7 @@ sertifikat baribir yaratiladi.
 
 ```bash
 python manage.py check      # Django tizim tekshiruvi
-python selftest.py          # 553 ta tekshiruv (alohida sinov bazasida)
+python selftest.py          # 563 ta tekshiruv (alohida sinov bazasida)
 python simulate.py          # 157 ta tekshiruv (bot oqimi simulyatsiyasi)
 ```
 
