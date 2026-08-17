@@ -21,8 +21,8 @@ MAX_BALL: Final[float] = 90.14
 #: Daraja jadvali: (quyi chegara, yuqori chegara, daraja nomi).
 #: Yuqori chegara `None` bo'lsa — cheksiz.
 GRADE_TABLE: Final[tuple[tuple[float, float | None, str], ...]] = (
-    (0.0, 45.9, "Daraja olinmadi"),
-    (46.0, 49.9, "C"),
+    (0.0, 39.9, "Daraja olinmadi"),
+    (40.0, 49.9, "C"),
     (50.0, 54.9, "C+"),
     (55.0, 59.9, "B"),
     (60.0, 64.9, "B+"),
@@ -47,7 +47,7 @@ def grade_for_ball(ball: float | Decimal | None) -> str:
             continue
         if high is None or value <= high:
             return name
-    # 45.9 < ball < 46.0 kabi oraliqlar uchun himoya
+    # 39.9 < ball < 40.0 kabi oraliqlar uchun himoya
     for low, high, name in reversed(GRADE_TABLE):
         if value >= low:
             return name

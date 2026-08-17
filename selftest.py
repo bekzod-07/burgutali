@@ -163,8 +163,9 @@ def test_constants() -> None:
 
     R.equal("Maksimal ball 90.14", C.MAX_BALL, 90.14)
     R.equal("0 ball -> daraja yo'q", C.grade_for_ball(0), "Daraja olinmadi")
-    R.equal("45.9 -> daraja yo'q", C.grade_for_ball(45.9), "Daraja olinmadi")
-    R.equal("46.0 -> C", C.grade_for_ball(46.0), "C")
+    R.equal("39.9 -> daraja yo'q", C.grade_for_ball(39.9), "Daraja olinmadi")
+    R.equal("40.0 -> C (sertifikat chegarasi)", C.grade_for_ball(40.0), "C")
+    R.equal("45.9 -> C", C.grade_for_ball(45.9), "C")
     R.equal("49.9 -> C", C.grade_for_ball(49.9), "C")
     R.equal("50.0 -> C+", C.grade_for_ball(50.0), "C+")
     R.equal("55.0 -> B", C.grade_for_ball(55.0), "B")
@@ -341,7 +342,9 @@ def test_rasch() -> None:
     R.equal("A+ chegarasi", scoring.grade_for(70.0), "A+")
 
     R.close("theta=+2.2125 -> 70.00 (A+ chegarasi)", scoring.theta_to_ball(2.2125), 70.0, 0.02)
-    R.close("theta=+0.0821 -> 46.00 (C chegarasi)", scoring.theta_to_ball(0.0821), 46.0, 0.02)
+    R.close("theta=-0.4500 -> 40.00 (C chegarasi)", scoring.theta_to_ball(-0.45), 40.0, 0.02)
+    R.equal("C chegarasi — sertifikat 40 balldan", scoring.grade_for(40.0), "C")
+    R.equal("39.99 ball — sertifikat yo'q", scoring.grade_for(39.99), C.NO_GRADE)
 
     result = scoring.build_score(2.25, 40, 55)
     R.check(f"theta=2.25 -> A+ ({result.ball})", result.grade == "A+")
@@ -924,6 +927,37 @@ def test_exports() -> None:
     certificates = certificate_list_report(paid)
     R.check("Sertifikatlar PDF yaratildi", certificates[:4] == b"%PDF")
 
+    # --- Darajalar PDF da rang bilan ajratiladi ---
+    from apps.exports import pdf_report as PR
+    from core import constants as C
+
+    R.check(
+        "Har bir daraja uchun rang bor",
+        all(grade in PR.GRADE_COLORS for grade in ("A+", "A", "B+", "B", "C+", "C")),
+    )
+    R.check(
+        "A+ eng to'q yashil, A ochroq",
+        PR.GRADE_COLORS["A+"][0] != PR.GRADE_COLORS["A"][0],
+    )
+    R.equal(
+        "Daraja olinmaganda betaraf rang",
+        PR.grade_colors(C.NO_GRADE), PR.NO_GRADE_COLOR,
+    )
+    R.equal("Bo'sh daraja ham bo'yaladi", PR.grade_colors("—"), PR.NO_GRADE_COLOR)
+    R.check("Tanilmagan daraja bo'yalmaydi", PR.grade_colors("Z") is None)
+
+    rows = [["№", "Ism", "Daraja"], ["1", "A. A.", "A+"], ["2", "B. B.", "C"]]
+    commands = PR._grade_column_style(rows, 2)
+    R.check(
+        "Daraja ustuni uchun uslub buyruqlari yasaldi",
+        len(commands) == 6
+        and all(cmd[1][0] == 2 and cmd[2][0] == 2 for cmd in commands),
+    )
+    R.check(
+        "Sarlavha qatori bo'yalmaydi",
+        all(cmd[1][1] >= 1 for cmd in commands),
+    )
+
 
 # ==========================================================================
 #  12. Mini App autentifikatsiyasi
@@ -1419,6 +1453,38 @@ def test_miniapp_api() -> None:
     R.check("Natijalar ro'yxati bor", isinstance(data["results"], list))
     R.check("Daraja jadvali uzatiladi", len(data["grade_table"]) == 7)
     R.equal("Maksimal ball uzatiladi", data["max_ball"], 90.14)
+
+    # --- Profilni tahrirlash ---
+    was = (user.full_name, user.phone)
+
+    response = call("/app/api/profil/", {"full_name": "Alisher", "phone": "+998901234567"})
+    R.equal("Bir so'zli ism rad etiladi", response.status_code, 400)
+
+    response = call("/app/api/profil/", {"full_name": "Alisher Rahimov", "phone": "123"})
+    R.equal("Qisqa telefon rad etiladi", response.status_code, 400)
+
+    response = call("/app/api/profil/", {"full_name": "", "phone": ""})
+    R.equal("Bo'sh profil rad etiladi", response.status_code, 400)
+
+    response = call(
+        "/app/api/profil/", {"full_name": "  alisher   RAHIMOV ", "phone": "901234567"}
+    )
+    R.equal("Profil saqlandi", response.status_code, 200)
+    saved = response.json()["saved"]
+    R.equal("Ism tozalanadi va bosh harfga keltiriladi", saved["full_name"], "Alisher Rahimov")
+    R.equal("Telefon +998 bilan saqlanadi", saved["phone"], "+998901234567")
+
+    user.refresh_from_db()
+    R.equal("Bazada yangilandi", user.full_name, "Alisher Rahimov")
+    R.check("Profil tahriri tarixga yozildi", user.actions.filter(
+        description="Profilni tahrirladi"
+    ).exists())
+
+    response = call("/app/api/profil/", method="GET")
+    R.equal("Profil faqat POST bilan o'zgaradi", response.status_code, 405)
+
+    user.full_name, user.phone = was
+    user.save(update_fields=["full_name", "phone"])
 
     # --- Yangi test yaratish ---
     response = call("/app/api/test-yaratish/", {

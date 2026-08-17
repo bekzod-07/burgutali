@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from functools import wraps
 
 from django.http import HttpResponse, JsonResponse
@@ -28,8 +29,10 @@ from apps.exams import keys as key_parser
 from apps.exams import services as exam_services
 from apps.exams.models import Exam, Question
 from apps.rasch.services import calculate_exam
+from apps.users import services as user_services
 from core import constants as C
 from core.math_expr import MAX_INPUT_LENGTH, normalize_expression, parse_expression
+from core.text_utils import is_valid_full_name, normalize_phone
 
 from . import serializers as S
 from .auth import MiniAppAuthError, resolve_user
@@ -192,6 +195,35 @@ def bootstrap(request, user):
         ],
         "max_ball": C.MAX_BALL,
     }
+
+
+@api_view("POST")
+def profile_update(request, user):
+    """
+    Ism-familiya va telefon raqamini tahrirlaydi.
+
+    Tekshiruvlar botdagi ro'yxatdan o'tish bilan bir xil (`core.text_utils`),
+    shunda bir xil ma'lumot ikki joyda turlicha qabul qilinmaydi.
+    """
+    data = body(request)
+    raw_name = str(data.get("full_name") or "").strip()
+    raw_phone = str(data.get("phone") or "").strip()
+
+    errors: list[str] = []
+    if not is_valid_full_name(raw_name):
+        errors.append(
+            "Ism-familiya kamida ikki so'zdan iborat bo'lsin (masalan: Alisher Rahimov)."
+        )
+
+    phone = normalize_phone(raw_phone)
+    if len(re.sub(r"\D", "", phone)) < 9:
+        errors.append("Telefon raqamini to'liq kiriting (masalan: +998901234567).")
+
+    if errors:
+        raise ApiError(" ".join(errors))
+
+    saved = user_services.update_profile(user, raw_name, raw_phone)
+    return {"user": S.user_dict(user), "saved": saved}
 
 
 # ==========================================================================
@@ -758,6 +790,7 @@ def _parse_local_datetime(value: str):
 __all__ = [
     "ApiError",
     "bootstrap",
+    "profile_update",
     "exam_list",
     "exam_detail",
     "exam_start",

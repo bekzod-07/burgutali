@@ -28,6 +28,9 @@ Testni topshirish, javoblarni tekshirish, natijalarni ko‘rish va sertifikat
 yuklab olish — barchasi **web ilovada**, tugmalar orqali:
 
 * **Bosh sahifa** — profil, tez amallar, tugallanmagan testni davom ettirish;
+* **Profil** — bosh sahifadagi ism ustiga bosilsa ochiladi: **ism-familiya
+  va telefon raqamini tahrirlash**. Tekshiruv botdagi ro‘yxatdan o‘tish
+  bilan bir xil, ism sertifikatda aynan shu ko‘rinishda chiqadi;
 * **Testlar** — testga **faqat kod orqali** kiriladi; testlar ro‘yxati
   ishtirokchilarga ko‘rsatilmaydi (uni faqat adminlar ko‘radi);
 * **Test topshirish** — **javoblar varaqasi**: barcha savollar bitta oynada,
@@ -118,8 +121,8 @@ P(x = 1 | θ, b) = exp(θ − b) / (1 + exp(θ − b))
 | 60.0 – 64.9 | **B+** |
 | 55.0 – 59.9 | **B** |
 | 50.0 – 54.9 | **C+** |
-| 46.0 – 49.9 | **C** |
-| 0 – 45.9 | Daraja olinmadi |
+| 40.0 – 49.9 | **C** |
+| 0 – 39.9 | Daraja olinmadi |
 
 Maksimal standartlashtirilgan ball — **90.14**.
 
@@ -129,6 +132,13 @@ Test yakunlangach (yopilganda va natijalar e’lon qilinganda) umumiy
 natijalar **PDF ko‘rinishida test egasiga va adminlarga avtomatik
 yuboriladi**. Jadval ustunlari: `№ · F.I.SH (yoki ID raqami) · BALL ·
 FOIZ · DARAJA`.
+
+Daraja ustuni **rang bilan ajratiladi** — yuqori daraja to‘q yashil,
+pastga tushgan sari och yashil, limon, sariq va apelsin rangga o‘tadi;
+daraja olinmagan qatorlar kulrang. Fon och, matn to‘q, shuning uchun
+jadval oq-qora printerda ham o‘qiladi. Bu barcha PDF hisobotlarga
+tegishli: umumiy natijalar, to‘liq hisobot (reyting va darajalar
+taqsimoti) va sertifikatlar ro‘yxati.
 
 Nom test turiga qarab tanlanadi:
 
@@ -168,6 +178,7 @@ chiqadi — barcha belgilar bir joyda, sahifalar orasida o‘tish shart emas:
 
 ```
 [yopish]  36-savol · a) javob            [ortga] [oldinga] [qo‘yish]
+                    ‹   ›   ⏎   ⌫
 
   1  2  3  4  5  6  7  8  9  0
   π  e  a  b  c  x  y  z  .
@@ -175,12 +186,15 @@ chiqadi — barcha belgilar bir joyda, sahifalar orasida o‘tish shart emas:
   +  −  sin□  cos□  tan□  cot□
   arcsin□  arccos□  arctan□  arcctg□
   ln□  log□  log□□  exp□
-                    ‹   ›   ⏎   ⌫
 ```
 
-Yuqoridagi qatorda uchta amal bor: **ortga qaytarish**, **oldinga
-qaytarish** va **buferdan qo‘yish**. Pastdagi yo‘lakda kursorni siljitish
-(`‹ ›`), keyingi maydonga o‘tish (`⏎`) va o‘chirish (`⌫`).
+Yuqorida uchta amal bor: **ortga qaytarish**, **oldinga qaytarish** va
+**buferdan qo‘yish**. Ostidagi yo‘lakda kursorni siljitish (`‹ ›`),
+keyingi maydonga o‘tish (`⏎`) va o‘chirish (`⌫`).
+
+Bu yo‘lak **yuqorida** turadi va panel aylantirilganda ham joyida qoladi:
+pastda u telefonning tizim navigatsiya paneli (jest chizig‘i yoki uch
+tugma) ostida qolib, ba’zi qurilmalarda bosilmasdi.
 
 Klaviatura **bitta manbadan** keladi (`static/mathpad/`), shuning uchun u
 uchala joyda aynan bir xil: web ilovada test topshirishda, test yaratishdagi
@@ -468,7 +482,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (563 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (582 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -541,7 +555,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 563 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 582 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

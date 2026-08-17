@@ -30,11 +30,83 @@ from reportlab.platypus import (
 from apps.attempts.services import ranked_attempts
 from apps.certificates.fonts import register_fonts, safe_text
 from apps.exams.models import Exam
+from core import constants as C
 
 NAVY = colors.HexColor("#0F2B46")
 GOLD = colors.HexColor("#C9A227")
 LIGHT = colors.HexColor("#EEF2F6")
 GRAY = colors.HexColor("#5B6B7B")
+
+# ==========================================================================
+#  Daraja ranglari
+# ==========================================================================
+
+#: Har bir daraja uchun (fon, matn) rangi.
+#:
+#: Yuqori daraja — to'q yashil, pastga tushgan sari och yashil, sariq va
+#: apelsin ranglarga o'tadi. Fon och, matn to'q — jadval oq-qora printerda
+#: ham o'qiladi va ranglar bir-biridan yorqinligi bilan ajralib turadi.
+GRADE_COLORS: dict[str, tuple[str, str]] = {
+    "A+": ("#A5D6A7", "#1B5E20"),   # to'q yashil
+    "A":  ("#C8E6C9", "#2E7D32"),   # yashil
+    "B+": ("#DCEDC8", "#33691E"),   # och yashil
+    "B":  ("#F0F4C3", "#827717"),   # limon
+    "C+": ("#FFECB3", "#E65100"),   # sariq
+    "C":  ("#FFE0B2", "#BF360C"),   # apelsin
+}
+
+#: Daraja olinmagan qatorlar uchun betaraf rang.
+NO_GRADE_COLOR: tuple[str, str] = ("#ECEFF1", "#546E7A")
+
+
+def grade_colors(grade: str) -> tuple[str, str] | None:
+    """
+    Daraja uchun (fon, matn) rangini qaytaradi.
+
+    Daraja tanilmasa (bo'sh, «—» yoki «Daraja olinmadi») betaraf kulrang
+    beriladi; umuman mos kelmasa `None` — katak bo'yalmaydi.
+    """
+    name = (grade or "").strip()
+    if name in GRADE_COLORS:
+        return GRADE_COLORS[name]
+    if not name or name == "—" or name == C.NO_GRADE:
+        return NO_GRADE_COLOR
+    return None
+
+
+def _grade_column_style(rows: list[list], column: int) -> list[tuple]:
+    """
+    Daraja ustunidagi kataklarni bo'yaydigan uslub buyruqlari.
+
+    `rows` — jadvalning barcha qatorlari (0-qator sarlavha), `column` —
+    daraja ustunining tartib raqami. Buyruqlar asosiy uslubdan **keyin**
+    qo'llanadi, shuning uchun ular qator fonini (`ROWBACKGROUNDS`) bosadi.
+    """
+    commands: list[tuple] = []
+    fonts = register_fonts()
+    for index, row in enumerate(rows[1:], start=1):
+        if column >= len(row):
+            continue
+        pair = grade_colors(str(row[column]))
+        if pair is None:
+            continue
+        background, ink = pair
+        cell = (column, index)
+        commands.append(("BACKGROUND", cell, cell, colors.HexColor(background)))
+        commands.append(("TEXTCOLOR", cell, cell, colors.HexColor(ink)))
+        commands.append(("FONTNAME", cell, cell, fonts.bold))
+    return commands
+
+
+def _grade_legend(styles: dict) -> Paragraph:
+    """Ranglar nimani bildirishini tushuntiruvchi qator."""
+    fonts = styles["fonts"]
+    parts = " · ".join(
+        f'<font color="{ink}">{name}</font>' for name, (_, ink) in GRADE_COLORS.items()
+    )
+    return Paragraph(
+        f"Darajalar rang bilan ajratilgan: {parts}", styles["subtitle"]
+    )
 
 
 def participant_column(exam: Exam) -> str:
@@ -207,6 +279,7 @@ def results_report(exam: Exam) -> bytes:
                     colWidths=[45 * mm, 30 * mm, 30 * mm],
                 )
                 grade_table.setStyle(_table_style(3))
+                grade_table.setStyle(TableStyle(_grade_column_style(grade_rows, 0)))
                 story.append(grade_table)
 
     # --- Savollar qiyinchiligi (faqat admin hisobotida) ---
@@ -255,7 +328,14 @@ def results_report(exam: Exam) -> bytes:
             repeatRows=1,
         )
         table.setStyle(_table_style(len(header)))
+        if uses_rasch:
+            # «Daraja» — «Ball» dan keyingi ustun.
+            column = header.index("Daraja")
+            table.setStyle(TableStyle(_grade_column_style(data, column)))
         story.append(table)
+        if uses_rasch:
+            story.append(Spacer(1, 2 * mm))
+            story.append(_grade_legend(styles))
 
     story.append(Spacer(1, 8 * mm))
     story.append(
@@ -333,7 +413,10 @@ def overall_results_report(exam: Exam) -> bytes:
             repeatRows=1,
         )
         table.setStyle(_table_style(len(header)))
+        table.setStyle(TableStyle(_grade_column_style(data, header.index("DARAJA"))))
         story.append(table)
+        story.append(Spacer(1, 2 * mm))
+        story.append(_grade_legend(styles))
 
     story.append(Spacer(1, 6 * mm))
     story.append(
@@ -368,7 +451,8 @@ def certificate_list_report(exam: Exam) -> bytes:
         ),
     ]
 
-    data = [["№", "Sertifikat raqami", "Ism-familiya", "Ball", "Daraja", "Sana"]]
+    header = ["№", "Sertifikat raqami", "Ism-familiya", "Ball", "Daraja", "Sana"]
+    data = [header]
     certificates = Certificate.objects.filter(exam=exam).order_by("-ball")
     for index, certificate in enumerate(certificates, start=1):
         data.append(
@@ -391,7 +475,10 @@ def certificate_list_report(exam: Exam) -> bytes:
             repeatRows=1,
         )
         table.setStyle(_table_style(6))
+        table.setStyle(TableStyle(_grade_column_style(data, header.index("Daraja"))))
         story.append(KeepTogether(table))
+        story.append(Spacer(1, 2 * mm))
+        story.append(_grade_legend(styles))
 
     document.build(story)
     return buffer.getvalue()

@@ -84,6 +84,42 @@ def save_phone(user: BotUser, raw_phone: str) -> str:
     return user.phone
 
 
+def update_profile(user: BotUser, raw_name: str, raw_phone: str) -> dict[str, str]:
+    """
+    Ism-familiya va telefonni birgalikda yangilaydi (profilni tahrirlash).
+
+    `save_phone` dan farqi — bu yerda ro'yxatdan o'tish yakunlanmaydi.
+    Foydalanuvchi allaqachon ro'yxatdan o'tgan bo'ladi va shunchaki
+    ma'lumotini to'g'rilaydi, shuning uchun `mark_registered()` chaqirilmaydi
+    va tarixga «ro'yxatdan o'tdi» deb yozilmaydi.
+
+    Qaytaradi: saqlangan qiymatlar (`{"full_name": ..., "phone": ...}`).
+    """
+    before_name, before_phone = user.full_name, user.phone
+
+    user.full_name = clean_full_name(raw_name)[:120]
+    user.phone = normalize_phone(raw_phone)[:20]
+
+    fields = ["full_name", "phone", "updated_at"]
+    if not user.is_registered and user.full_name and user.phone:
+        # Botda ro'yxat tugallanmagan bo'lsa, profil to'ldirilishi uni yakunlaydi.
+        user.mark_registered()
+        fields += ["is_registered", "registered_at"]
+
+    user.save(update_fields=list(dict.fromkeys(fields)))
+
+    if (before_name, before_phone) != (user.full_name, user.phone):
+        log_action(
+            user,
+            UserAction.Kind.OTHER,
+            "Profilni tahrirladi",
+            before={"full_name": before_name, "phone": before_phone},
+            after={"full_name": user.full_name, "phone": user.phone},
+        )
+
+    return {"full_name": user.full_name, "phone": user.phone}
+
+
 def set_subscription(user: BotUser, subscribed: bool) -> None:
     """Majburiy obuna holatini keshda saqlaydi."""
     user.is_subscribed = bool(subscribed)
@@ -170,6 +206,7 @@ __all__ = [
     "get_or_create_user",
     "save_full_name",
     "save_phone",
+    "update_profile",
     "set_subscription",
     "block_user",
     "unblock_user",

@@ -24,6 +24,7 @@ urlpatterns = [
 
     # --- API: umumiy ---
     path("api/boshlash/", api.bootstrap, name="api_bootstrap"),
+    path("api/profil/", api.profile_update, name="api_profile_update"),
     path("api/tekshir/", views.api_validate, name="api_validate"),
     path("api/ifoda/", api.check_expression, name="api_expression"),
 

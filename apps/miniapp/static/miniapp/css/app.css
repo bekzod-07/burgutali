@@ -238,7 +238,34 @@ body.tg-fullscreen { --fs-extra: 46px; }
 }
 .hero h2 { margin: 0 0 3px; font-size: 17px; }
 .hero p { margin: 0; font-size: 13px; color: #c6d9ea; }
-.hero .hero-row { display: flex; align-items: center; gap: 11px; }
+/*
+   Hero qatori — bosiladigan tugma: profilni ochadi. Tugma bo'lgani uchun
+   brauzerning o'z fonini va chegarasini olib tashlaymiz, matn esa chapga
+   tekislanadi.
+*/
+.hero .hero-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hero .hero-row:active { opacity: .75; }
+.hero .hero-row > div:not(.avatar) { flex: 1; min-width: 0; }
+.hero .hero-arrow {
+  flex: none;
+  display: grid;
+  place-items: center;
+  opacity: .65;
+}
+.hero .hero-arrow .icon { width: 18px; height: 18px; }
 .hero .avatar {
   width: 44px; height: 44px;
   border-radius: 13px;

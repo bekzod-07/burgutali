@@ -168,7 +168,8 @@
     "my-exams": ["Testlarim", "Siz yaratgan testlar"],
     "create": ["Yangi test", "Test yaratish"],
     "manage": ["Boshqaruv", ""],
-    "rating": ["Reyting", ""]
+    "rating": ["Reyting", ""],
+    "profile": ["Profil", "Ism va telefon raqami"]
   };
 
   function setHeader(view, subtitle) {
@@ -246,6 +247,7 @@
     if (view === "create") { return viewCreate(); }
     if (view === "manage") { return viewManage(); }
     if (view === "rating") { return viewRating(); }
+    if (view === "profile") { return viewProfile(); }
     return viewHome();
   }
 
@@ -259,11 +261,14 @@
       var drafts = data.drafts || [];
       var html = "";
 
-      html += '<div class="hero"><div class="hero-row">' +
+      /* Hero bosilsa profil ochiladi — ism va telefonni shu yerdan tahrirlash mumkin. */
+      html += '<div class="hero"><button class="hero-row" data-act="go" data-view="profile">' +
         '<div class="avatar">' + ic("user") + "</div><div>" +
         "<h2>" + esc(data.user.full_name) + "</h2>" +
-        "<p>" + (data.user.is_admin ? "Administrator" : "Ishtirokchi") + "</p>" +
-        "</div></div></div>";
+        "<p>" + (data.user.is_admin ? "Administrator" : "Ishtirokchi") +
+        " · Ma’lumotlarni tahrirlash</p>" +
+        "</div>" + '<span class="hero-arrow">' + ic("chevron-right") + "</span>" +
+        "</button></div>";
 
       html += '<div class="stats">' +
         '<div class="stat"><b>' + (data.results || []).length + "</b><span>Natija</span></div>" +
@@ -1679,6 +1684,103 @@
     }).catch(handleError);
   }
 
+  /* -------------------------------------------------------- 12. Profil */
+
+  /*
+     Ism-familiya va telefon raqamini tahrirlash.
+
+     Bu ma'lumot sertifikatga va natijalar ro'yxatiga tushadi, shuning
+     uchun foydalanuvchi uni botga qayta yozmasdan shu yerda to'g'rilay
+     oladi. Tekshiruv serverda ham takrorlanadi (`api.profile_update`).
+  */
+  function viewProfile() {
+    api("boshlash/").then(function (data) {
+      state.boot = data;
+      state.user = data.user;
+      var user = data.user;
+
+      var html = '<div class="card"><div class="card-head">' + ic("user") +
+        "<h2>Shaxsiy ma’lumotlar</h2></div>";
+
+      html += '<div class="field"><label>Ism va familiya</label>' +
+        '<input class="input" id="p-name" maxlength="120" autocomplete="name"' +
+        ' placeholder="Alisher Rahimov" value="' + esc(user.full_name) + '">' +
+        '<span class="hint">Sertifikatda aynan shu ko‘rinishda yoziladi.</span></div>';
+
+      html += '<div class="field"><label>Telefon raqami</label>' +
+        '<input class="input" id="p-phone" type="tel" maxlength="20" autocomplete="tel"' +
+        ' placeholder="+998901234567" value="' + esc(user.phone) + '">' +
+        '<span class="hint">Faqat tashkilotchi ko‘radi.</span></div>';
+
+      html += '<div id="p-errors"></div>';
+      html += '<button class="btn btn-green" data-act="save-profile">' +
+        ic("save") + "Saqlash</button>";
+      html += "</div>";
+
+      /* O'zgartirib bo'lmaydigan ma'lumot — faqat ko'rsatiladi. */
+      html += '<div class="card card-flat"><div class="card-head">' + ic("telegram") +
+        "<h2>Telegram</h2></div>" +
+        '<div class="kv"><span class="k">Telegram ID</span><span class="v">' +
+        esc(user.telegram_id) + "</span></div>" +
+        (user.username
+          ? '<div class="kv"><span class="k">Username</span><span class="v">@' +
+            esc(user.username) + "</span></div>"
+          : "") +
+        '<div class="kv"><span class="k">Holat</span><span class="v">' +
+        (user.is_admin ? "Administrator" : "Ishtirokchi") + "</span></div>" +
+        "</div>";
+
+      el.screen.innerHTML = html;
+    }).catch(handleError);
+  }
+
+  function submitProfile() {
+    if (state.busy) { return; }
+
+    var nameField = document.getElementById("p-name");
+    var phoneField = document.getElementById("p-phone");
+    var errorBox = document.getElementById("p-errors");
+    if (!nameField || !phoneField) { return; }
+
+    var fullName = (nameField.value || "").trim();
+    var phone = (phoneField.value || "").trim();
+
+    if (errorBox) { errorBox.innerHTML = ""; }
+
+    /* Serverga bormasdan aniq bo'ladigan xatolar. */
+    if (fullName.split(/\s+/).filter(function (w) { return w.length >= 2; }).length < 2) {
+      showProfileError("Ism va familiyani to‘liq kiriting (masalan: Alisher Rahimov).");
+      return;
+    }
+    if ((phone.match(/\d/g) || []).length < 9) {
+      showProfileError("Telefon raqamini to‘liq kiriting (masalan: +998901234567).");
+      return;
+    }
+
+    setBusy(true);
+    api("profil/", { method: "POST", body: { full_name: fullName, phone: phone } })
+      .then(function (data) {
+        state.user = data.user;
+        if (state.boot) { state.boot.user = data.user; }
+        nameField.value = data.saved.full_name;
+        phoneField.value = data.saved.phone;
+        toast("Ma’lumotlar saqlandi.");
+        haptic("ok");
+      })
+      .catch(function (error) {
+        showProfileError(error && error.message ? error.message : "Saqlab bo‘lmadi.");
+      })
+      .then(function () { setBusy(false); });
+  }
+
+  function showProfileError(message) {
+    var box = document.getElementById("p-errors");
+    if (box) {
+      box.innerHTML = '<div class="alert alert-error">' + esc(message) + "</div>";
+    }
+    toast(message, true);
+  }
+
   /* =====================================================================
      Xatoliklar
      ===================================================================== */
@@ -1725,6 +1827,7 @@
     if (act === "open-result") { go("result", { id: target.dataset.id }); return; }
     if (act === "open-rating") { go("rating", { code: target.dataset.code }); return; }
     if (act === "open-manage") { go("manage", { code: target.dataset.code }); return; }
+    if (act === "save-profile") { submitProfile(); return; }
 
     if (act === "find-exam") {
       var input = document.getElementById("exam-code");
