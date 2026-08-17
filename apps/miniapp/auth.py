@@ -167,6 +167,31 @@ class MiniAppAuthError(Exception):
         self.reason = reason
 
 
+def _require_subscription(user) -> None:
+    """
+    Majburiy obunani tekshiradi (Mini App tomonida).
+
+    Telegram API bu yerda so'ralmaydi — holat bazadagi keshdan o'qiladi.
+    Keshni bot yangilab turadi: foydalanuvchi botga har murojaat qilganda
+    `SubscriptionMiddleware` a'zolikni tekshiradi va natijani yozadi.
+    Shu sababli ilovaga faqat botda a'zoligi tasdiqlangan odam kiradi.
+    """
+    from bot.config import get_config
+
+    config = get_config()
+    if not config.subscription_required:
+        return
+    if user.is_admin or config.is_admin(user.telegram_id):
+        return
+    if user.is_subscribed:
+        return
+
+    raise MiniAppAuthError(
+        f"Ilovadan foydalanish uchun {config.required_channel} kanaliga "
+        "a'zo bo'ling, so'ng botga qaytib «A'zolikni tekshirish» tugmasini bosing."
+    )
+
+
 def resolve_user(request):
     """
     So'rov sarlavhasidagi `initData` bo'yicha `BotUser` ni topadi.
@@ -192,6 +217,7 @@ def resolve_user(request):
             )
         if user.is_blocked:
             raise MiniAppAuthError("Hisobingiz bloklangan.")
+        _require_subscription(user)
         return user
 
     # Brauzer sessiyasi (Telegram Login Widget orqali kirilgan bo'lsa).
@@ -212,6 +238,7 @@ def resolve_user(request):
             )
         if user.is_blocked:
             raise MiniAppAuthError("Hisobingiz bloklangan.")
+        _require_subscription(user)
         return user
 
     if getattr(settings, "DEBUG", False) or getattr(settings, "MINIAPP_ALLOW_DEBUG_USER", False):

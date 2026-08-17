@@ -80,6 +80,17 @@ async def on_startup(bot: Bot) -> None:
         except Exception:
             logger.exception("Adminlarni sinxronlashda xato")
 
+    # Majburiy obuna: bot kanalda admin bo'lmasa a'zolikni bilib bo'lmaydi.
+    if config.subscription_required:
+        from bot.utils.subscription import check_bot_is_channel_admin
+
+        try:
+            await check_bot_is_channel_admin(bot)
+        except Exception:
+            logger.exception("Majburiy obuna kanalini tekshirishda xato")
+    else:
+        logger.warning("Majburiy obuna o'chirilgan (SUBSCRIPTION_REQUIRED=0).")
+
     try:
         await bot.set_my_commands(BOT_COMMANDS, scope=BotCommandScopeDefault())
     except Exception:

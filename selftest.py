@@ -1326,6 +1326,30 @@ def test_bot() -> None:
 
     R.check("Obuna klaviaturasi 2 ta tugma",
             len(inline.subscription("https://t.me/Burgutali").inline_keyboard) == 2)
+
+    # --- Majburiy obuna: @Burgutali, qat'iy rejim ---
+    R.check("Majburiy obuna yoqilgan", config.subscription_required is True)
+    R.equal("Majburiy kanal — @Burgutali", config.required_channel, "@Burgutali")
+    R.equal("Kanal havolasi to'g'ri",
+            config.required_channel_url, "https://t.me/Burgutali")
+
+    from bot.middlewares.subscription_mw import EXEMPT_COMMANDS
+    from bot.utils import subscription as sub_utils
+
+    R.check("Obunadan ozod buyruq — faqat /start", EXEMPT_COMMANDS == {"/start"})
+    R.check("Bot kanalda admin ekani tekshiriladi",
+            hasattr(sub_utils, "check_bot_is_channel_admin"))
+
+    mw_source = (BASE_DIR / "bot/middlewares/subscription_mw.py").read_text(
+        encoding="utf-8"
+    )
+    R.check(
+        "Tekshirib bo'lmasa ham kirish berilmaydi",
+        "check_failed=True" in mw_source
+        and "return await handler(event, data)" not in mw_source.split(
+            "if subscribed is None:", 1
+        )[1].split("await user_service.set_subscription", 1)[0],
+    )
     R.check("Test turlari klaviaturasi (admin)",
             len(inline.exam_types(True).inline_keyboard) == 4)
     R.check("Test turlari klaviaturasi (oddiy foydalanuvchi)",
@@ -2083,6 +2107,23 @@ def test_mathpad() -> None:
     R.check(
         "Matn ko'rinishidagi maydonlarda bo'sh joy odatdagidek yoziladi",
         'input.dataset.mpadRaw === "1"' in source,
+    )
+
+    # --- Kursor tugmalari yuqorida (telefon navigatsiyasi to'sib qo'ymasin) ---
+    R.check(
+        "Kursor tugmalari yuqori qismda quriladi",
+        "mpad-head" in source
+        and source.index("mpad-navwrap") < source.index("ROWS.forEach"),
+    )
+    pad_css = (BASE_DIR / "static/mathpad/mathpad.css").read_text(encoding="utf-8")
+    R.check("Yuqori qism uchun uslub bor", ".mpad-head {" in pad_css)
+    R.check(
+        "Yuqori qism aylantirilganda ham ko'rinadi",
+        "position: sticky" in pad_css,
+    )
+    R.check(
+        "Panel pastida telefon uchun bo'sh joy qoldiriladi",
+        "max(6px, env(safe-area-inset-bottom" in pad_css,
     )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---

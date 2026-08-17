@@ -7,13 +7,16 @@
 
    Tuzilishi:
        [yopish]  belgisi                    [ortga] [oldinga] [qo'yish]
+                     ‹  ›  ⏎  ⌫
        1 2 3 4 5 6 7 8 9 0
        π e a b c x y z .
        ( ) □/□ √□ □^□ □² □³ ³√□ ⁿ√□
        + − sin□ cos□ tan□ cot□
        arcsin□ arccos□ arctan□ arcctg□
        ln□ log□ log□□ exp□
-                     ‹  ›  ⏎  ⌫
+
+   Kursor qatori (‹ › ⏎ ⌫) yuqorida — pastda u telefonning tizim
+   navigatsiya paneli ostida qolib, bosilmay qolardi.
 
    Emoji ishlatilmaydi — barcha belgilar SVG yoki tipografik.
    ========================================================================== */
@@ -35,7 +38,11 @@
   bottom: 0;
   z-index: 2000;
   box-sizing: border-box;
-  padding: 7px 7px 0;
+  /*
+     Pastki to'ldirish — telefonning jest chizig'i oxirgi tugmalar
+     qatorini yopib qolmasligi uchun. Eng kamida 6px.
+  */
+  padding: 0 7px max(6px, env(safe-area-inset-bottom, 0px));
   background: var(--mpad-bg);
   color: var(--mpad-ink);
   box-shadow: 0 -8px 26px rgba(14, 26, 45, .22);
@@ -60,20 +67,34 @@
   box-shadow: none;
   max-height: none;
   overflow: visible;
-  padding-bottom: 0;
+  padding-bottom: 6px;
 }
 
 .mpad *,
 .mpad *::before,
 .mpad *::after { box-sizing: border-box; }
 
-/* ------------------------------------------------------------ yuqori qator */
+/* ------------------------------------------------------------ yuqori qism */
+
+/*
+   Belgi qatori va kursor tugmalari. Panel aylantirilsa ham yuqorida
+   yopishib qoladi — «‹ › ⏎ ⌫» har doim qo'l yetadigan joyda turadi.
+*/
+.mpad-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding-top: 7px;
+  background: var(--mpad-bg);
+}
+
+.mpad.mpad-inline .mpad-head { position: static; }
 
 .mpad-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 1px 3px 7px;
+  padding: 1px 3px 5px;
   min-height: 30px;
 }
 
@@ -242,25 +263,22 @@
   margin-right: -.2em;
 }
 
-/* -------------------------------------------------------------- pastki qism */
+/* --------------------------------------------------------- kursor tugmalari */
 
 .mpad-navwrap {
   display: flex;
   justify-content: center;
-  margin-top: 3px;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: 6px;
 }
 
 .mpad-nav {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 16px;
-  border-radius: 9px 9px 0 0;
+  padding: 5px 14px;
+  border-radius: 9px;
   background: var(--mpad-nav);
 }
-
-.mpad.mpad-inline .mpad-nav { border-radius: 9px; margin-bottom: 2px; }
 
 .mpad-nav button {
   min-width: 48px;

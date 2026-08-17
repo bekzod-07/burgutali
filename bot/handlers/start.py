@@ -58,17 +58,28 @@ async def start_plain(
 async def _start_flow(
     message: Message, state: FSMContext, user, config, is_admin: bool
 ) -> None:
-    """Obunani tekshiradi va keyingi bosqichga o'tkazadi."""
+    """
+    Obunani tekshiradi va keyingi bosqichga o'tkazadi.
+
+    A'zolik qat'iy shart: tasdiqlanmasa — tekshirib bo'lmagan holatda ham —
+    foydalanuvchi menyuga o'tmaydi.
+    """
     if config.subscription_required and not is_admin:
         subscribed = await is_subscribed(message.bot, user.telegram_id)
-        if subscribed is False:
+        if subscribed is not True:
+            text = TS.SUBSCRIPTION_REQUIRED.format(channel=config.required_channel)
+            if subscribed is None:
+                logger.warning(
+                    "Obunani tekshirib bo'lmadi (user=%s) — bot %s kanalida "
+                    "administratormi?",
+                    user.telegram_id, config.required_channel,
+                )
+                text += "\n\n" + TS.SUBSCRIPTION_CHECK_FAILED
             await message.answer(
-                TS.SUBSCRIPTION_REQUIRED.format(channel=config.required_channel),
+                text,
                 reply_markup=inline.subscription(config.required_channel_url),
             )
             return
-        if subscribed is None:
-            logger.warning("Obuna tekshiruvi ishlamadi — foydalanuvchi o'tkazildi.")
 
     await show_welcome(message, state, user, is_admin)
 
@@ -113,9 +124,12 @@ async def press_start(
 
     if config.subscription_required and not is_admin:
         subscribed = await is_subscribed(callback.bot, user.telegram_id)
-        if subscribed is False:
+        if subscribed is not True:
+            text = TS.SUBSCRIPTION_REQUIRED.format(channel=config.required_channel)
+            if subscribed is None:
+                text += "\n\n" + TS.SUBSCRIPTION_CHECK_FAILED
             await callback.message.answer(
-                TS.SUBSCRIPTION_REQUIRED.format(channel=config.required_channel),
+                text,
                 reply_markup=inline.subscription(config.required_channel_url),
             )
             return

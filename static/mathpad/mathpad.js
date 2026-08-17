@@ -647,8 +647,17 @@
       '" data-caret="' + (key[2] || 0) + '">' + key[0] + "</button>";
   }
 
+  /*
+     Kursor va o'chirish tugmalari panelning yuqorisida turadi.
+
+     Ilgari ular eng pastda edi — telefonning tizim navigatsiya paneli
+     (jest chizig'i yoki uch tugma) ustiga tushib, bosilmay qolardi.
+     Yuqorida esa ular «mpad-head» ichida yopishib turadi va panel
+     aylantirilganda ham ko'rinib turadi.
+  */
   function buildHtml() {
-    var html = '<div class="mpad-bar">' +
+    var html = '<div class="mpad-head">' +
+      '<div class="mpad-bar">' +
       '<button type="button" class="mpad-tool" data-mp="close"' +
       ' aria-label="Klaviaturani yopish" title="Yopish">' + ICON.close + "</button>" +
       '<span class="mpad-label" id="mpad-label"></span>' +
@@ -660,7 +669,14 @@
       ' aria-label="Qaytarish" title="Oldinga">' + ICON.redo + "</button>" +
       '<button type="button" class="mpad-tool" data-mp="paste"' +
       ' aria-label="Buferdan qo‘yish" title="Qo‘yish">' + ICON.paste + "</button>" +
-      "</span></div>";
+      "</span></div>" +
+      '<div class="mpad-navwrap"><div class="mpad-nav">' +
+      '<button type="button" data-mp="left" aria-label="Chapga">' + ICON.left + "</button>" +
+      '<button type="button" data-mp="right" aria-label="O‘ngga">' + ICON.right + "</button>" +
+      '<button type="button" data-mp="enter" aria-label="Keyingisi">' + ICON.enter + "</button>" +
+      '<button type="button" class="mpad-del" data-mp="del" aria-label="O‘chirish">' +
+      ICON.del + "</button>" +
+      "</div></div></div>";
 
     ROWS.forEach(function (row) {
       html += '<div class="mpad-row mpad-row-' + row.cols + " " + row.cls + '">';
@@ -674,14 +690,6 @@
         '" data-mp="' + item[1] + '">' + esc(item[0]) + "</button>";
     });
     html += "</div>";
-
-    html += '<div class="mpad-navwrap"><div class="mpad-nav">' +
-      '<button type="button" data-mp="left" aria-label="Chapga">' + ICON.left + "</button>" +
-      '<button type="button" data-mp="right" aria-label="O‘ngga">' + ICON.right + "</button>" +
-      '<button type="button" data-mp="enter" aria-label="Keyingisi">' + ICON.enter + "</button>" +
-      '<button type="button" class="mpad-del" data-mp="del" aria-label="O‘chirish">' +
-      ICON.del + "</button>" +
-      "</div></div>";
 
     return html;
   }

@@ -25,7 +25,11 @@ async def check_subscription(
     subscribed = await is_subscribed(callback.bot, user.telegram_id)
 
     if subscribed is None:
-        await callback.message.answer(TS.SUBSCRIPTION_CHECK_FAILED)
+        # Tekshirib bo'lmadi — kirish berilmaydi, tugma joyida qoladi.
+        await callback.message.answer(
+            TS.SUBSCRIPTION_CHECK_FAILED,
+            reply_markup=inline.subscription(config.required_channel_url),
+        )
         return
 
     await user_service.set_subscription(user, subscribed)
