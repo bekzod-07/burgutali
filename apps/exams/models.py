@@ -164,7 +164,7 @@ class Exam(TimeStampedModel):
     certificate_enabled = models.BooleanField("Sertifikat berilsinmi", default=False)
     certificate_scope = models.CharField(
         "Sertifikat kimlarga", max_length=16,
-        choices=CertificateScope.choices, default=CertificateScope.MIN_PERCENT,
+        choices=CertificateScope.choices, default=CertificateScope.MIN_GRADE,
     )
     certificate_min_percent = models.FloatField(
         "Minimal to'g'ri javob foizi", null=True, blank=True,
@@ -177,7 +177,9 @@ class Exam(TimeStampedModel):
         validators=[MinValueValidator(0.0), MaxValueValidator(1000.0)],
     )
     certificate_min_grade = models.CharField(
-        "Minimal daraja", max_length=8, blank=True, default=""
+        "Minimal daraja", max_length=8, blank=True, default=C.CERT_MIN_GRADE,
+        help_text="Sertifikat shu darajadan boshlab beriladi. Bo'sh "
+                  "qoldirilsa daraja sharti qo'llanmaydi.",
     )
     organizer_name = models.CharField(
         "Tashkilotchi / o'qituvchi", max_length=120, blank=True, default=""

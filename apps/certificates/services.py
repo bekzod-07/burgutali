@@ -64,29 +64,23 @@ def check_eligibility(attempt: Attempt) -> EligibilityCheck:
     if attempt.status != Attempt.Status.SUBMITTED or not attempt.is_scored:
         return EligibilityCheck(False, "Natijangiz hali hisoblanmagan.")
 
+    # Shart bajarilmasa, sabab **umumiy** qoladi: chegara (daraja, ball yoki
+    # foiz) qatnashchiga aytilmaydi, uni faqat admin ko'radi.
+    not_enough = EligibilityCheck(False, "Natijangiz sertifikat berish uchun yetarli emas.")
+
     scope = exam.certificate_scope
     if scope == Exam.CertificateScope.MIN_PERCENT:
-        # Chegara qatnashchiga aytilmaydi — sabab umumiy qoladi. Foizni
-        # faqat admin ko'radi (test sozlamalaridagi «Minimal to'g'ri javob
-        # foizi» maydoni).
         minimum = exam.certificate_min_percent
         if minimum is not None and (attempt.percent or 0.0) < float(minimum):
-            return EligibilityCheck(
-                False, "Natijangiz sertifikat berish uchun yetarli emas."
-            )
+            return not_enough
     elif scope == Exam.CertificateScope.MIN_BALL:
         minimum = exam.certificate_min_ball
         if minimum is not None and (attempt.ball or 0.0) < float(minimum):
-            return EligibilityCheck(
-                False,
-                f"Sertifikat uchun kamida {float(minimum):.2f} ball talab qilinadi.",
-            )
+            return not_enough
     elif scope == Exam.CertificateScope.MIN_GRADE:
         required = (exam.certificate_min_grade or "").strip()
         if required and C.grade_rank(attempt.grade) < C.grade_rank(required):
-            return EligibilityCheck(
-                False, f"Sertifikat uchun kamida «{required}» darajasi talab qilinadi."
-            )
+            return not_enough
 
     return EligibilityCheck(True)
 

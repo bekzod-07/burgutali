@@ -362,11 +362,11 @@ qatnashchi uchun PDF sertifikat yaratiladi:
 * **QR-kod** — tekshirish sahifasiga havola.
 
 Sertifikat kimlarga berilishini admin belgilaydi. Standart shart —
-**to'g'ri javoblarning kamida 32% i**. Milliy shablonda jami 55 ball bor,
-shuning uchun 18 ta to'g'ri javob (18/55 = 32.7%) shu chegaraga to'g'ri
-keladi. Test sozlamalarida bu foizni
-o'zgartirish yoki uning o'rniga boshqa shart tanlash mumkin: barchaga,
-belgilangan minimal balldan yoki minimal darajadan yuqori natija olganlarga.
+**kamida «C» darajasi**, ya'ni **46.0 ball**. 0–45.9 ball oralig'ida daraja
+umuman olinmaydi, shuning uchun sertifikat ham berilmaydi. Test
+sozlamalarida boshqa shart tanlash mumkin: barchaga, belgilangan minimal
+balldan, minimal darajadan yoki to'g'ri javob foizidan yuqori natija
+olganlarga.
 
 Chegara **qatnashchiga aytilmaydi**: sertifikat berilmasa, u «Natijangiz
 sertifikat berish uchun yetarli emas» degan umumiy xabarni ko'radi. Foizni
@@ -374,9 +374,9 @@ faqat admin ko'radi va o'zgartiradi.
 
 Diqqat: loyihada **ikki xil foiz** bor va ular chalkashtirilmaydi.
 
-* **To'g'ri javoblar ulushi** (`Attempt.percent`) — sertifikat sharti shu
-  bo'yicha tekshiriladi (32%). Qatnashchiga ko'rsatilmaydi, faqat adminlar
-  hisobotida bo'ladi.
+* **To'g'ri javoblar ulushi** (`Attempt.percent`) — qatnashchiga
+  ko'rsatilmaydi, faqat adminlar hisobotida bo'ladi. Sertifikat sharti
+  sifatida ham ishlatilishi mumkin, lekin standart holatda ishlatilmaydi.
 * **Ko'rsatiladigan foiz** (`certificate_percent`) — `ball × 100 / 65`.
   Natijalar e'lonida, botdagi natija xabarida, web ilovada va sertifikatda
   aynan shu foiz chiqadi.

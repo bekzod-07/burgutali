@@ -33,6 +33,10 @@ GRADE_TABLE: Final[tuple[tuple[float, float | None, str], ...]] = (
 #: Daraja olinmaganini bildiruvchi matn.
 NO_GRADE: Final[str] = "Daraja olinmadi"
 
+#: Sertifikat beriladigan eng past daraja. Undan pastda (0-45.9 ball)
+#: daraja umuman olinmaydi, shuning uchun sertifikat ham berilmaydi.
+CERT_MIN_GRADE: Final[str] = "C"
+
 #: Sertifikat uchun talab qilinadigan standart foiz — to'g'ri javoblarning
 #: ulushi. 55 ballik milliy shablonda 18 ta to'g'ri javob shu chegaraga
 #: to'g'ri keladi (18/55 = 32.7%). Yangi testlar shu chegara bilan

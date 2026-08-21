@@ -182,10 +182,13 @@ def test_constants() -> None:
     R.close("Maksimal ballda ham 100%", C.certificate_percent(C.MAX_BALL), 100.0, 0.01)
     R.equal("Ball yo'q -> 0%", C.certificate_percent(None), 0.0)
 
-    # --- Sertifikat chegarasi: 55 balldan 18 tasi (32%) ---
-    R.equal("Sertifikat chegarasi 32%", C.CERT_MIN_PERCENT, 32.0)
-    R.check("18/55 chegaradan yuqori", 18 / 55 * 100 >= C.CERT_MIN_PERCENT)
-    R.check("17/55 chegaradan past", 17 / 55 * 100 < C.CERT_MIN_PERCENT)
+    # --- Sertifikat: 0-45.9 ball (darajasiz) uchun berilmaydi ---
+    R.equal("Sertifikat eng past darajasi C", C.CERT_MIN_GRADE, "C")
+    R.equal("45.9 ball — daraja yo'q", C.grade_for_ball(45.9), C.NO_GRADE)
+    R.check("C darajasi chegaradan past emas",
+            C.grade_rank("C") >= C.grade_rank(C.CERT_MIN_GRADE))
+    R.check("Darajasiz natija chegaradan past",
+            C.grade_rank(C.NO_GRADE) < C.grade_rank(C.CERT_MIN_GRADE))
     R.equal("60.0 -> B+", C.grade_for_ball(60.0), "B+")
     R.equal("65.0 -> A", C.grade_for_ball(65.0), "A")
     R.equal("70.0 -> A+", C.grade_for_ball(70.0), "A+")
@@ -918,46 +921,42 @@ def test_paid_flow() -> None:
         question_count=10,
         certificate_enabled=True,
     )
-    R.equal("Yangi testda standart shart — foiz",
-            fresh.certificate_scope, Exam.CertificateScope.MIN_PERCENT)
-    R.equal("Standart chegara 32%", fresh.certificate_min_percent, 32.0)
+    R.equal("Yangi testda standart shart — daraja",
+            fresh.certificate_scope, Exam.CertificateScope.MIN_GRADE)
+    R.equal("Standart daraja C", fresh.certificate_min_grade, "C")
 
-    exam.certificate_scope = Exam.CertificateScope.MIN_PERCENT
-    exam.certificate_min_percent = C.CERT_MIN_PERCENT
-    exam.save(update_fields=["certificate_scope", "certificate_min_percent"])
+    exam.certificate_scope = Exam.CertificateScope.MIN_GRADE
+    exam.certificate_min_grade = C.CERT_MIN_GRADE
+    exam.save(update_fields=["certificate_scope", "certificate_min_grade"])
 
-    saved_percent = attempt.percent
-    attempt.percent = 31.9
-    attempt.save(update_fields=["percent"])
-    low = check_eligibility(attempt)
-    R.check("32% dan past — sertifikat yo'q", not low.ok, low.reason)
+    saved_ball, saved_grade = attempt.ball, attempt.grade
+
+    def _set(ball):
+        attempt.ball = ball
+        attempt.grade = C.grade_for_ball(ball)
+        attempt.save(update_fields=["ball", "grade"])
+        return check_eligibility(attempt)
+
+    low = _set(45.9)
+    R.check("45.9 ball — sertifikat yo'q", not low.ok, low.reason)
     R.check("Sabab chegarani oshkor qilmaydi",
-            "%" not in low.reason and "32" not in low.reason, low.reason)
+            "C" not in low.reason.replace("Natijangiz", "") and "46" not in low.reason,
+            low.reason)
+    R.check("0 ball — sertifikat yo'q", not _set(0.0).ok)
+    R.check("46.0 ball (C) — sertifikat bor", _set(46.0).ok)
+    R.check("50.0 ball (C+) — sertifikat bor", _set(50.0).ok)
+    R.check("90.14 ball (A+) — sertifikat bor", _set(C.MAX_BALL).ok)
 
-    attempt.percent = 32.0
-    attempt.save(update_fields=["percent"])
-    R.check("Aynan 32% — sertifikat bor", check_eligibility(attempt).ok)
+    # Daraja bo'sh qoldirilsa shart qo'llanmaydi.
+    exam.certificate_min_grade = ""
+    exam.save(update_fields=["certificate_min_grade"])
+    R.check("Daraja bo'sh — shart qo'llanmaydi", _set(10.0).ok)
 
-    attempt.percent = round(18 / 55 * 100, 2)
-    attempt.save(update_fields=["percent"])
-    R.check("55 balldan 18 tasi — sertifikat bor", check_eligibility(attempt).ok)
-
-    attempt.percent = 85.0
-    attempt.save(update_fields=["percent"])
-    R.check("32% dan yuqori — sertifikat bor", check_eligibility(attempt).ok)
-
-    # Chegara bo'sh qoldirilsa foiz sharti qo'llanmaydi.
-    exam.certificate_min_percent = None
-    exam.save(update_fields=["certificate_min_percent"])
-    attempt.percent = 5.0
-    attempt.save(update_fields=["percent"])
-    R.check("Chegara bo'sh — shart qo'llanmaydi", check_eligibility(attempt).ok)
-
-    attempt.percent = saved_percent
-    attempt.save(update_fields=["percent"])
+    attempt.ball, attempt.grade = saved_ball, saved_grade
+    attempt.save(update_fields=["ball", "grade"])
     exam.certificate_scope = Exam.CertificateScope.ALL
-    exam.certificate_min_percent = C.CERT_MIN_PERCENT
-    exam.save(update_fields=["certificate_scope", "certificate_min_percent"])
+    exam.certificate_min_grade = C.CERT_MIN_GRADE
+    exam.save(update_fields=["certificate_scope", "certificate_min_grade"])
 
     # --- Hisobotdagi daraja yorlig'i ---
     from apps.exports.pdf_report import grade_label
