@@ -1770,6 +1770,10 @@ def test_miniapp_api() -> None:
     response = call(f"/app/api/test/{exam_code}/amal/", {"action": "duplicate"}, who=admin)
     R.equal("Nusxa yaratildi", response.status_code, 200)
     copy_code = response.json()["exam"]["code"]
+    # Kod noyob emas: test yakunlangach u bo'shaydi va boshqa testga
+    # berilishi mumkin. Shuning uchun o'chirilganini `id` bo'yicha
+    # tekshiramiz — kod bo'yicha tekshiruv beqaror bo'lardi.
+    copy_id = Exam.objects.get(code=copy_code, status="draft").pk
     R.check("Nusxa boshqa kodga ega", copy_code != exam_code)
     R.equal("Nusxa qoralama holatida", response.json()["exam"]["status"], "draft")
 
@@ -1787,7 +1791,7 @@ def test_miniapp_api() -> None:
 
     response = call(f"/app/api/test/{copy_code}/ochirish/", {"confirm": True}, who=admin)
     R.equal("Nusxa o'chirildi", response.status_code, 200)
-    R.check("Baza tozalandi", not Exam.objects.filter(code=copy_code).exists())
+    R.check("Baza tozalandi", not Exam.objects.filter(pk=copy_id).exists())
 
     # --- Tasdiqsiz o'chirish (javoblari bor test) ---
     response = call(f"/app/api/test/{exam_code}/ochirish/", {}, who=admin)
