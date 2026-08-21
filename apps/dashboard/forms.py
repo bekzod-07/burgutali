@@ -19,7 +19,7 @@ class ExamSettingsForm(forms.ModelForm):
             "starts_at", "ends_at", "duration_minutes", "is_public",
             "show_results_to_participants", "show_correct_answers",
             "show_rating_to_participants",
-            "max_ball", "theta_min", "theta_max", "auto_calibrate",
+            "max_ball", "theta_min", "theta_max", "auto_calibrate", "anchor_scale",
             "certificate_enabled", "certificate_scope", "certificate_min_percent",
             "certificate_min_ball", "certificate_min_grade", "organizer_name",
         ]

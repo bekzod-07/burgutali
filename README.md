@@ -126,6 +126,15 @@ P(x = 1 | θ, b) = exp(θ − b) / (1 + exp(θ − b))
 
 Maksimal standartlashtirilgan ball — **90.14**.
 
+**Shkala daraja chegarasiga moslashadi.** Rasch `theta` si ballga chiziqli
+o'tkaziladi, lekin shkalaning quyi uchi har bir test hisoblanganda
+avtomatik sozlanadi: savollarning **32% ini** topgan qatnashchi aynan
+**46.00 ball = «C»** oladi. Milliy shablonda jami 55 ball bor, ya'ni
+**18 ta to'g'ri javob — C darajasi**; undan yuqorisi savollarning
+qiyinligiga qarab taqsimlanadi. Shkalaning yuqori uchi tegilmaydi
+(`theta_max` -> 90.14). Sozlamani test darajasida o'chirish mumkin —
+«Ball shkalasi darajaga moslansin».
+
 **Foiz.** Natijalarda va sertifikatda ko'rsatiladigan foiz balldan
 hisoblanadi: `foiz = ball × 100 / 65`, 100% dan oshmaydi. Asos 65 —
 «A» darajasining quyi chegarasi, shuning uchun A va A+ o'z-o'zidan 100%

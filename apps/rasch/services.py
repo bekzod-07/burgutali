@@ -18,6 +18,7 @@ foiz va reyting hisoblanadi.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -173,6 +174,53 @@ def calculate_exam(exam: Exam, *, regrade: bool = True) -> CalculationReport:
     return report
 
 
+def anchor_theta_min(
+    exam: Exam,
+    difficulties: np.ndarray,
+    *,
+    grade: str = C.SCALE_ANCHOR_GRADE,
+    share: float = C.CERT_MIN_PERCENT,
+) -> float | None:
+    """
+    Ball shkalasini daraja chegarasiga moslashtiruvchi `theta_min`.
+
+    Savollarning `share` ulushini (55 dan 18 tasini) topgan qatnashchi
+    aynan `grade` darajasining quyi chegarasini (46.00 ball) olishi kerak.
+    Shkalaning yuqori uchi tegilmaydi: `theta_max` -> `max_ball`.
+
+        ball = max_ball * (theta - theta_min) / (theta_max - theta_min)
+
+    Tenglamani `theta_min` bo'yicha yechamiz. Hisoblab bo'lmasa (savol yo'q,
+    chegara noto'g'ri yoki natija ma'nosiz) `None` qaytadi va shkala
+    o'zgarishsiz qoladi.
+    """
+    total = int(np.asarray(difficulties).size)
+    if total < 2:
+        return None
+
+    anchor_ball = C.grade_lower_bound(grade)
+    max_ball = float(exam.max_ball or C.MAX_BALL)
+    theta_max = float(exam.theta_max)
+    if anchor_ball is None or max_ball <= 0:
+        return None
+
+    ratio = float(anchor_ball) / max_ball
+    if not 0.0 < ratio < 1.0:
+        return None
+
+    # 55 ta birlikdan 32% -> 17.6 -> 18 ta.
+    raw = int(math.ceil(total * float(share) / 100.0))
+    raw = min(max(raw, 1), total - 1)
+
+    theta_anchor = estimator.theta_for_raw_score(raw, difficulties)
+    theta_min = (theta_anchor - ratio * theta_max) / (1.0 - ratio)
+
+    # Shkala teskari yoki juda siqilib qolmasin.
+    if not math.isfinite(theta_min) or theta_max - theta_min < 1.0:
+        return None
+    return round(float(theta_min), 4)
+
+
 def _score_rasch(
     exam: Exam,
     attempts: list[Attempt],
@@ -198,6 +246,15 @@ def _score_rasch(
         calibrated = False
         converged = True
         iterations = 0
+
+    # --- Shkalani daraja chegarasiga moslashtiramiz ---
+    # Savollarning 32% ini topgan qatnashchi «C» ning quyi chegarasini
+    # (46.00 ball) olsin; undan yuqorisi qiyinlikka qarab taqsimlanadi.
+    if exam.anchor_scale:
+        anchored = anchor_theta_min(exam, difficulties)
+        if anchored is not None and abs(anchored - float(exam.theta_min)) > 1e-6:
+            exam.theta_min = anchored
+            exam.save(update_fields=["theta_min", "updated_at"])
 
     thetas: list[float] = []
     errors: list[float] = []

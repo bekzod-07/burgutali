@@ -162,6 +162,12 @@ class Exam(TimeStampedModel):
 
     # --- Sertifikat sozlamalari (TZ 31-bo'lim) ---
     certificate_enabled = models.BooleanField("Sertifikat berilsinmi", default=False)
+    anchor_scale = models.BooleanField(
+        "Ball shkalasi darajaga moslansin", default=True,
+        help_text="Savollarning 32% ini topgan qatnashchi «C» darajasining "
+                  "quyi chegarasini (46 ball) oladi. O'chirilsa, shkala "
+                  "qat'iy [-4; +4] oralig'ida qoladi.",
+    )
     certificate_scope = models.CharField(
         "Sertifikat kimlarga", max_length=16,
         choices=CertificateScope.choices, default=CertificateScope.MIN_GRADE,

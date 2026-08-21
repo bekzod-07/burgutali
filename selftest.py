@@ -347,6 +347,51 @@ def test_rasch() -> None:
             estimator.estimate_theta([1] * 8 + [0] * 2, [0.0] * 10).theta
             > estimator.estimate_theta([1] * 3 + [0] * 7, [0.0] * 10).theta)
 
+    # --- Xom balldan theta (shkalani moslashtirish uchun) ---
+    b = [0.0] * 10
+    R.close("Xom ball 7 -> naqsh bilan bir xil theta",
+            estimator.theta_for_raw_score(7, b),
+            estimator.estimate_theta([1] * 7 + [0] * 3, b).theta, 0.01)
+    R.check("Xom ball ortsa theta ham ortadi",
+            estimator.theta_for_raw_score(8, b) > estimator.theta_for_raw_score(3, b))
+
+    # --- Ball shkalasini «C» darajasiga moslashtirish ---
+    from apps.exams.models import Exam as _Exam
+    from apps.rasch.services import anchor_theta_min
+
+    R.equal("C darajasi 46 balldan", C.grade_lower_bound("C"), 46.0)
+    R.equal("A+ darajasi 70 balldan", C.grade_lower_bound("A+"), 70.0)
+    R.check("Tanilmagan daraja chegarasi yo'q", C.grade_lower_bound("Z") is None)
+
+    import numpy as _np
+
+    probe = _Exam(max_ball=C.MAX_BALL, theta_min=C.THETA_MIN, theta_max=C.THETA_MAX)
+    diffs = _np.linspace(-2.0, 2.0, 55)
+    anchored = anchor_theta_min(probe, diffs)
+    R.check("Shkala uchun theta_min hisoblandi", anchored is not None)
+    if anchored is not None:
+        # 55 birlikdan 32% -> 18 ta. Aynan shu ball 46.00 chiqishi kerak.
+        theta18 = estimator.theta_for_raw_score(18, diffs)
+        ball18 = scoring.theta_to_ball(
+            theta18, max_ball=C.MAX_BALL, theta_min=anchored, theta_max=C.THETA_MAX
+        )
+        R.close("18 ta to'g'ri javob -> 46.00 ball", ball18, 46.0, 0.02)
+        R.equal("18 ta to'g'ri javob -> C", C.grade_for_ball(ball18), "C")
+
+        theta17 = estimator.theta_for_raw_score(17, diffs)
+        ball17 = scoring.theta_to_ball(
+            theta17, max_ball=C.MAX_BALL, theta_min=anchored, theta_max=C.THETA_MAX
+        )
+        R.check("17 ta to'g'ri javob -> daraja yo'q",
+                C.grade_for_ball(ball17) == C.NO_GRADE, f"{ball17:.2f} ball")
+        R.check("Shkalaning yuqori uchi tegilmaydi",
+                abs(scoring.theta_to_ball(C.THETA_MAX, max_ball=C.MAX_BALL,
+                                          theta_min=anchored, theta_max=C.THETA_MAX)
+                    - C.MAX_BALL) < 0.01)
+
+    R.check("Savol yo'q bo'lsa moslash bekor qilinadi",
+            anchor_theta_min(probe, _np.asarray([])) is None)
+
     # --- Ishonchlilik ---
     reliability = estimator.kr20(matrix)
     R.check(f"KR-20 oralig'ida ({reliability:.3f})", 0.0 <= reliability <= 1.0)
@@ -511,8 +556,10 @@ def test_rasch_free_flow() -> dict:
     )
     from apps.exams.models import Exam, Question
     from apps.exams.services import activate_exam, apply_multi_keys, apply_open_keys, apply_single_keys, create_exam, keys_ready, publish_results
+    from apps.rasch import scoring
     from apps.rasch.services import calculate_exam
     from apps.users.models import BotUser
+    from core import constants as C
 
     R.head("8. To'liq oqim: milliy shablon (45 savol) + RASH")
 
@@ -621,6 +668,29 @@ def test_rasch_free_flow() -> dict:
     R.check("Yuqori qobiliyat -> yuqori ball",
             attempts[0].raw_score >= attempts[-1].raw_score)
     R.check("Darajalar belgilandi", all(a.grade for a in attempts))
+
+    # --- Shkala «C» darajasiga moslashgan: 32% (55 dan 18 ta) -> 46.00 ball ---
+    exam.refresh_from_db()
+    R.check("Shkala moslashtirildi", exam.theta_min < C.THETA_MIN,
+            f"theta_min = {exam.theta_min}")
+
+    from apps.rasch import estimator as _est
+    from apps.rasch.services import build_items as _items
+
+    diffs = [i.difficulty for i in _items(exam)]
+    R.equal("55 ta ballanadigan birlik", len(diffs), 55)
+    ball18 = scoring.theta_to_ball(
+        _est.theta_for_raw_score(18, diffs),
+        max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
+    )
+    ball17 = scoring.theta_to_ball(
+        _est.theta_for_raw_score(17, diffs),
+        max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
+    )
+    R.close("18 ta to'g'ri javob -> 46.00 ball", ball18, 46.0, 0.05)
+    R.equal("18 ta to'g'ri javob -> C darajasi", C.grade_for_ball(ball18), "C")
+    R.check("17 ta to'g'ri javob -> daraja yo'q",
+            C.grade_for_ball(ball17) == C.NO_GRADE, f"{ball17:.2f} ball")
 
     # --- Baholash aniqligi: to'liq to'g'ri javob bergan ishtirokchi ---
     perfect_user, _ = BotUser.objects.get_or_create(

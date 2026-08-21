@@ -33,6 +33,12 @@ GRADE_TABLE: Final[tuple[tuple[float, float | None, str], ...]] = (
 #: Daraja olinmaganini bildiruvchi matn.
 NO_GRADE: Final[str] = "Daraja olinmadi"
 
+#: Ball shkalasi shu darajaga «anchor» qilinadi: savollarning
+#: `CERT_MIN_PERCENT` ulushini topgan qatnashchi aynan shu darajaning quyi
+#: chegarasini oladi. 55 ballik shablonda 18 ta to'g'ri javob -> 46.0 ball
+#: -> «C». Undan yuqorisi savollar qiyinligiga qarab taqsimlanadi.
+SCALE_ANCHOR_GRADE: Final[str] = "C"
+
 #: Sertifikat beriladigan eng past daraja. Undan pastda (0-45.9 ball)
 #: daraja umuman olinmaydi, shuning uchun sertifikat ham berilmaydi.
 CERT_MIN_GRADE: Final[str] = "C"
@@ -63,6 +69,15 @@ def grade_for_ball(ball: float | Decimal | None) -> str:
         if value >= low:
             return name
     return NO_GRADE
+
+
+def grade_lower_bound(grade: str) -> float | None:
+    """Daraja boshlanadigan ball. Daraja tanilmasa — `None`."""
+    name = (grade or "").strip()
+    for low, _high, item in GRADE_TABLE:
+        if item == name:
+            return low
+    return None
 
 
 def grade_rank(grade: str) -> int:

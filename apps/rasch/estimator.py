@@ -209,6 +209,28 @@ def estimate_theta(
     )
 
 
+def theta_for_raw_score(
+    raw_score: float,
+    difficulties: np.ndarray | list[float],
+    **kwargs,
+) -> float:
+    """
+    Berilgan **xom ball** uchun `theta` qiymati.
+
+    Rasch modelida xom ball — yetarli statistika: bir xil ballga ega
+    barcha javob naqshlari bir xil `theta` beradi. Shuning uchun bu yerda
+    yig'indisi `raw_score` ga teng bo'lgan sun'iy javob vektori yetarli.
+
+    Ball shkalasini daraja chegarasiga moslashtirishda ishlatiladi
+    (`apps.rasch.services.anchor_theta_min`).
+    """
+    b = np.asarray(difficulties, dtype=float).ravel()
+    if b.size == 0:
+        return 0.0
+    responses = np.full(b.size, float(raw_score) / float(b.size), dtype=float)
+    return estimate_theta(responses, b, **kwargs).theta
+
+
 def _initial_theta(score: float, n_items: float) -> float:
     """Boshlang'ich theta: logit(p)."""
     p = float(np.clip(score / max(n_items, 1.0), 0.01, 0.99))
@@ -434,6 +456,7 @@ __all__ = [
     "prox_difficulties",
     "prox_thetas",
     "estimate_theta",
+    "theta_for_raw_score",
     "estimate_thetas",
     "calibrate",
     "kr20",
