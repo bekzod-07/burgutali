@@ -116,7 +116,7 @@ bajarilganini ko‘rsatadi.
 | 31 | «Sertifikatni olish» tugmasi | `bot/texts/exam.BTN_GET_CERTIFICATE` |
 | 31 | Bosilganda PDF yuboriladi | `bot/handlers/certificate.get_certificate()` |
 | 31 | «Sertifikat berilsinmi? Ha / Yo‘q» | `bot/handlers/create/settings.py` |
-| 31 | Kimlarga: hammaga yoki min. ball/darajadan yuqori | `Exam.CertificateScope` |
+| 31 | Kimlarga: standart — to'g'ri javob foizi (40%); shuningdek hammaga yoki min. ball/darajadan yuqori | `Exam.CertificateScope` |
 | 31 | Sertifikat darhol emas: RASH → tasdiq → sertifikat | `publish_results()` -> `issue_for_exam()` |
 | 31 | 1-tur yo‘q, 2-tur yo‘q, 3-tur bor | `Exam.can_issue_certificate` |
 

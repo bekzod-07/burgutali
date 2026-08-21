@@ -16,8 +16,9 @@ CHOOSE_TYPE = (
     "Natija Rasch (IRT-1PL) modeli asosida hisoblanadi, reyting tuziladi. "
     "Sertifikat berilmaydi.\n\n"
     "<b>3-tur. Pullik RASH testi</b>\n"
-    "Faqat asosiy admin uchun. Kirish bir martalik ID kodlar orqali, "
-    "sertifikat beriladi."
+    "Faqat asosiy admin uchun. Kirish bir martalik ID kodlar orqali. "
+    "Sertifikat to'g'ri javoblar 40% dan kam bo'lmaganda beriladi "
+    "(chegarani test sozlamalarida o'zgartirish mumkin)."
 )
 
 BTN_TYPE_SIMPLE = "1-tur. Oddiy test"

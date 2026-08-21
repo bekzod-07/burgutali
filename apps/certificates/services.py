@@ -65,7 +65,15 @@ def check_eligibility(attempt: Attempt) -> EligibilityCheck:
         return EligibilityCheck(False, "Natijangiz hali hisoblanmagan.")
 
     scope = exam.certificate_scope
-    if scope == Exam.CertificateScope.MIN_BALL:
+    if scope == Exam.CertificateScope.MIN_PERCENT:
+        minimum = exam.certificate_min_percent
+        if minimum is not None and (attempt.percent or 0.0) < float(minimum):
+            return EligibilityCheck(
+                False,
+                f"Sertifikat uchun kamida {float(minimum):g}% to'g'ri javob talab "
+                f"qilinadi (sizda {float(attempt.percent or 0.0):g}%).",
+            )
+    elif scope == Exam.CertificateScope.MIN_BALL:
         minimum = exam.certificate_min_ball
         if minimum is not None and (attempt.ball or 0.0) < float(minimum):
             return EligibilityCheck(

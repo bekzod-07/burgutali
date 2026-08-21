@@ -33,6 +33,11 @@ GRADE_TABLE: Final[tuple[tuple[float, float | None, str], ...]] = (
 #: Daraja olinmaganini bildiruvchi matn.
 NO_GRADE: Final[str] = "Daraja olinmadi"
 
+#: Sertifikat uchun talab qilinadigan standart foiz — to'g'ri javoblarning
+#: ulushi. Yangi testlar shu chegara bilan yaratiladi, admin uni har bir
+#: test uchun alohida o'zgartirishi mumkin (`Exam.certificate_min_percent`).
+CERT_MIN_PERCENT: Final[float] = 40.0
+
 #: Darajalarni kuchi bo'yicha tartiblangan ro'yxati (pastdan yuqoriga).
 GRADE_ORDER: Final[tuple[str, ...]] = (NO_GRADE, "C", "C+", "B", "B+", "A", "A+")
 

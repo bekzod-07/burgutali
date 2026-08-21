@@ -735,6 +735,7 @@ def test_paid_flow() -> None:
     from apps.exams.services import activate_exam, apply_single_keys, create_exam, publish_results
     from apps.rasch.services import calculate_exam
     from apps.users.models import BotUser
+    from core import constants as C
 
     R.head("10. Pullik RASH testi: ID kodlar va sertifikat")
 
@@ -891,6 +892,58 @@ def test_paid_flow() -> None:
     exam.certificate_scope = Exam.CertificateScope.ALL
     exam.certificate_min_ball = None
     exam.save(update_fields=["certificate_scope", "certificate_min_ball"])
+
+    # --- Minimal foiz sharti (standart) ---
+    fresh = create_exam(
+        owner=owner,
+        title="Foiz sharti uchun namuna",
+        exam_type=Exam.Type.RASCH_PAID,
+        question_count=10,
+        certificate_enabled=True,
+    )
+    R.equal("Yangi testda standart shart — foiz",
+            fresh.certificate_scope, Exam.CertificateScope.MIN_PERCENT)
+    R.equal("Standart chegara 40%", fresh.certificate_min_percent, 40.0)
+
+    exam.certificate_scope = Exam.CertificateScope.MIN_PERCENT
+    exam.certificate_min_percent = 40.0
+    exam.save(update_fields=["certificate_scope", "certificate_min_percent"])
+
+    saved_percent = attempt.percent
+    attempt.percent = 39.9
+    attempt.save(update_fields=["percent"])
+    low = check_eligibility(attempt)
+    R.check("40% dan past — sertifikat yo'q", not low.ok, low.reason)
+    R.check("Sabab foizni aytadi", "%" in low.reason, low.reason)
+
+    attempt.percent = 40.0
+    attempt.save(update_fields=["percent"])
+    R.check("Aynan 40% — sertifikat bor", check_eligibility(attempt).ok)
+
+    attempt.percent = 85.0
+    attempt.save(update_fields=["percent"])
+    R.check("40% dan yuqori — sertifikat bor", check_eligibility(attempt).ok)
+
+    # Chegara bo'sh qoldirilsa foiz sharti qo'llanmaydi.
+    exam.certificate_min_percent = None
+    exam.save(update_fields=["certificate_min_percent"])
+    attempt.percent = 5.0
+    attempt.save(update_fields=["percent"])
+    R.check("Chegara bo'sh — shart qo'llanmaydi", check_eligibility(attempt).ok)
+
+    attempt.percent = saved_percent
+    attempt.save(update_fields=["percent"])
+    exam.certificate_scope = Exam.CertificateScope.ALL
+    exam.certificate_min_percent = C.CERT_MIN_PERCENT
+    exam.save(update_fields=["certificate_scope", "certificate_min_percent"])
+
+    # --- Hisobotdagi daraja yorlig'i ---
+    from apps.exports.pdf_report import grade_label
+
+    R.equal("Daraja olinmagan qator qisqartiriladi",
+            grade_label(C.NO_GRADE), "—")
+    R.equal("Bo'sh daraja ham qisqartiriladi", grade_label(""), "—")
+    R.equal("Oddiy daraja o'zgarmaydi", grade_label("B+"), "B+")
 
 
 # ==========================================================================

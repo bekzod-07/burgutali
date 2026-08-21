@@ -74,6 +74,18 @@ def grade_colors(grade: str) -> tuple[str, str] | None:
     return None
 
 
+def grade_label(grade: str) -> str:
+    """
+    Daraja ustunida ko'rsatiladigan qisqa yorliq.
+
+    «Daraja olinmadi» reyting jadvalining tor ustuniga sig'maydi va qo'shni
+    ustun ustiga chiqib ketadi, shuning uchun u «—» bilan almashtiriladi.
+    Ma'nosi jadval ostidagi izoh qatorida tushuntiriladi.
+    """
+    name = (grade or "").strip()
+    return "—" if not name or name == C.NO_GRADE else name
+
+
 def _grade_column_style(rows: list[list], column: int) -> list[tuple]:
     """
     Daraja ustunidagi kataklarni bo'yaydigan uslub buyruqlari.
@@ -104,8 +116,11 @@ def _grade_legend(styles: dict) -> Paragraph:
     parts = " · ".join(
         f'<font color="{ink}">{name}</font>' for name, (_, ink) in GRADE_COLORS.items()
     )
+    neutral = NO_GRADE_COLOR[1]
     return Paragraph(
-        f"Darajalar rang bilan ajratilgan: {parts}", styles["subtitle"]
+        f"Darajalar rang bilan ajratilgan: {parts} · "
+        f'<font color="{neutral}">— daraja olinmadi</font>',
+        styles["subtitle"],
     )
 
 
@@ -310,7 +325,7 @@ def results_report(exam: Exam) -> bytes:
         if uses_rasch:
             row += [
                 f"{attempt.ball:.2f}" if attempt.ball is not None else "—",
-                attempt.grade or "—",
+                grade_label(attempt.grade),
             ]
         row.append(
             timezone.localtime(attempt.submitted_at).strftime("%d.%m.%Y")
@@ -400,7 +415,7 @@ def overall_results_report(exam: Exam) -> bytes:
                 attempt.public_label,
                 attempt.display_ball if exam.uses_rasch else f"{attempt.raw_score:g}",
                 f"{attempt.percent:.0f}%",
-                attempt.grade or "—",
+                grade_label(attempt.grade),
             ]
         )
 
@@ -461,7 +476,7 @@ def certificate_list_report(exam: Exam) -> bytes:
                 certificate.number,
                 certificate.full_name,
                 f"{certificate.ball:.2f}",
-                certificate.grade or "—",
+                grade_label(certificate.grade),
                 certificate.exam_date.strftime("%d.%m.%Y"),
             ]
         )

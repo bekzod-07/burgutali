@@ -20,7 +20,7 @@ class ExamSettingsForm(forms.ModelForm):
             "show_results_to_participants", "show_correct_answers",
             "show_rating_to_participants",
             "max_ball", "theta_min", "theta_max", "auto_calibrate",
-            "certificate_enabled", "certificate_scope",
+            "certificate_enabled", "certificate_scope", "certificate_min_percent",
             "certificate_min_ball", "certificate_min_grade", "organizer_name",
         ]
         widgets = {
@@ -38,6 +38,9 @@ class ExamSettingsForm(forms.ModelForm):
             "theta_min": forms.NumberInput(attrs={"class": "input", "step": "0.1"}),
             "theta_max": forms.NumberInput(attrs={"class": "input", "step": "0.1"}),
             "certificate_scope": forms.Select(attrs={"class": "input"}),
+            "certificate_min_percent": forms.NumberInput(
+                attrs={"class": "input", "step": "0.1", "min": 0, "max": 100}
+            ),
             "certificate_min_ball": forms.NumberInput(attrs={"class": "input", "step": "0.01"}),
             "certificate_min_grade": forms.Select(attrs={"class": "input"}),
             "organizer_name": forms.TextInput(attrs={"class": "input"}),
@@ -50,6 +53,7 @@ class ExamSettingsForm(forms.ModelForm):
             choices=[("", "— tanlanmagan —")] + [(g, g) for g in C.GRADE_ORDER[1:]],
         )
         self.fields["certificate_min_grade"].required = False
+        self.fields["certificate_min_percent"].required = False
         for name in ("starts_at", "ends_at"):
             self.fields[name].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
 

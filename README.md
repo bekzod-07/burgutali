@@ -329,8 +329,15 @@ qatnashchi uchun PDF sertifikat yaratiladi:
 * tashkilotchi nomi va berilgan sana;
 * **QR-kod** — tekshirish sahifasiga havola.
 
-Sertifikat kimlarga berilishini admin belgilaydi: barchaga, yoki belgilangan
-minimal ball/darajadan yuqori natija olganlarga.
+Sertifikat kimlarga berilishini admin belgilaydi. Standart shart —
+**to'g'ri javoblarning kamida 40% i**; test sozlamalarida bu foizni
+o'zgartirish yoki uning o'rniga boshqa shart tanlash mumkin: barchaga,
+belgilangan minimal balldan yoki minimal darajadan yuqori natija olganlarga.
+
+Foiz va ball — ikki xil o'lchov: **foiz** to'g'ri javoblarning ulushi,
+**ball** esa Rasch modeli bergan standartlashtirilgan qiymat (0–90.14).
+Qiyin testda 40% to'g'ri javob 40 balldan past ballga to'g'ri kelishi
+mumkin, shuning uchun sertifikat sharti sifatida foiz ishlatiladi.
 
 ### Testlarni qo‘shish va o‘chirish
 

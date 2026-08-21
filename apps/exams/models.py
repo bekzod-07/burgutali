@@ -98,6 +98,7 @@ class Exam(TimeStampedModel):
 
     class CertificateScope(models.TextChoices):
         ALL = "all", "Barcha qatnashchilarga"
+        MIN_PERCENT = "min_percent", "To'g'ri javob foizi yetarli bo'lganlarga"
         MIN_BALL = "min_ball", "Belgilangan balldan yuqori bo'lganlarga"
         MIN_GRADE = "min_grade", "Belgilangan darajadan yuqori bo'lganlarga"
 
@@ -163,7 +164,13 @@ class Exam(TimeStampedModel):
     certificate_enabled = models.BooleanField("Sertifikat berilsinmi", default=False)
     certificate_scope = models.CharField(
         "Sertifikat kimlarga", max_length=16,
-        choices=CertificateScope.choices, default=CertificateScope.ALL,
+        choices=CertificateScope.choices, default=CertificateScope.MIN_PERCENT,
+    )
+    certificate_min_percent = models.FloatField(
+        "Minimal to'g'ri javob foizi", null=True, blank=True,
+        default=C.CERT_MIN_PERCENT,
+        help_text="To'g'ri javoblarning ulushi. Bo'sh qoldirilsa foiz sharti qo'llanmaydi.",
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
     )
     certificate_min_ball = models.FloatField(
         "Minimal ball", null=True, blank=True,

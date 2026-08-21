@@ -426,6 +426,7 @@ def duplicate_exam(exam: Exam, owner=None) -> Exam:
         auto_calibrate=exam.auto_calibrate,
         certificate_enabled=exam.certificate_enabled,
         certificate_scope=exam.certificate_scope,
+        certificate_min_percent=exam.certificate_min_percent,
         certificate_min_ball=exam.certificate_min_ball,
         certificate_min_grade=exam.certificate_min_grade,
         organizer_name=exam.organizer_name,
