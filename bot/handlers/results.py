@@ -73,6 +73,7 @@ async def _send_result(message: Message, attempt_id: int, user) -> None:
         text = TE.RESULT_READY.format(
             title=esc(snapshot["title"]),
             ball=snapshot["ball"],
+            percent=f"{snapshot['award_percent']:g}",
             grade=snapshot["grade"],
             rank=snapshot["rank"],
         )

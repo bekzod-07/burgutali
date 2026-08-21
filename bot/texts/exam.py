@@ -292,6 +292,7 @@ RESULT_READY = (
     "<b>Natijangiz tayyor</b>\n\n"
     "Test: <b>{title}</b>\n"
     "RASH ballingiz: <b>{ball}</b>\n"
+    "Foiz: <b>{percent}%</b>\n"
     "Daraja: <b>{grade}</b>\n"
     "Reyting: <b>{rank}</b>"
 )

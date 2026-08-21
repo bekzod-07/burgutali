@@ -278,12 +278,12 @@ def draw_certificate(canvas: pdf_canvas.Canvas, data: CertificateData) -> None:
     boxes: list[tuple[str, str, bool]] = [
         ("RASCH BALLI", f"{data.ball:.2f}", True),
     ]
+    # Nechta to'g'ri javob berilgani sertifikatda ko'rsatilmaydi — faqat
+    # ball, foiz (`ball * 100 / 65`) va daraja.
+    if data.award_percent is not None:
+        boxes.append(("FOIZ", f"{data.award_percent:.0f}%", False))
     if data.grade:
         boxes.append(("DARAJA", data.grade, False))
-    if data.award_percent is not None:
-        boxes.append(("SERTIFIKAT", f"{data.award_percent:.1f}%", True))
-    if data.percent is not None:
-        boxes.append(("TO‘G‘RI JAVOB", f"{data.percent:.1f}%", False))
     if data.rank and data.total_participants:
         boxes.append(("REYTING", data.rank_text, False))
 

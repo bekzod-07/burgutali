@@ -170,17 +170,22 @@ def test_constants() -> None:
     R.equal("50.0 -> C+", C.grade_for_ball(50.0), "C+")
     R.equal("55.0 -> B", C.grade_for_ball(55.0), "B")
 
-    # --- Sertifikat foizi: ball * 100 / 75, A+ va A uchun 100% ---
-    R.close("46.0 -> 61.33%", C.certificate_percent(46.0), 61.33, 0.01)
-    R.close("50.0 -> 66.67%", C.certificate_percent(50.0), 66.67, 0.01)
-    R.close("55.0 -> 73.33%", C.certificate_percent(55.0), 73.33, 0.01)
-    R.close("60.0 -> 80.00%", C.certificate_percent(60.0), 80.0, 0.01)
-    R.close("64.9 -> 86.53%", C.certificate_percent(64.9), 86.53, 0.01)
-    R.close("A darajaga 100%", C.certificate_percent(65.0), 100.0, 0.01)
-    R.close("A+ darajaga 100%", C.certificate_percent(70.0), 100.0, 0.01)
+    # --- Foiz: ball * 100 / 65, 100% dan oshmaydi ---
+    R.equal("Foiz asosi 65", C.CERT_PERCENT_BASE, 65.0)
+    R.close("46.0 -> 70.77% (C boshi)", C.certificate_percent(46.0), 70.77, 0.01)
+    R.close("50.0 -> 76.92%", C.certificate_percent(50.0), 76.92, 0.01)
+    R.close("55.0 -> 84.62%", C.certificate_percent(55.0), 84.62, 0.01)
+    R.close("60.0 -> 92.31%", C.certificate_percent(60.0), 92.31, 0.01)
+    R.close("64.9 -> 99.85%", C.certificate_percent(64.9), 99.85, 0.01)
+    R.close("65.0 -> 100% (A boshi)", C.certificate_percent(65.0), 100.0, 0.01)
+    R.close("A+ darajaga ham 100%", C.certificate_percent(70.0), 100.0, 0.01)
     R.close("Maksimal ballda ham 100%", C.certificate_percent(C.MAX_BALL), 100.0, 0.01)
-    R.close("Foiz 100% dan oshmaydi", C.certificate_percent(80.0, "B+"), 100.0, 0.01)
     R.equal("Ball yo'q -> 0%", C.certificate_percent(None), 0.0)
+
+    # --- Sertifikat chegarasi: 55 balldan 18 tasi (32%) ---
+    R.equal("Sertifikat chegarasi 32%", C.CERT_MIN_PERCENT, 32.0)
+    R.check("18/55 chegaradan yuqori", 18 / 55 * 100 >= C.CERT_MIN_PERCENT)
+    R.check("17/55 chegaradan past", 17 / 55 * 100 < C.CERT_MIN_PERCENT)
     R.equal("60.0 -> B+", C.grade_for_ball(60.0), "B+")
     R.equal("65.0 -> A", C.grade_for_ball(65.0), "A")
     R.equal("70.0 -> A+", C.grade_for_ball(70.0), "A+")
@@ -915,27 +920,31 @@ def test_paid_flow() -> None:
     )
     R.equal("Yangi testda standart shart — foiz",
             fresh.certificate_scope, Exam.CertificateScope.MIN_PERCENT)
-    R.equal("Standart chegara 40%", fresh.certificate_min_percent, 40.0)
+    R.equal("Standart chegara 32%", fresh.certificate_min_percent, 32.0)
 
     exam.certificate_scope = Exam.CertificateScope.MIN_PERCENT
-    exam.certificate_min_percent = 40.0
+    exam.certificate_min_percent = C.CERT_MIN_PERCENT
     exam.save(update_fields=["certificate_scope", "certificate_min_percent"])
 
     saved_percent = attempt.percent
-    attempt.percent = 39.9
+    attempt.percent = 31.9
     attempt.save(update_fields=["percent"])
     low = check_eligibility(attempt)
-    R.check("40% dan past — sertifikat yo'q", not low.ok, low.reason)
+    R.check("32% dan past — sertifikat yo'q", not low.ok, low.reason)
     R.check("Sabab chegarani oshkor qilmaydi",
-            "%" not in low.reason and "40" not in low.reason, low.reason)
+            "%" not in low.reason and "32" not in low.reason, low.reason)
 
-    attempt.percent = 40.0
+    attempt.percent = 32.0
     attempt.save(update_fields=["percent"])
-    R.check("Aynan 40% — sertifikat bor", check_eligibility(attempt).ok)
+    R.check("Aynan 32% — sertifikat bor", check_eligibility(attempt).ok)
+
+    attempt.percent = round(18 / 55 * 100, 2)
+    attempt.save(update_fields=["percent"])
+    R.check("55 balldan 18 tasi — sertifikat bor", check_eligibility(attempt).ok)
 
     attempt.percent = 85.0
     attempt.save(update_fields=["percent"])
-    R.check("40% dan yuqori — sertifikat bor", check_eligibility(attempt).ok)
+    R.check("32% dan yuqori — sertifikat bor", check_eligibility(attempt).ok)
 
     # Chegara bo'sh qoldirilsa foiz sharti qo'llanmaydi.
     exam.certificate_min_percent = None
@@ -969,6 +978,7 @@ def test_exports() -> None:
     from apps.exams.models import Exam
     from apps.exports.excel import codes_workbook, participants_workbook, results_workbook
     from apps.exports.pdf_report import certificate_list_report, results_report
+    from core import constants as C
 
     R.head("11. Eksport: Excel va PDF")
 
@@ -992,6 +1002,26 @@ def test_exports() -> None:
 
     certificates = certificate_list_report(paid)
     R.check("Sertifikatlar PDF yaratildi", certificates[:4] == b"%PDF")
+
+    # --- E'lon qilinadigan jadval: ball, foiz, daraja (to'g'ri javob yo'q) ---
+    from apps.exports.pdf_report import overall_results_report, results_report as full_report
+
+    announce = overall_results_report(exam)
+    R.check("Umumiy natijalar PDF yaratildi", announce[:4] == b"%PDF")
+
+    from apps.attempts.services import ranked_attempts as _ranked
+
+    # E'lon qilinadigan jadvaldagi foiz — `ball * 100 / 65`, to'g'ri
+    # javoblar ulushi emas. Har bir qatnashchi uchun tekshiramiz.
+    for item in _ranked(exam)[:5]:
+        expected = min(100.0, round(item.ball * 100.0 / 65.0, 2))
+        R.close(f"{item.ball:.2f} ball -> {expected:.2f}%",
+                C.certificate_percent(item.ball, item.grade), expected, 0.01)
+
+    low = _ranked(exam).last()
+    if low is not None and (low.ball or 0) < 65:
+        R.check("Past ballda foiz 100% dan kam",
+                C.certificate_percent(low.ball) < 100.0)
 
     # --- Darajalar PDF da rang bilan ajratiladi ---
     from apps.exports import pdf_report as PR

@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.attempts.models import Attempt
 from apps.exams.models import Exam, Question
+from core import constants as C
 
 
 # --------------------------------------------------------------------------
@@ -147,6 +148,8 @@ def attempt_dict(attempt: Attempt, *, total_participants: int = 0) -> dict:
         "wrong": attempt.wrong_count,
         "empty": attempt.empty_count,
         "percent": round(attempt.percent, 1),
+        # RASH testida qatnashchiga shu foiz ko'rsatiladi (`ball * 100 / 65`).
+        "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
         "theta": attempt.theta,
         "ball": attempt.display_ball,
         "grade": attempt.grade or "",
@@ -220,6 +223,7 @@ def certificate_dict(certificate) -> dict:
         "grade": certificate.grade or "",
         "rank": certificate.display_rank,
         "percent": certificate.percent,
+        "award_percent": certificate.award_percent,
         "issued_at": certificate.issued_at.strftime("%d.%m.%Y")
         if certificate.issued_at
         else "",

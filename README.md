@@ -126,6 +126,23 @@ P(x = 1 | θ, b) = exp(θ − b) / (1 + exp(θ − b))
 
 Maksimal standartlashtirilgan ball — **90.14**.
 
+**Foiz.** Natijalarda va sertifikatda ko'rsatiladigan foiz balldan
+hisoblanadi: `foiz = ball × 100 / 65`, 100% dan oshmaydi. Asos 65 —
+«A» darajasining quyi chegarasi, shuning uchun A va A+ o'z-o'zidan 100%
+oladi:
+
+| Ball | Daraja | Foiz |
+|------|--------|------|
+| 46.0 – 49.9 | C | 70.8 – 76.8% |
+| 50.0 – 54.9 | C+ | 76.9 – 84.5% |
+| 55.0 – 59.9 | B | 84.6 – 92.2% |
+| 60.0 – 64.9 | B+ | 92.3 – 99.8% |
+| 65.0 va yuqori | A, A+ | **100%** |
+
+Bu foiz **to'g'ri javoblar ulushi emas**. Nechta savolni to'g'ri
+topgani qatnashchiga ko'rsatilmaydi — u faqat adminlar hisobotida
+bo'ladi (2- va 3-tur testlar uchun).
+
 ### Umumiy natijalar va ularda ko‘rsatiladigan nom
 
 Test yakunlangach (yopilganda va natijalar e’lon qilinganda) umumiy
@@ -345,7 +362,9 @@ qatnashchi uchun PDF sertifikat yaratiladi:
 * **QR-kod** — tekshirish sahifasiga havola.
 
 Sertifikat kimlarga berilishini admin belgilaydi. Standart shart —
-**to'g'ri javoblarning kamida 40% i**; test sozlamalarida bu foizni
+**to'g'ri javoblarning kamida 32% i**. Milliy shablonda jami 55 ball bor,
+shuning uchun 18 ta to'g'ri javob (18/55 = 32.7%) shu chegaraga to'g'ri
+keladi. Test sozlamalarida bu foizni
 o'zgartirish yoki uning o'rniga boshqa shart tanlash mumkin: barchaga,
 belgilangan minimal balldan yoki minimal darajadan yuqori natija olganlarga.
 
@@ -353,10 +372,14 @@ Chegara **qatnashchiga aytilmaydi**: sertifikat berilmasa, u «Natijangiz
 sertifikat berish uchun yetarli emas» degan umumiy xabarni ko'radi. Foizni
 faqat admin ko'radi va o'zgartiradi.
 
-Foiz va ball — ikki xil o'lchov: **foiz** to'g'ri javoblarning ulushi,
-**ball** esa Rasch modeli bergan standartlashtirilgan qiymat (0–90.14).
-Qiyin testda 40% to'g'ri javob 40 balldan past ballga to'g'ri kelishi
-mumkin, shuning uchun sertifikat sharti sifatida foiz ishlatiladi.
+Diqqat: loyihada **ikki xil foiz** bor va ular chalkashtirilmaydi.
+
+* **To'g'ri javoblar ulushi** (`Attempt.percent`) — sertifikat sharti shu
+  bo'yicha tekshiriladi (32%). Qatnashchiga ko'rsatilmaydi, faqat adminlar
+  hisobotida bo'ladi.
+* **Ko'rsatiladigan foiz** (`certificate_percent`) — `ball × 100 / 65`.
+  Natijalar e'lonida, botdagi natija xabarida, web ilovada va sertifikatda
+  aynan shu foiz chiqadi.
 
 ### Testlarni qo‘shish va o‘chirish
 

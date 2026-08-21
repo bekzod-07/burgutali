@@ -831,6 +831,11 @@
         return;
       }
 
+      /*
+         RASH testida qatnashchi ball, foiz va darajani ko'radi; nechta
+         to'g'ri javob berganini ko'rmaydi — u faqat adminlar hisobotida
+         bo'ladi. Foiz `ball * 100 / 65` formulasi bo'yicha hisoblanadi.
+      */
       if (attempt.uses_rasch) {
         html += '<div class="result-hero">' +
           '<div class="lbl">RASH balli</div>' +
@@ -846,13 +851,15 @@
 
       html += '<div class="card"><div class="kv-list">' +
         kv("Test", esc(attempt.exam_title)) +
-        kv("To‘g‘ri javoblar", attempt.correct + " / " + attempt.max_raw_score) +
-        kv("Xato javoblar", attempt.wrong) +
-        kv("Javobsiz", attempt.empty) +
-        kv("Foiz", attempt.percent + "%") +
+        (attempt.uses_rasch
+          ? kv("Ball", esc(attempt.ball)) +
+            kv("Foiz", attempt.award_percent + "%") +
+            kv("Daraja", esc(attempt.grade || "—"))
+          : kv("To‘g‘ri javoblar", attempt.correct + " / " + attempt.max_raw_score) +
+            kv("Xato javoblar", attempt.wrong) +
+            kv("Javobsiz", attempt.empty) +
+            kv("Foiz", attempt.percent + "%")) +
         (attempt.rank ? kv("Reyting", attempt.rank + " / " + attempt.total_participants) : "") +
-        (attempt.theta !== null && attempt.theta !== undefined
-          ? kv("theta (θ)", Number(attempt.theta).toFixed(3)) : "") +
         kv("Topshirgan vaqt", esc(attempt.submitted_at_human)) +
         "</div></div>";
 
@@ -861,6 +868,9 @@
           '<div class="kv-list">' +
           kv("Raqami", '<span class="code-pill">' + esc(data.certificate.number) + "</span>") +
           kv("Ball", esc(data.certificate.ball)) +
+          (data.certificate.award_percent !== null &&
+           data.certificate.award_percent !== undefined
+            ? kv("Foiz", data.certificate.award_percent + "%") : "") +
           kv("Daraja", esc(data.certificate.grade || "—")) +
           "</div>" +
           '<a class="btn btn-gold" href="' + esc(data.certificate.download_url) + '" target="_blank" rel="noopener">' +

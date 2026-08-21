@@ -304,14 +304,17 @@ def results_report(exam: Exam) -> bytes:
     story.append(Spacer(1, 6 * mm))
     story.append(Paragraph(safe_text("Reyting", fonts), styles["heading"]))
 
+    # Bu hisobot faqat adminlar uchun, shuning uchun nechta to'g'ri javob
+    # borligi ham ko'rsatiladi. Qatnashchilarga e'lon qilinadigan jadvalda
+    # (`overall_results_report`) bu ustunlar yo'q.
     uses_rasch = exam.uses_rasch
     header = ["O‘rin", participant_column(exam), "To‘g‘ri", "Foiz"]
-    widths = [14 * mm, 62 * mm, 18 * mm, 18 * mm]
+    widths = [13 * mm, 44 * mm, 16 * mm, 16 * mm]
     if uses_rasch:
-        header += ["Ball", "Daraja"]
-        widths += [20 * mm, 22 * mm]
+        header += ["Ball", "Sert. %", "Daraja"]
+        widths += [18 * mm, 18 * mm, 20 * mm]
     header += ["Sana"]
-    widths += [28 * mm]
+    widths += [26 * mm]
 
     data = [header]
     attempts = ranked_attempts(exam)
@@ -325,6 +328,8 @@ def results_report(exam: Exam) -> bytes:
         if uses_rasch:
             row += [
                 f"{attempt.ball:.2f}" if attempt.ball is not None else "—",
+                f"{C.certificate_percent(attempt.ball, attempt.grade):.0f}%"
+                if attempt.ball is not None else "—",
                 grade_label(attempt.grade),
             ]
         row.append(
@@ -406,15 +411,23 @@ def overall_results_report(exam: Exam) -> bytes:
         ),
     ]
 
+    # RASH testlarida foiz `ball * 100 / 65` formulasi bo'yicha ko'rsatiladi
+    # (`core.constants.certificate_percent`), oddiy testda esa to'g'ri
+    # javoblarning ulushi. Nechta to'g'ri topgani e'londa ko'rsatilmaydi —
+    # u faqat adminlar hisobotida bo'ladi.
     header = ["№", participant_column(exam), "BALL", "FOIZ", "DARAJA"]
     data = [header]
     for index, attempt in enumerate(ranked_attempts(exam), start=1):
+        if exam.uses_rasch:
+            percent = C.certificate_percent(attempt.ball, attempt.grade)
+        else:
+            percent = attempt.percent or 0.0
         data.append(
             [
                 str(attempt.rank or index),
                 attempt.public_label,
                 attempt.display_ball if exam.uses_rasch else f"{attempt.raw_score:g}",
-                f"{attempt.percent:.0f}%",
+                f"{percent:.0f}%",
                 grade_label(attempt.grade),
             ]
         )
@@ -428,10 +441,12 @@ def overall_results_report(exam: Exam) -> bytes:
             repeatRows=1,
         )
         table.setStyle(_table_style(len(header)))
-        table.setStyle(TableStyle(_grade_column_style(data, header.index("DARAJA"))))
+        if exam.uses_rasch:
+            table.setStyle(TableStyle(_grade_column_style(data, header.index("DARAJA"))))
         story.append(table)
-        story.append(Spacer(1, 2 * mm))
-        story.append(_grade_legend(styles))
+        if exam.uses_rasch:
+            story.append(Spacer(1, 2 * mm))
+            story.append(_grade_legend(styles))
 
     story.append(Spacer(1, 6 * mm))
     story.append(

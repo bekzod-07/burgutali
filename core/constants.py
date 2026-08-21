@@ -34,9 +34,11 @@ GRADE_TABLE: Final[tuple[tuple[float, float | None, str], ...]] = (
 NO_GRADE: Final[str] = "Daraja olinmadi"
 
 #: Sertifikat uchun talab qilinadigan standart foiz — to'g'ri javoblarning
-#: ulushi. Yangi testlar shu chegara bilan yaratiladi, admin uni har bir
-#: test uchun alohida o'zgartirishi mumkin (`Exam.certificate_min_percent`).
-CERT_MIN_PERCENT: Final[float] = 40.0
+#: ulushi. 55 ballik milliy shablonda 18 ta to'g'ri javob shu chegaraga
+#: to'g'ri keladi (18/55 = 32.7%). Yangi testlar shu chegara bilan
+#: yaratiladi, admin uni har bir test uchun alohida o'zgartirishi mumkin
+#: (`Exam.certificate_min_percent`). Chegara qatnashchiga ko'rsatilmaydi.
+CERT_MIN_PERCENT: Final[float] = 32.0
 
 #: Darajalarni kuchi bo'yicha tartiblangan ro'yxati (pastdan yuqoriga).
 GRADE_ORDER: Final[tuple[str, ...]] = (NO_GRADE, "C", "C+", "B", "B+", "A", "A+")
@@ -68,29 +70,26 @@ def grade_rank(grade: str) -> int:
 
 
 #: Sertifikat foizi hisoblanadigan asos: shu ball 100% ga to'g'ri keladi.
-CERT_PERCENT_BASE: Final[float] = 75.0
-
-#: Sertifikat foizi to'g'ridan-to'g'ri 100% beriladigan darajalar.
-CERT_FULL_GRADES: Final[tuple[str, ...]] = ("A+", "A")
+#: 65 — «A» darajasining quyi chegarasi, shuning uchun A va A+ o'z-o'zidan
+#: 100% oladi.
+CERT_PERCENT_BASE: Final[float] = 65.0
 
 
 def certificate_percent(ball: float | Decimal | None, grade: str | None = None) -> float:
-    """Sertifikatda ko'rsatiladigan foiz.
+    """Sertifikat va natijalarda ko'rsatiladigan foiz.
 
-    Qoida (TZ 8-bo'lim asosida):
+    `foiz = ball * 100 / 65`, lekin 100% dan oshmaydi. Asos «A» darajasining
+    quyi chegarasiga teng, shuning uchun:
 
-      * **A+** yoki **A** darajasi olingan bo'lsa — 100%;
-      * qolgan hollarda `ball * 100 / 75`, lekin 100% dan oshmaydi.
+      * 46.00 ball (C darajasining boshi) ->  70.77%;
+      * 65.00 ball (A darajasining boshi) -> 100%;
+      * undan yuqori ball ham -> 100%.
 
-    `grade` berilmasa, u ballning o'zidan aniqlanadi.
+    `grade` argumenti moslik uchun qabul qilinadi, hisobga ta'sir qilmaydi.
     """
     if ball is None:
         return 0.0
-    value = float(ball)
-    name = (grade if grade is not None else grade_for_ball(value)).strip()
-    if name in CERT_FULL_GRADES:
-        return 100.0
-    return round(min(100.0, value * 100.0 / CERT_PERCENT_BASE), 2)
+    return round(min(100.0, float(ball) * 100.0 / CERT_PERCENT_BASE), 2)
 
 
 # ==========================================================================

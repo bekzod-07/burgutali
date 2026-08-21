@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 
 from apps.attempts import services as attempt_services
 from apps.attempts.models import Attempt
+from core import constants as C
 
 # --------------------------------------------------------------------------
 
@@ -86,6 +87,9 @@ def result_snapshot(attempt_id: int) -> dict:
         "wrong": attempt.wrong_count,
         "empty": attempt.empty_count,
         "percent": round(attempt.percent, 1),
+        # RASH testida qatnashchiga shu foiz ko'rsatiladi (`ball * 100 / 65`),
+        # to'g'ri javoblar ulushi emas.
+        "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
         "ball": attempt.display_ball,
         "grade": attempt.grade or "—",
         "rank": f"{attempt.rank} / {total}" if attempt.rank else "—",
