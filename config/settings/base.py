@@ -6,6 +6,7 @@ Bu fayl dev va prod sozlamalari uchun asos bo'lib xizmat qiladi.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -122,6 +123,21 @@ TEMPLATES = [
 #  Ma'lumotlar bazasi
 # ==========================================================================
 
+def _sqlite_path(path: str) -> str:
+    """`sqlite://` URL yo'lini fayl tizimi yo'liga o'giradi.
+
+    `sqlite:////var/db.sqlite3` (POSIX absolyut) — bosh slash saqlanadi;
+    `sqlite:///C:/db.sqlite3` (Windows disk harfi) — bosh slash olib tashlanadi;
+    `sqlite:///data/db.sqlite3` — ishchi papkaga nisbatan.
+    """
+    name = unquote(path)
+    if name.startswith("//"):
+        return name[1:]
+    if re.match(r"^/[A-Za-z]:", name):
+        return name[1:]
+    return name.lstrip("/")
+
+
 def _database_from_url(url: str) -> dict | None:
     """`DATABASE_URL` ni Django DATABASES formatiga o'giradi."""
     if not url:
@@ -135,7 +151,8 @@ def _database_from_url(url: str) -> dict | None:
     elif scheme == "sqlite":
         return {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": parsed.path.lstrip("/") or str(DATA_DIR / "db.sqlite3"),
+            "NAME": _sqlite_path(parsed.path) or str(DATA_DIR / "db.sqlite3"),
+            "OPTIONS": {"timeout": 30},
         }
     else:
         return None
