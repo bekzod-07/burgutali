@@ -63,8 +63,11 @@ class Certificate(TimeStampedModel):
     exam_date = models.DateField("Test sanasi")
     ball = models.FloatField("RASH balli", default=0.0)
     max_ball = models.FloatField("Maksimal ball", default=C.MAX_BALL)
-    percent = models.FloatField("Foiz", null=True, blank=True)
+    percent = models.FloatField("To'g'ri javob foizi", null=True, blank=True)
     grade = models.CharField("Daraja", max_length=16, blank=True, default="")
+    # Sertifikatda ko'rsatiladigan foiz: A+ va A uchun 100%, qolganida
+    # `ball * 100 / 75` (`core.constants.certificate_percent`).
+    award_percent = models.FloatField("Sertifikat foizi", null=True, blank=True)
     rank = models.PositiveIntegerField("Reyting o'rni", null=True, blank=True)
     total_participants = models.PositiveIntegerField("Jami qatnashchilar", default=0)
     section_scores = models.JSONField("Bo'limlar natijasi", default=dict, blank=True)

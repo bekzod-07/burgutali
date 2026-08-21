@@ -121,8 +121,8 @@ P(x = 1 | θ, b) = exp(θ − b) / (1 + exp(θ − b))
 | 60.0 – 64.9 | **B+** |
 | 55.0 – 59.9 | **B** |
 | 50.0 – 54.9 | **C+** |
-| 40.0 – 49.9 | **C** |
-| 0 – 39.9 | Daraja olinmadi |
+| 46.0 – 49.9 | **C** |
+| 0 – 45.9 | Daraja olinmadi |
 
 Maksimal standartlashtirilgan ball — **90.14**.
 
@@ -348,6 +348,10 @@ Sertifikat kimlarga berilishini admin belgilaydi. Standart shart —
 **to'g'ri javoblarning kamida 40% i**; test sozlamalarida bu foizni
 o'zgartirish yoki uning o'rniga boshqa shart tanlash mumkin: barchaga,
 belgilangan minimal balldan yoki minimal darajadan yuqori natija olganlarga.
+
+Chegara **qatnashchiga aytilmaydi**: sertifikat berilmasa, u «Natijangiz
+sertifikat berish uchun yetarli emas» degan umumiy xabarni ko'radi. Foizni
+faqat admin ko'radi va o'zgartiradi.
 
 Foiz va ball — ikki xil o'lchov: **foiz** to'g'ri javoblarning ulushi,
 **ball** esa Rasch modeli bergan standartlashtirilgan qiymat (0–90.14).

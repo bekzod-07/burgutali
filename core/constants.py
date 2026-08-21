@@ -21,8 +21,8 @@ MAX_BALL: Final[float] = 90.14
 #: Daraja jadvali: (quyi chegara, yuqori chegara, daraja nomi).
 #: Yuqori chegara `None` bo'lsa — cheksiz.
 GRADE_TABLE: Final[tuple[tuple[float, float | None, str], ...]] = (
-    (0.0, 39.9, "Daraja olinmadi"),
-    (40.0, 49.9, "C"),
+    (0.0, 45.9, "Daraja olinmadi"),
+    (46.0, 49.9, "C"),
     (50.0, 54.9, "C+"),
     (55.0, 59.9, "B"),
     (60.0, 64.9, "B+"),
@@ -52,7 +52,7 @@ def grade_for_ball(ball: float | Decimal | None) -> str:
             continue
         if high is None or value <= high:
             return name
-    # 39.9 < ball < 40.0 kabi oraliqlar uchun himoya
+    # 45.9 < ball < 46.0 kabi oraliqlar uchun himoya
     for low, high, name in reversed(GRADE_TABLE):
         if value >= low:
             return name
@@ -65,6 +65,32 @@ def grade_rank(grade: str) -> int:
         return GRADE_ORDER.index(grade)
     except ValueError:
         return 0
+
+
+#: Sertifikat foizi hisoblanadigan asos: shu ball 100% ga to'g'ri keladi.
+CERT_PERCENT_BASE: Final[float] = 75.0
+
+#: Sertifikat foizi to'g'ridan-to'g'ri 100% beriladigan darajalar.
+CERT_FULL_GRADES: Final[tuple[str, ...]] = ("A+", "A")
+
+
+def certificate_percent(ball: float | Decimal | None, grade: str | None = None) -> float:
+    """Sertifikatda ko'rsatiladigan foiz.
+
+    Qoida (TZ 8-bo'lim asosida):
+
+      * **A+** yoki **A** darajasi olingan bo'lsa — 100%;
+      * qolgan hollarda `ball * 100 / 75`, lekin 100% dan oshmaydi.
+
+    `grade` berilmasa, u ballning o'zidan aniqlanadi.
+    """
+    if ball is None:
+        return 0.0
+    value = float(ball)
+    name = (grade if grade is not None else grade_for_ball(value)).strip()
+    if name in CERT_FULL_GRADES:
+        return 100.0
+    return round(min(100.0, value * 100.0 / CERT_PERCENT_BASE), 2)
 
 
 # ==========================================================================

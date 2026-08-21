@@ -11,8 +11,8 @@ Standart chegaralar: theta_min = -4.0, theta_max = +4.0. Bu chegaralar
 har bir test uchun alohida sozlanishi mumkin (`Exam.theta_min/theta_max`).
 
 Natijada:
-  theta = -0.4500  ->  40.00  (C darajasining quyi chegarasi)
-  theta =  0.0000  ->  45.07  (o'rtacha qobiliyat — C darajasi)
+  theta = +0.0826  ->  46.00  (C darajasining quyi chegarasi)
+  theta =  0.0000  ->  45.07  (o'rtacha qobiliyat — daraja olinmaydi)
   theta = +2.2126  ->  70.00  (A+ darajasining quyi chegarasi)
   theta = +4.0000  ->  90.14  (maksimal ball)
 """

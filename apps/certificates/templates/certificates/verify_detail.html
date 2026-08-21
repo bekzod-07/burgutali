@@ -65,9 +65,15 @@
               <dd><span class="badge badge-gold">{{ certificate.grade }}</span></dd>
             </div>
             {% endif %}
+            {% if certificate.award_percent %}
+            <div class="detail-row">
+              <dt>Sertifikat foizi</dt>
+              <dd><b>{{ certificate.award_percent|floatformat:1 }}%</b></dd>
+            </div>
+            {% endif %}
             {% if certificate.percent %}
             <div class="detail-row">
-              <dt>Foiz</dt>
+              <dt>To‘g‘ri javob</dt>
               <dd>{{ certificate.percent|floatformat:1 }}%</dd>
             </div>
             {% endif %}

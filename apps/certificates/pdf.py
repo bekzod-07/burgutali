@@ -60,6 +60,7 @@ class CertificateData:
     max_ball: float
     grade: str = ""
     percent: float | None = None
+    award_percent: float | None = None
     rank: int | None = None
     total_participants: int | None = None
     sections: list[tuple[str, str]] = field(default_factory=list)
@@ -279,8 +280,10 @@ def draw_certificate(canvas: pdf_canvas.Canvas, data: CertificateData) -> None:
     ]
     if data.grade:
         boxes.append(("DARAJA", data.grade, False))
+    if data.award_percent is not None:
+        boxes.append(("SERTIFIKAT", f"{data.award_percent:.1f}%", True))
     if data.percent is not None:
-        boxes.append(("FOIZ", f"{data.percent:.1f}%", False))
+        boxes.append(("TO‘G‘RI JAVOB", f"{data.percent:.1f}%", False))
     if data.rank and data.total_participants:
         boxes.append(("REYTING", data.rank_text, False))
 

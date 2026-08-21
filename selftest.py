@@ -164,11 +164,23 @@ def test_constants() -> None:
     R.equal("Maksimal ball 90.14", C.MAX_BALL, 90.14)
     R.equal("0 ball -> daraja yo'q", C.grade_for_ball(0), "Daraja olinmadi")
     R.equal("39.9 -> daraja yo'q", C.grade_for_ball(39.9), "Daraja olinmadi")
-    R.equal("40.0 -> C (sertifikat chegarasi)", C.grade_for_ball(40.0), "C")
-    R.equal("45.9 -> C", C.grade_for_ball(45.9), "C")
+    R.equal("45.9 -> daraja yo'q", C.grade_for_ball(45.9), "Daraja olinmadi")
+    R.equal("46.0 -> C (TZ 8-bo'lim)", C.grade_for_ball(46.0), "C")
     R.equal("49.9 -> C", C.grade_for_ball(49.9), "C")
     R.equal("50.0 -> C+", C.grade_for_ball(50.0), "C+")
     R.equal("55.0 -> B", C.grade_for_ball(55.0), "B")
+
+    # --- Sertifikat foizi: ball * 100 / 75, A+ va A uchun 100% ---
+    R.close("46.0 -> 61.33%", C.certificate_percent(46.0), 61.33, 0.01)
+    R.close("50.0 -> 66.67%", C.certificate_percent(50.0), 66.67, 0.01)
+    R.close("55.0 -> 73.33%", C.certificate_percent(55.0), 73.33, 0.01)
+    R.close("60.0 -> 80.00%", C.certificate_percent(60.0), 80.0, 0.01)
+    R.close("64.9 -> 86.53%", C.certificate_percent(64.9), 86.53, 0.01)
+    R.close("A darajaga 100%", C.certificate_percent(65.0), 100.0, 0.01)
+    R.close("A+ darajaga 100%", C.certificate_percent(70.0), 100.0, 0.01)
+    R.close("Maksimal ballda ham 100%", C.certificate_percent(C.MAX_BALL), 100.0, 0.01)
+    R.close("Foiz 100% dan oshmaydi", C.certificate_percent(80.0, "B+"), 100.0, 0.01)
+    R.equal("Ball yo'q -> 0%", C.certificate_percent(None), 0.0)
     R.equal("60.0 -> B+", C.grade_for_ball(60.0), "B+")
     R.equal("65.0 -> A", C.grade_for_ball(65.0), "A")
     R.equal("70.0 -> A+", C.grade_for_ball(70.0), "A+")
@@ -342,9 +354,9 @@ def test_rasch() -> None:
     R.equal("A+ chegarasi", scoring.grade_for(70.0), "A+")
 
     R.close("theta=+2.2125 -> 70.00 (A+ chegarasi)", scoring.theta_to_ball(2.2125), 70.0, 0.02)
-    R.close("theta=-0.4500 -> 40.00 (C chegarasi)", scoring.theta_to_ball(-0.45), 40.0, 0.02)
-    R.equal("C chegarasi — sertifikat 40 balldan", scoring.grade_for(40.0), "C")
-    R.equal("39.99 ball — sertifikat yo'q", scoring.grade_for(39.99), C.NO_GRADE)
+    R.close("theta=+0.0826 -> 46.00 (C chegarasi)", scoring.theta_to_ball(0.0826), 46.0, 0.02)
+    R.equal("C chegarasi 46 balldan (TZ)", scoring.grade_for(46.0), "C")
+    R.equal("45.99 ball — daraja yo'q", scoring.grade_for(45.99), C.NO_GRADE)
 
     result = scoring.build_score(2.25, 40, 55)
     R.check(f"theta=2.25 -> A+ ({result.ball})", result.grade == "A+")
@@ -914,7 +926,8 @@ def test_paid_flow() -> None:
     attempt.save(update_fields=["percent"])
     low = check_eligibility(attempt)
     R.check("40% dan past — sertifikat yo'q", not low.ok, low.reason)
-    R.check("Sabab foizni aytadi", "%" in low.reason, low.reason)
+    R.check("Sabab chegarani oshkor qilmaydi",
+            "%" not in low.reason and "40" not in low.reason, low.reason)
 
     attempt.percent = 40.0
     attempt.save(update_fields=["percent"])

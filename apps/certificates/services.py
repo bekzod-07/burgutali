@@ -66,12 +66,13 @@ def check_eligibility(attempt: Attempt) -> EligibilityCheck:
 
     scope = exam.certificate_scope
     if scope == Exam.CertificateScope.MIN_PERCENT:
+        # Chegara qatnashchiga aytilmaydi — sabab umumiy qoladi. Foizni
+        # faqat admin ko'radi (test sozlamalaridagi «Minimal to'g'ri javob
+        # foizi» maydoni).
         minimum = exam.certificate_min_percent
         if minimum is not None and (attempt.percent or 0.0) < float(minimum):
             return EligibilityCheck(
-                False,
-                f"Sertifikat uchun kamida {float(minimum):g}% to'g'ri javob talab "
-                f"qilinadi (sizda {float(attempt.percent or 0.0):g}%).",
+                False, "Natijangiz sertifikat berish uchun yetarli emas."
             )
     elif scope == Exam.CertificateScope.MIN_BALL:
         minimum = exam.certificate_min_ball
@@ -165,6 +166,7 @@ def issue_certificate(attempt: Attempt, *, force: bool = False) -> tuple[Certifi
     certificate.max_ball = float(exam.max_ball or C.MAX_BALL)
     certificate.percent = float(attempt.percent or 0.0)
     certificate.grade = attempt.grade or ""
+    certificate.award_percent = C.certificate_percent(certificate.ball, certificate.grade)
     certificate.rank = attempt.rank
     certificate.total_participants = total
     certificate.section_scores = attempt.section_scores or {}
@@ -203,6 +205,7 @@ def _render_and_attach(certificate: Certificate) -> None:
         max_ball=certificate.max_ball,
         grade=certificate.grade,
         percent=certificate.percent,
+        award_percent=certificate.award_percent,
         rank=certificate.rank,
         total_participants=certificate.total_participants,
         sections=certificate.section_rows,
