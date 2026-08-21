@@ -88,11 +88,14 @@ def grade_label(grade: str) -> str:
 
 def _grade_column_style(rows: list[list], column: int) -> list[tuple]:
     """
-    Daraja ustunidagi kataklarni bo'yaydigan uslub buyruqlari.
+    Daraja bo'yicha **butun qatorni** bo'yaydigan uslub buyruqlari.
 
     `rows` — jadvalning barcha qatorlari (0-qator sarlavha), `column` —
     daraja ustunining tartib raqami. Buyruqlar asosiy uslubdan **keyin**
     qo'llanadi, shuning uchun ular qator fonini (`ROWBACKGROUNDS`) bosadi.
+
+    Fon och, matn to'q — jadval oq-qora bosmada ham o'qiladi. Daraja
+    katagi qo'shimcha ravishda qalin va o'z rangida yoziladi.
     """
     commands: list[tuple] = []
     fonts = register_fonts()
@@ -103,8 +106,11 @@ def _grade_column_style(rows: list[list], column: int) -> list[tuple]:
         if pair is None:
             continue
         background, ink = pair
+        last = len(row) - 1
+        commands.append(
+            ("BACKGROUND", (0, index), (last, index), colors.HexColor(background))
+        )
         cell = (column, index)
-        commands.append(("BACKGROUND", cell, cell, colors.HexColor(background)))
         commands.append(("TEXTCOLOR", cell, cell, colors.HexColor(ink)))
         commands.append(("FONTNAME", cell, cell, fonts.bold))
     return commands
@@ -118,7 +124,7 @@ def _grade_legend(styles: dict) -> Paragraph:
     )
     neutral = NO_GRADE_COLOR[1]
     return Paragraph(
-        f"Darajalar rang bilan ajratilgan: {parts} · "
+        f"Qatorlar daraja rangida: {parts} · "
         f'<font color="{neutral}">— daraja olinmadi</font>',
         styles["subtitle"],
     )

@@ -1043,10 +1043,20 @@ def test_exports() -> None:
 
     rows = [["№", "Ism", "Daraja"], ["1", "A. A.", "A+"], ["2", "B. B.", "C"]]
     commands = PR._grade_column_style(rows, 2)
+
+    # Har bir qator uchun uchta buyruq: butun qator foni, daraja katagining
+    # matn rangi va qalin shrifti.
+    R.equal("Ikkita qator uchun 6 ta buyruq", len(commands), 6)
+
+    backgrounds = [c for c in commands if c[0] == "BACKGROUND"]
+    R.equal("Har bir qatorga bitta fon", len(backgrounds), 2)
     R.check(
-        "Daraja ustuni uchun uslub buyruqlari yasaldi",
-        len(commands) == 6
-        and all(cmd[1][0] == 2 and cmd[2][0] == 2 for cmd in commands),
+        "Fon butun qatorni egallaydi",
+        all(c[1][0] == 0 and c[2][0] == len(rows[0]) - 1 for c in backgrounds),
+    )
+    R.check(
+        "Matn rangi faqat daraja katagida",
+        all(c[1][0] == 2 and c[2][0] == 2 for c in commands if c[0] != "BACKGROUND"),
     )
     R.check(
         "Sarlavha qatori bo'yalmaydi",
