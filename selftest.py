@@ -2269,6 +2269,129 @@ def test_mathpad() -> None:
 
 
 # ==========================================================================
+#  22. Javoblar varaqasi (umumiy modul)
+# ==========================================================================
+
+
+def test_keysheet() -> None:
+    """Web ilova va panel bitta varaqani ishlatishini tekshiradi."""
+    from django.contrib.auth.models import User
+    from django.test import Client
+
+    from apps.exams.models import Exam, Question
+    from apps.exams.services import create_exam
+    from apps.users.models import BotUser
+
+    R.head("22. Javoblar varaqasi (umumiy modul)")
+
+    shared = BASE_DIR / "static" / "keysheet"
+    css = shared / "keysheet.css"
+    js = shared / "keysheet.js"
+
+    R.check("Umumiy uslub fayli bor", css.is_file())
+    R.check("Umumiy modul fayli bor", js.is_file())
+
+    css_text = css.read_text(encoding="utf-8")
+    js_text = js.read_text(encoding="utf-8")
+
+    R.check("Varaqada emoji yo'q", not _has_emoji(css_text) and not _has_emoji(js_text))
+    R.check("Uslub qobiq palitrasiga moslashadi", "--ks-accent" in css_text)
+    R.check("A-D va A-F uslublari bor", ".choices.cols-6" in css_text)
+    R.check("Tashqi interfeys ochilgan", "global.KeySheet" in js_text)
+
+    # --- Reja: milliy shablon va oddiy test ---
+    R.check("Milliy reja 33-35 ni ajratadi",
+            '"33"' not in js_text and "multi: { from: 33, to: 35 }" in js_text)
+    R.check("Ochiq savollar 36-45", "open: { from: 36, to: 45 }" in js_text)
+
+    # --- Ikkala qobiq ham shu modulni ulaydi ---
+    app_html = (BASE_DIR / "apps/miniapp/templates/miniapp/app.html").read_text(encoding="utf-8")
+    panel_html = (
+        BASE_DIR / "apps/dashboard/templates/dashboard/base.html"
+    ).read_text(encoding="utf-8")
+    for name, text in (("web ilova", app_html), ("panel", panel_html)):
+        R.check(f"Varaqa uslubi ulangan: {name}", "keysheet/keysheet.css" in text)
+        R.check(f"Varaqa moduli ulangan: {name}", "keysheet/keysheet.js" in text)
+
+    # --- Web ilovada eski nusxa qolmagan ---
+    app_js = (BASE_DIR / "apps/miniapp/static/miniapp/js/app.js").read_text(encoding="utf-8")
+    R.check("Web ilova umumiy varaqani ishlatadi", "KeySheet.mount(" in app_js)
+    R.check(
+        "Web ilovada eski varaqa kodi qolmagan",
+        "renderKeySheet" not in app_js and "collectSheetKeys" not in app_js,
+    )
+
+    # --- Panel sahifalari ---
+    User.objects.filter(username="keysheet_admin").delete()
+    User.objects.create_superuser("keysheet_admin", "ks@test.local", "KeySheet12345!")
+    client = Client()
+    R.check("Admin tizimga kirdi",
+            client.login(username="keysheet_admin", password="KeySheet12345!"))
+
+    page = client.get("/panel/testlar/yangi/").content.decode("utf-8", "replace")
+    R.check("Yangi test sahifasida varaqa bor", 'id="key-sheet"' in page)
+    R.check("Rejim tugmalari bor", 'data-keymode="sheet"' in page)
+    R.check("Matn rejimi ham qoldi", 'id="key-text"' in page)
+    R.check("To'ldirilganlik hisoblagichi bor", 'id="key-progress"' in page)
+
+    owner = BotUser.objects.get(telegram_id=1000)
+    national = create_exam(
+        owner=owner,
+        title="Varaqa uchun milliy namuna",
+        exam_type=Exam.Type.RASCH_FREE,
+        national_template=True,
+    )
+    single = national.questions.filter(kind=Question.Kind.SINGLE).first()
+    multi = national.questions.filter(kind=Question.Kind.MULTI).first()
+    open_q = national.questions.filter(kind=Question.Kind.OPEN).first()
+    R.check("Milliy shablonda uchala tur bor",
+            bool(single) and bool(multi) and bool(open_q))
+
+    rows = client.get(f"/panel/testlar/{national.pk}/savollar/").content.decode(
+        "utf-8", "replace"
+    )
+    R.check("Jadvalda A-D tugmalari", 'data-letters="ABCD"' in rows)
+    R.check("Jadvalda A-F tugmalari", 'data-letters="ABCDEF"' in rows)
+    R.check("Ochiq savolda ikkita maydon",
+            f'name="key_{open_q.id}_a"' in rows and f'name="key_{open_q.id}_b"' in rows)
+
+    edit_multi = client.get(
+        f"/panel/testlar/{national.pk}/savollar/{multi.pk}/"
+    ).content.decode("utf-8", "replace")
+    R.check("33-35 tahririda A-F tugmalari", 'data-letters="ABCDEF"' in edit_multi)
+
+    edit_open = client.get(
+        f"/panel/testlar/{national.pk}/savollar/{open_q.pk}/"
+    ).content.decode("utf-8", "replace")
+    R.check("Ochiq savol tahririda varaqa maydonlari",
+            'class="answer-field"' in edit_open and "data-ks-check" in edit_open)
+
+    # --- Kalitlarni saqlash: harf va ikkita ochiq maydon ---
+    response = client.post(
+        f"/panel/testlar/{national.pk}/savollar/",
+        {
+            f"key_{single.id}": "C",
+            f"key_{multi.id}": "E",
+            f"key_{open_q.id}_a": "sqrt(2)",
+            f"key_{open_q.id}_b": "pi/6",
+            f"diff_{single.id}": "0.55",
+        },
+    )
+    R.check("Kalitlar saqlandi", response.status_code in (200, 302))
+    single.refresh_from_db()
+    multi.refresh_from_db()
+    open_q.refresh_from_db()
+    R.equal("A-D kaliti yozildi", single.correct_key, "C")
+    R.equal("A-F kaliti yozildi", multi.correct_key, "E")
+    R.equal("Ochiq a) yozildi", open_q.answer_a, "sqrt(2)")
+    R.equal("Ochiq b) yozildi", open_q.answer_b, "pi/6")
+    R.equal("Ikki qismli deb belgilandi", open_q.parts, 2)
+    R.equal("Qiyinlik ham saqlandi", round(single.difficulty, 2), 0.55)
+
+    national.delete()
+
+
+# ==========================================================================
 #  Asosiy oqim
 # ==========================================================================
 
@@ -2301,6 +2424,7 @@ def main() -> int:
         test_exam_codes,
         test_charts,
         test_mathpad,
+        test_keysheet,
     ]
 
     for step in steps:

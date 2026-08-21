@@ -17,9 +17,9 @@
   <div class="card-head">
     <h2>{{ questions|length }} ta savol</h2>
     <span class="sub">
-      Ochiq savollarda kalitni <code>a ; b</code> ko‘rinishida yozing — maydonga
-      bosilganda matematik klaviatura ochiladi. A–F (33–35) savollarida ham
-      faqat bitta harf yoziladi.
+      Kalitlar javoblar varaqasidagidek belgilanadi: A–D va A–F savollarida
+      variantlardan <b>bittasi</b>, ochiq savollarda a) va b) maydonlari —
+      maydonga bosilganda matematik klaviatura ochiladi.
     </span>
   </div>
   <div class="card-body tight">
@@ -49,18 +49,33 @@
                   {% else %}<span class="badge badge-orange">Ochiq</span>{% endif %}
                 </td>
                 <td class="small muted">{{ question.section|default:"—" }}</td>
-                <td>
+                <td class="key-cell">
                   {% if question.kind == 'open' %}
-                    {# Maydonga bosilganda matematik klaviatura ochiladi. #}
-                    <input class="input input-sm" type="text" name="key_{{ question.id }}"
-                           value="{{ question.answer_a }}{% if question.answer_b %} ; {{ question.answer_b }}{% endif %}"
-                           placeholder="a ; b"
-                           data-mathpad="pair"
-                           data-mathpad-label="{{ question.order }}-savol · a ; b">
+                    {# Varaqadagi maydonlarning aynan o‘zi — klaviatura bilan. #}
+                    <div class="answer-fields">
+                      <div class="answer-field">
+                        <label for="key-{{ question.id }}-a">a) to‘g‘ri javob</label>
+                        <input type="text" inputmode="none" id="key-{{ question.id }}-a"
+                               name="key_{{ question.id }}_a" value="{{ question.answer_a }}"
+                               placeholder="masalan: sqrt(2)"
+                               data-ks-check="{{ question.order }}-savol · a) to‘g‘ri javob">
+                        <div class="fx"></div>
+                      </div>
+                      <div class="answer-field">
+                        <label for="key-{{ question.id }}-b">b) to‘g‘ri javob</label>
+                        <input type="text" inputmode="none" id="key-{{ question.id }}-b"
+                               name="key_{{ question.id }}_b" value="{{ question.answer_b }}"
+                               placeholder="masalan: pi/6"
+                               data-ks-check="{{ question.order }}-savol · b) to‘g‘ri javob">
+                        <div class="fx"></div>
+                      </div>
+                    </div>
                   {% else %}
-                    <input class="input input-sm" type="text" name="key_{{ question.id }}"
-                           value="{{ question.correct_key }}" style="max-width:110px"
-                           placeholder="A">
+                    {# Harfli kalit — varaqadagidek tugmalar, faqat bitta javob. #}
+                    <input type="text" name="key_{{ question.id }}"
+                           value="{{ question.correct_key }}"
+                           data-letters="{{ question.choice_letters|join:'' }}"
+                           data-kind="{{ question.kind }}">
                   {% endif %}
                 </td>
                 <td class="num">

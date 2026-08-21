@@ -29,6 +29,24 @@
   --shadow-sm: 0 1px 2px rgba(15,43,70,.06);
   --shadow:    0 2px 8px rgba(15,43,70,.07), 0 14px 30px rgba(15,43,70,.05);
   --sidebar-w: 244px;
+
+  /* Javoblar varaqasi (`static/keysheet/keysheet.css`) uchun palitra —
+     web ilovadagi varaqa panelda ham aynan shunday ko'rinadi. */
+  --ks-surface:      var(--surface);
+  --ks-surface-soft: var(--bg);
+  --ks-text:         var(--text);
+  --ks-muted:        var(--muted);
+  --ks-line:         var(--border);
+  --ks-accent:       var(--navy-600);
+  --ks-accent-tx:    #ffffff;
+  --ks-accent-soft:  var(--navy-050);
+  --ks-orange:       var(--orange);
+  --ks-orange-tx:    #8a5c08;
+  --ks-orange-soft:  var(--orange-050);
+  --ks-green:        var(--green);
+  --ks-green-soft:   var(--green-050);
+  --ks-red:          var(--red);
+  --ks-radius:       var(--radius-sm);
 }
 
 * { box-sizing: border-box; }
@@ -558,3 +576,19 @@ body.mpad-open { padding-bottom: calc(var(--mpad-h, 340px) + 24px); }
 
 /* «⏎» bilan keyingi maydonga o'tilganda u klaviatura ostida qolmasin. */
 [data-mathpad] { scroll-margin-bottom: calc(var(--mpad-h, 340px) + 24px); }
+
+/* --------------------------------------------- javob kaliti katagi */
+
+/*
+   Savollar jadvalida kalit varaqadagidek belgilanadi: harfli savolda
+   A–D/A–F tugmalari, ochiq savolda a) va b) maydonlari.
+*/
+.data td.key-cell { min-width: 250px; }
+.data td.key-cell .choices { margin-bottom: 0; gap: 6px; }
+.data td.key-cell .choice { min-height: 34px; font-size: 14px; }
+.data td.key-cell .answer-fields { margin-bottom: 0; gap: 6px; }
+.data td.key-cell .answer-field { padding: 5px 9px 4px; }
+.data td.key-cell .answer-field input { font-size: 15px; }
+
+/* «Yangi test» sahifasidagi varaqa — kartaning butun kengligida. */
+#key-sheet .ksheet { margin-top: 4px; }

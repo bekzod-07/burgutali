@@ -77,18 +77,38 @@
       <svg class="icon"><use href="#i-key"></use></svg>
       <h2>Javob kalitlari</h2>
       <span class="sub">Kalitsiz test faollashtirilmaydi</span>
+      <span class="key-progress" id="key-progress"></span>
     </div>
     <div class="card-body">
-      <div class="form-grid">
-        {% for field in form %}
-          {% if field.name in "single_keys,multi_keys,open_keys" %}
-            <div class="form-row">
-              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-              {{ field }}
-              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
-            </div>
-          {% endif %}
-        {% endfor %}
+
+      {#
+         Javoblar varaqasi — qatnashchi ko‘radigan varaqaning aynan o‘zi
+         (`static/keysheet/`). Web ilovadagi bilan bir xil: 1–32 uchun A–D,
+         33–35 uchun A–F, har birida faqat bitta javob; ochiq savollarda
+         matematik klaviatura.
+      #}
+      <div class="ks-seg" id="key-mode">
+        <button type="button" data-keymode="sheet"
+                class="{% if not form.key_errors %}is-active{% endif %}">Javoblar varaqasi</button>
+        <button type="button" data-keymode="text"
+                class="{% if form.key_errors %}is-active{% endif %}">Matn ko‘rinishida</button>
+      </div>
+
+      <div id="key-sheet" {% if form.key_errors %}hidden{% endif %}></div>
+      <div class="message message-warning small" id="key-missing" hidden></div>
+
+      <div id="key-text" {% if not form.key_errors %}hidden{% endif %}>
+        <div class="form-grid">
+          {% for field in form %}
+            {% if field.name in "single_keys,multi_keys,open_keys" %}
+              <div class="form-row">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
       </div>
 
       <div class="message message-info small">

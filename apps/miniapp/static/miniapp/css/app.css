@@ -30,6 +30,23 @@
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(15, 43, 70, .08), 0 6px 18px rgba(15, 43, 70, .06);
 
+  /* Javoblar varaqasi (`static/keysheet/keysheet.css`) uchun palitra. */
+  --ks-surface:      var(--bg);
+  --ks-surface-soft: var(--bg-soft);
+  --ks-text:         var(--text);
+  --ks-muted:        var(--muted);
+  --ks-line:         var(--line);
+  --ks-accent:       var(--accent);
+  --ks-accent-tx:    var(--accent-tx);
+  --ks-accent-soft:  var(--accent-soft);
+  --ks-orange:       var(--orange);
+  --ks-orange-tx:    #8a5c08;
+  --ks-orange-soft:  var(--gold-soft);
+  --ks-green:        var(--green);
+  --ks-green-soft:   var(--green-soft);
+  --ks-red:          var(--red);
+  --ks-radius:       var(--radius-sm);
+
   --bar-h: 56px;
   --tab-h: 62px;
 }
@@ -596,36 +613,8 @@ textarea.input { resize: vertical; min-height: 72px; font-family: "SF Mono", Con
 .qitem .choices { margin-bottom: 0; }
 .qitem .answer-fields { margin-bottom: 0; }
 
-/*
-   Variant tugmalari — to'liq kenglikdagi qator (video namunadagidek):
-   bitta javobli savolda A–D ko'k ohangda, ko'p javoblida A–F sariq-olov.
-*/
-.choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-.choices.cols-2 { grid-template-columns: repeat(2, 1fr); }
-.choices.cols-3 { grid-template-columns: repeat(3, 1fr); }
-.choices.cols-5 { grid-template-columns: repeat(5, 1fr); }
-.choices.cols-6 { grid-template-columns: repeat(6, 1fr); }
-
-.choice {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  padding: 0 6px;
-  border: 1.5px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 16px;
-  font-weight: 720;
-  font-family: inherit;
-  cursor: pointer;
-}
-.choice.is-selected { background: var(--accent); color: var(--accent-tx); }
-.choice:active { transform: scale(.97); }
-
-.choices.multi .choice { background: var(--gold-soft); color: #8a5c08; }
-.choices.multi .choice.is-selected { background: var(--orange); color: #fff; }
+/* Variant tugmalari, javob maydonlari va kalitlar varaqasi —
+   umumiy faylda: `static/keysheet/keysheet.css`. */
 
 /* Pastdagi yopishqoq «Yakunlash va yuborish» paneli. */
 .finish-bar {
@@ -645,54 +634,6 @@ body.mpad-open .finish-bar { display: none; }
 
 /* ------------------------------------------------- matematik klaviatura */
 
-.answer-fields { display: flex; flex-direction: column; gap: 9px; margin-bottom: 10px; }
-
-.answer-field {
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px 7px;
-  background: var(--bg);
-}
-.answer-field.is-active { border-color: var(--accent); }
-.answer-field label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .5px;
-}
-.answer-field input {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 620;
-  font-family: "SF Mono", "Cascadia Mono", Consolas, monospace;
-  padding: 2px 0 3px;
-}
-/* Javob chizilgan formula ko'rinishida — quti allaqachon `.answer-field` da. */
-.answer-field .mfield {
-  border: none;
-  background: transparent;
-  padding: 0;
-  min-height: 32px;
-}
-.answer-field .mfield-view { font-size: 19px; }
-.answer-field .mfield.is-live .mfield-src { left: 0; right: 58px; }
-
-.answer-field .fx {
-  font-size: 11.5px;
-  min-height: 15px;
-  color: var(--muted);
-  /* Juda uzun natija maydondan chiqib ketmasin. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.answer-field .fx.ok  { color: var(--green); }
-.answer-field .fx.err { color: var(--red); }
 
 /*
    Klaviaturaning o'zi umumiy faylda: `static/mathpad/mathpad.css`.
@@ -702,70 +643,6 @@ body.mpad-open .finish-bar { display: none; }
 */
 body.mpad-open .tabbar { display: none; }
 body.mpad-open .screen { padding-bottom: calc(var(--mpad-h, 320px) + 28px); }
-
-/* ------------------------------------ javob kalitlari varaqasi (yaratish) */
-
-/*
-   Test yaratuvchi to'g'ri javobni qatnashchi ko'radigan varaqaning
-   aynan o'zida belgilaydi — shuning uchun `.choices/.choice` uslublari
-   qayta ishlatiladi.
-*/
-.key-progress {
-  margin-left: auto;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--bg-soft);
-  border-radius: 20px;
-  padding: 3px 11px;
-}
-.key-progress.is-full { color: var(--green); background: var(--green-soft); }
-
-.ksheet { display: flex; flex-direction: column; gap: 7px; }
-
-.ks-head {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  flex-wrap: wrap;
-  padding: 9px 12px;
-  margin-top: 5px;
-  border-radius: var(--radius-sm);
-  border-left: 4px solid var(--accent);
-  background: var(--accent-soft);
-  font-size: 12.5px;
-}
-.ks-head:first-child { margin-top: 0; }
-.ks-head b { font-size: 13.5px; font-weight: 750; white-space: nowrap; }
-.ks-head span { color: var(--muted); line-height: 1.35; }
-.ks-head.kind-multi { border-left-color: var(--orange); background: var(--gold-soft); }
-.ks-head.kind-open  { border-left-color: var(--green);  background: var(--green-soft); }
-
-.ks-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 8px;
-  border: 1.5px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--bg-soft);
-}
-.ks-row.is-set { border-color: var(--green-soft); }
-.ks-row.ks-open { align-items: flex-start; padding-top: 9px; }
-.ks-row .ks-no {
-  min-width: 30px; height: 30px;
-  padding: 0 6px;
-  flex: none;
-  border-radius: 9px;
-  background: var(--bg);
-  color: var(--muted);
-  display: inline-grid; place-items: center;
-  font-size: 13px; font-weight: 750;
-}
-.ks-row.is-set .ks-no { background: var(--green); color: #fff; }
-.ks-row .choices { flex: 1; margin-bottom: 0; gap: 6px; }
-.ks-row .choice { min-height: 38px; font-size: 15px; }
-.ks-row .answer-fields { flex: 1; margin-bottom: 0; gap: 7px; }
 
 .warn-text { color: var(--red); font-weight: 650; }
 

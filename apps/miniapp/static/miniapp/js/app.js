@@ -32,6 +32,8 @@
     params: {},
     stack: [],
     attempt: null,      // {attempt, exam, questions, editable}
+    createForm: null,   // test yaratish ekranining joriy holati
+    keySheet: null,     // javob kalitlari varaqasi (`KeySheet.mount`)
     busy: false
   };
 
@@ -1112,203 +1114,56 @@
 
   /* ------------------------------------------ javob kalitlari varaqasi */
 
+  /*
+     Varaqaning o'zi umumiy modulda (`static/keysheet/keysheet.js`) —
+     boshqaruv panelida ham aynan shu varaqa chiqadi. Bu yerda faqat
+     ilovaga xos qism qoladi: tuzilmaga qarab reja berish va kiritilgan
+     ifodani serverda tekshirish.
+  */
+
   /* Test tuzilmasiga qarab qaysi savol qaysi turda ekanini aniqlaydi. */
   function keyPlan(form) {
-    if (form.structure === "national" && form.type !== "simple") {
-      return {
-        national: true,
-        single: { from: 1, to: 32 },
-        multi: { from: 33, to: 35 },
-        open: { from: 36, to: 45 }
-      };
-    }
-    var count = parseInt(form.count, 10) || 0;
-    count = Math.max(1, Math.min(count, 500));
-    return { national: false, single: { from: 1, to: count }, multi: null, open: null };
-  }
-
-  var SINGLE_LETTERS = ["A", "B", "C", "D"];
-  var MULTI_LETTERS = ["A", "B", "C", "D", "E", "F"];
-
-  function keySheetHead(title, note, kind) {
-    return '<div class="ks-head kind-' + kind + '"><b>' + title + "</b><span>" + note + "</span></div>";
-  }
-
-  function keyLetterRow(order, letters, kind) {
-    var chosen = state.createForm.keys.letters[order] || "";
-    var html = '<div class="ks-row' + (chosen ? " is-set" : "") + '" id="ks-' + order + '">' +
-      '<span class="ks-no">' + order + "</span>" +
-      '<div class="choices cols-' + letters.length + (kind === "multi" ? " multi" : "") + '">';
-    letters.forEach(function (letter) {
-      html += '<button class="choice' + (chosen === letter ? " is-selected" : "") +
-        '" data-act="kchoose" data-order="' + order + '" data-letter="' + letter + '">' +
-        letter + "</button>";
+    return KeySheet.plan({
+      national: form.structure === "national" && form.type !== "simple",
+      count: form.count
     });
-    return html + "</div></div>";
   }
 
-  function keyOpenField(order, part, value) {
-    var id = "key-" + order + "-" + part;
-    return '<div class="answer-field" data-field="' + id + '">' +
-      "<label>" + part + ") to‘g‘ri javob</label>" +
-      '<input type="text" inputmode="none" autocomplete="off" spellcheck="false" ' +
-      'data-order="' + order + '" data-part="' + part + '" id="' + id + '" ' +
-      'value="' + esc(value || "") + '" placeholder="masalan: sqrt(2)">' +
-      '<div class="fx"></div></div>';
-  }
-
-  function keyOpenRow(order) {
-    var value = state.createForm.keys.open[order] || { a: "", b: "" };
-    var ready = !!((value.a || "").trim() && (value.b || "").trim());
-    return '<div class="ks-row ks-open' + (ready ? " is-set" : "") + '" id="ks-' + order + '">' +
-      '<span class="ks-no">' + order + "</span>" +
-      '<div class="answer-fields">' +
-      keyOpenField(order, "a", value.a) + keyOpenField(order, "b", value.b) +
-      "</div></div>";
-  }
-
-  function renderKeySheet() {
-    var form = state.createForm;
-    var plan = keyPlan(form);
-    var order;
-    var html = '<div class="ksheet">';
-
-    html += keySheetHead(
-      plan.national ? "1–32 · Yopiq savollar" : "1–" + plan.single.to + " · Yopiq savollar",
-      "A–D variantlardan to‘g‘ri javobni belgilang", "single"
-    );
-    for (order = plan.single.from; order <= plan.single.to; order += 1) {
-      html += keyLetterRow(order, SINGLE_LETTERS, "single");
-    }
-
-    if (plan.multi) {
-      html += keySheetHead("33–35 · Moslashtirish",
-        "A–F variantlardan faqat bittasi to‘g‘ri", "multi");
-      for (order = plan.multi.from; order <= plan.multi.to; order += 1) {
-        html += keyLetterRow(order, MULTI_LETTERS, "multi");
-      }
-    }
-
-    if (plan.open) {
-      html += keySheetHead("36–45 · Ochiq javob",
-        "Maydonni bosing — matematik klaviatura ochiladi", "open");
-      for (order = plan.open.from; order <= plan.open.to; order += 1) {
-        html += keyOpenRow(order);
-      }
-    }
-
-    return html + "</div>";
-  }
-
-  /* Varaqadagi to'ldirilgan va bo'sh savollarni sanaydi. */
-  function keyCounters() {
-    var form = state.createForm;
-    var plan = keyPlan(form);
-    var done = 0, total = 0, order;
-    var missing = [];
-
-    function letterCheck(from, to) {
-      for (var i = from; i <= to; i += 1) {
-        total += 1;
-        if (form.keys.letters[i]) { done += 1; } else { missing.push(i); }
-      }
-    }
-
-    letterCheck(plan.single.from, plan.single.to);
-    if (plan.multi) { letterCheck(plan.multi.from, plan.multi.to); }
-    if (plan.open) {
-      for (order = plan.open.from; order <= plan.open.to; order += 1) {
-        var value = form.keys.open[order] || {};
-        total += 1;
-        if ((value.a || "").trim() && (value.b || "").trim()) {
-          done += 1;
-        } else {
-          missing.push(order);
-        }
-      }
-    }
-    return { plan: plan, done: done, total: total, missing: missing };
+  function checkExpression(expr) {
+    return api("ifoda/", { method: "POST", body: { expr: expr } });
   }
 
   function updateKeyProgress() {
     var box = document.getElementById("key-progress");
     if (!box) { return; }
-    if (state.createForm.keymode !== "sheet") { box.textContent = ""; return; }
-    var counters = keyCounters();
+    if (!state.keySheet || !state.createForm || state.createForm.keymode !== "sheet") {
+      box.textContent = "";
+      return;
+    }
+    var counters = state.keySheet.progress();
     box.textContent = counters.done + " / " + counters.total;
     box.classList.toggle("is-full", counters.done === counters.total);
-  }
-
-  function keyChoose(order, letter) {
-    var keys = state.createForm.keys;
-    keys.letters[order] = keys.letters[order] === letter ? "" : letter;
-
-    var row = document.getElementById("ks-" + order);
-    if (row) {
-      row.classList.toggle("is-set", !!keys.letters[order]);
-      Array.prototype.forEach.call(row.querySelectorAll(".choice"), function (button) {
-        button.classList.toggle("is-selected", button.dataset.letter === keys.letters[order]);
-      });
-    }
-    haptic("light");
-    updateKeyProgress();
-  }
-
-  function keyOpenChanged(input) {
-    var order = parseInt(input.dataset.order, 10);
-    var keys = state.createForm.keys;
-    var value = keys.open[order] || { a: "", b: "" };
-    value[input.dataset.part] = input.value;
-    keys.open[order] = value;
-
-    var row = document.getElementById("ks-" + order);
-    if (row) {
-      row.classList.toggle("is-set", !!(value.a.trim() && value.b.trim()));
-    }
-    updateKeyProgress();
-  }
-
-  /* Varaqadan server kutayotgan kalit satrlarini yig'adi. */
-  function collectSheetKeys(plan) {
-    var form = state.createForm;
-    var single = [], multi = [], open = [];
-    var order;
-
-    for (order = plan.single.from; order <= plan.single.to; order += 1) {
-      single.push(form.keys.letters[order] || "");
-    }
-    if (plan.multi) {
-      for (order = plan.multi.from; order <= plan.multi.to; order += 1) {
-        multi.push(form.keys.letters[order] || "");
-      }
-    }
-    if (plan.open) {
-      for (order = plan.open.from; order <= plan.open.to; order += 1) {
-        var value = form.keys.open[order] || {};
-        open.push((value.a || "").trim() + " ; " + (value.b || "").trim());
-      }
-    }
-    return {
-      single_keys: single.join(" "),
-      multi_keys: multi.join(", "),
-      open_keys: open.join("\n")
-    };
   }
 
   function refreshKeySheet() {
     var box = document.getElementById("key-sheet");
     if (!box) { return; }
-    closeMathPad();
-    box.innerHTML = renderKeySheet();
-    bindPadFields(
-      box,
-      function (input) {
-        return input.dataset.order + "-savol · " + input.dataset.part + ") to‘g‘ri javob";
-      },
-      keyOpenChanged
-    );
+    var plan = keyPlan(state.createForm);
+
+    if (state.keySheet) {
+      state.keySheet.setPlan(plan);
+    } else {
+      state.keySheet = KeySheet.mount(box, {
+        uid: "key",
+        plan: plan,
+        validate: checkExpression,
+        haptic: haptic,
+        onChange: updateKeyProgress
+      });
+    }
     updateKeyProgress();
   }
+
 
   function bindCreateForm() {
     var form = {
@@ -1316,10 +1171,10 @@
       structure: "custom",
       count: 20,
       hours: 0,
-      keymode: "sheet",
-      keys: { letters: {}, open: {} }
+      keymode: "sheet"
     };
     state.createForm = form;
+    state.keySheet = null;   // ekran qayta chizildi — varaqa ham yangidan
 
     function segment(id, attribute, onPick) {
       var box = document.getElementById(id);
@@ -1405,8 +1260,7 @@
 
   function submitCreate() {
     var form = state.createForm || {
-      type: "simple", structure: "custom", count: 20, hours: 0,
-      keymode: "sheet", keys: { letters: {}, open: {} }
+      type: "simple", structure: "custom", count: 20, hours: 0, keymode: "sheet"
     };
     var national = form.structure === "national" && form.type !== "simple";
     var box = document.getElementById("create-errors");
@@ -1431,8 +1285,8 @@
       return;
     }
 
-    if (form.keymode === "sheet") {
-      var counters = keyCounters();
+    if (form.keymode === "sheet" && state.keySheet) {
+      var counters = state.keySheet.progress();
       if (counters.missing.length) {
         showCreateErrors(
           "Javob kaliti to‘ldirilmagan savollar bor.",
@@ -1440,11 +1294,13 @@
             counters.missing.slice(0, 30).join(", ") +
             (counters.missing.length > 30 ? " ..." : "")]
         );
-        var first = document.getElementById("ks-" + counters.missing[0]);
+        var first = document.querySelector(
+          '#key-sheet [data-ks-row="' + counters.missing[0] + '"]'
+        );
         if (first) { first.scrollIntoView({ behavior: "smooth", block: "center" }); }
         return;
       }
-      var collected = collectSheetKeys(counters.plan);
+      var collected = state.keySheet.serialize();
       payload.single_keys = collected.single_keys;
       payload.multi_keys = national ? collected.multi_keys : "";
       payload.open_keys = national ? collected.open_keys : "";
@@ -1866,10 +1722,6 @@
       return;
     }
 
-    if (act === "kchoose") {
-      keyChoose(parseInt(target.dataset.order, 10), target.dataset.letter);
-      return;
-    }
     if (act === "create-exam") { submitCreate(); return; }
     if (act === "exam-action") { runExamAction(target.dataset.action); return; }
     if (act === "delete-exam") { deleteExam(target.dataset.code); return; }

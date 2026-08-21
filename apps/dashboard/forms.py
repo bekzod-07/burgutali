@@ -87,8 +87,16 @@ class QuestionForm(forms.ModelForm):
             "choices_count": forms.NumberInput(attrs={"class": "input", "min": 2, "max": 6}),
             "parts": forms.NumberInput(attrs={"class": "input", "min": 1, "max": 2}),
             "correct_key": forms.TextInput(attrs={"class": "input"}),
-            "answer_a": forms.TextInput(attrs={"class": "input", "data-mathpad": "one"}),
-            "answer_b": forms.TextInput(attrs={"class": "input", "data-mathpad": "one"}),
+            # Ochiq javob maydonlari varaqadagidek ko'rinadi va matematik
+            # klaviaturaga `dashboard/js/keysheet.js` orqali ulanadi.
+            "answer_a": forms.TextInput(
+                attrs={"inputmode": "none", "placeholder": "masalan: sqrt(2)",
+                       "data-ks-check": "a) to‘g‘ri javob"}
+            ),
+            "answer_b": forms.TextInput(
+                attrs={"inputmode": "none", "placeholder": "masalan: pi/6",
+                       "data-ks-check": "b) to‘g‘ri javob"}
+            ),
             "numeric_tolerance": forms.NumberInput(
                 attrs={"class": "input", "step": "0.000001"}
             ),
@@ -101,7 +109,7 @@ class QuestionForm(forms.ModelForm):
             "kind": "Savol turi",
             "choices_count": "Variantlar soni",
             "parts": "Ballanadigan qismlar (1 yoki 2)",
-            "correct_key": "To'g'ri javob (bitta harf: A–F)",
+            "correct_key": "To'g'ri javob",
             "answer_a": "a) javob",
             "answer_b": "b) javob",
             "numeric_tolerance": "Sonli xatolik chegarasi",
@@ -110,6 +118,20 @@ class QuestionForm(forms.ModelForm):
             "difficulty_locked": "Qiyinlik qulflangan (kalibrlashda o'zgarmasin)",
             "is_active": "Savol faol",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        question = self.instance
+
+        # Harfli kalit matn maydoni emas, varaqadagidek tugmalar bilan
+        # tanlanadi (`dashboard/js/keysheet.js`). Maydonning o'zi formada
+        # yashirin qoladi, shuning uchun server tomoni o'zgarmaydi.
+        letters = "".join(question.choice_letters) if question and question.pk else ""
+        if letters:
+            self.fields["correct_key"].widget.attrs.update({
+                "data-letters": letters,
+                "data-kind": question.kind,
+            })
 
 
 class CodeGenerationForm(forms.Form):
@@ -238,6 +260,17 @@ class ExamCreateForm(forms.Form):
                 for value, label in Exam.Type.choices
                 if value != Exam.Type.RASCH_PAID
             ]
+
+    @property
+    def key_errors(self) -> bool:
+        """Javob kalitlari maydonlarida xato bormi.
+
+        Xato bo'lsa sahifa «Matn ko'rinishida» rejimida ochiladi — foydalanuvchi
+        xato xabarini va o'zi kiritgan matnni ko'rib turadi.
+        """
+        return any(
+            self[name].errors for name in ("single_keys", "multi_keys", "open_keys")
+        )
 
     # ------------------------------------------------------------------
     def clean(self):

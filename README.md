@@ -302,6 +302,21 @@ Uzun kalitni bir marta joylashtirish uchun **«Matn ko‘rinishida»** rejimi
 qoldirilgan: `ABCDABCD…` yoki `1-A 2-B`, moslashtirish uchun `A, C, E`,
 ochiq javoblar uchun har bir qatorda `12 ; 3/4`.
 
+Varaqaning o‘zi **umumiy modulda** (`static/keysheet/`), shuning uchun u
+uchala joyda bir xil ko‘rinadi va bir xil ishlaydi:
+
+| Joy | Nima qilinadi |
+|-----|---------------|
+| Web ilova — test topshirish | qatnashchi javob belgilaydi |
+| Web ilova — test yaratish | yaratuvchi to‘g‘ri javobni belgilaydi |
+| Boshqaruv paneli — «Yangi test», «Savollar», savolni tahrirlash | admin kalitni belgilaydi |
+
+**Tanlov qoidasi hamma joyda bir xil:** har bir savolda **faqat bitta**
+variant belgilanadi — A–D (1–32) da ham, A–F (33–35, moslashtirish) da ham.
+Belgilangan variant qayta bosilsa, tanlov bekor qilinadi. Ochiq savollarda
+esa a) va b) maydonlari matematik klaviatura bilan to‘ldiriladi va ifoda
+darhol SymPy orqali tekshirilib, maydon ostida ko‘rsatiladi.
+
 ### Bir martalik ID kodlar (pullik test)
 
 Kod formati: `R7K4-8251`. Hayotiy sikli:
@@ -551,9 +566,12 @@ rashmodel_matematikabot/
 │   └── partials/icons.html    SVG ikonkalar to'plami (emoji o'rniga)
 ├── static/
 │   ├── css/site.css           ommaviy sahifalar uslubi
-│   └── mathpad/               matematik klaviatura — uchala joy uchun
-│       ├── mathpad.css        yagona ko'rinish
-│       └── mathpad.js         yagona mantiq
+│   ├── mathpad/               matematik klaviatura — uchala joy uchun
+│   │   ├── mathpad.css        yagona ko'rinish
+│   │   └── mathpad.js         yagona mantiq
+│   └── keysheet/              javoblar varaqasi — ilova va panel uchun
+│       ├── keysheet.css       yagona ko'rinish
+│       └── keysheet.js        yagona mantiq
 └── docs/                      hujjatlar
 ```
 

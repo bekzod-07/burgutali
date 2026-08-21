@@ -379,35 +379,34 @@ def exam_questions(request, pk: int):
 
     if request.method == "POST":
         updated = 0
-        questions = {q.id: q for q in exam.questions.all()}
         changed: list[Question] = []
-        for key, value in request.POST.items():
-            if not key.startswith("key_"):
-                continue
-            try:
-                question_id = int(key[4:])
-            except ValueError:
-                continue
-            question = questions.get(question_id)
-            if question is None:
-                continue
-            value = (value or "").strip()
+        # Savollar bo'yicha yuramiz, POST kalitlari bo'yicha emas: ochiq
+        # savolda ikkita maydon keladi (`key_<id>_a`, `key_<id>_b`), qolganida
+        # bitta (`key_<id>`).
+        for question in exam.questions.all().order_by("order"):
             if question.kind == Question.Kind.OPEN:
-                first, _, second = value.partition(";")
-                question.answer_a = first.strip()[:255]
-                question.answer_b = second.strip()[:255]
+                first = request.POST.get(f"key_{question.id}_a")
+                second = request.POST.get(f"key_{question.id}_b")
+                if first is None and second is None:
+                    continue
+                question.answer_a = (first or "").strip()[:255]
+                question.answer_b = (second or "").strip()[:255]
                 question.parts = 2 if question.answer_b else 1
             else:
+                value = request.POST.get(f"key_{question.id}")
+                if value is None:
+                    continue
                 question.correct_key = "".join(
                     sorted({ch.upper() for ch in value if ch.isalpha()})
                 )[:8]
-            difficulty_raw = request.POST.get(f"diff_{question_id}")
+
+            difficulty_raw = request.POST.get(f"diff_{question.id}")
             if difficulty_raw:
                 try:
                     question.difficulty = float(difficulty_raw)
                 except ValueError:
                     pass
-            question.difficulty_locked = bool(request.POST.get(f"lock_{question_id}"))
+            question.difficulty_locked = bool(request.POST.get(f"lock_{question.id}"))
             changed.append(question)
             updated += 1
 

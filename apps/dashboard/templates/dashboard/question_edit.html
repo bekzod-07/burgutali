@@ -47,7 +47,7 @@
       {% endfor %}
       <div class="message message-info small">
         <b>Turi:</b> <code>single</code> — A–D (bitta javob),
-        <code>multi</code> — A–F (bir yoki bir nechta),
+        <code>multi</code> — A–F moslashtirish (bunda ham faqat bitta javob),
         <code>open</code> — variantsiz (a va b maydonlari).
         Ochiq savolda «Qismlar» 2 bo‘lsa, a) va b) alohida ballanadi.
       </div>
@@ -60,18 +60,59 @@
       <h2>Javob kaliti</h2>
     </div>
     <div class="card-body">
-      <div class="form-grid">
-        {% for field in form %}
-          {% if field.name in "correct_key,answer_a,answer_b,numeric_tolerance" %}
-            <div class="form-row">
-              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-              {{ field }}
-              {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
-              {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+
+      {% if question.kind == 'open' %}
+        {#
+           Ochiq savol — javoblar varaqasidagi maydonlarning aynan o‘zi
+           (`static/keysheet/`): maydonga bosilganda matematik klaviatura
+           ochiladi va ifoda darhol tekshiriladi.
+        #}
+        <div class="answer-fields">
+          <div class="answer-field">
+            <label for="{{ form.answer_a.id_for_label }}">a) to‘g‘ri javob</label>
+            {{ form.answer_a }}
+            <div class="fx"></div>
+          </div>
+          {% if question.parts >= 2 %}
+            <div class="answer-field">
+              <label for="{{ form.answer_b.id_for_label }}">b) to‘g‘ri javob</label>
+              {{ form.answer_b }}
+              <div class="fx"></div>
             </div>
+          {% else %}
+            <div hidden>{{ form.answer_b }}</div>
           {% endif %}
-        {% endfor %}
+        </div>
+        {% if form.answer_a.errors or form.answer_b.errors %}
+          <div class="errors">{{ form.answer_a.errors|striptags }} {{ form.answer_b.errors|striptags }}</div>
+        {% endif %}
+        <div hidden>{{ form.correct_key }}</div>
+      {% else %}
+        {# Harfli kalit — varaqadagidek tugmalar, faqat bitta javob. #}
+        <div class="form-row">
+          <label>{{ form.correct_key.label }}</label>
+          {{ form.correct_key }}
+          <div class="help">
+            Variantlardan <b>bittasini</b> belgilang — belgilangani qayta
+            bosilsa, tanlov bekor qilinadi.
+          </div>
+          {% if form.correct_key.errors %}
+            <div class="errors">{{ form.correct_key.errors|striptags }}</div>
+          {% endif %}
+        </div>
+        <div hidden>{{ form.answer_a }}{{ form.answer_b }}</div>
+      {% endif %}
+
+      <div class="form-grid mt">
+        <div class="form-row">
+          <label for="{{ form.numeric_tolerance.id_for_label }}">{{ form.numeric_tolerance.label }}</label>
+          {{ form.numeric_tolerance }}
+          {% if form.numeric_tolerance.errors %}
+            <div class="errors">{{ form.numeric_tolerance.errors|striptags }}</div>
+          {% endif %}
+        </div>
       </div>
+
       <div class="message message-info small">
         Ochiq javoblar SymPy orqali <b>matematik ekvivalentlikka</b> tekshiriladi:
         <code>1/2</code>, <code>0.5</code>, <code>2^-1</code> — bir xil javob.
