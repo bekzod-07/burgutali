@@ -219,9 +219,12 @@ async def _notify_participants(bot: Bot, exam_id: int) -> None:
     for telegram_id, attempt_id in participants:
         try:
             snapshot = await attempt_service.result_snapshot(attempt_id)
+            # RASH testida nechta savolni to'g'ri topgani ko'rsatilmaydi —
+            # u faqat adminlar hisobotida bo'ladi.
             if exam.uses_rasch:
                 result = (
                     f"RASH ballingiz: <b>{snapshot['ball']}</b>\n"
+                    f"Foiz: <b>{snapshot['award_percent']:g}%</b>\n"
                     f"Daraja: <b>{snapshot['grade']}</b>\n"
                     f"Reyting: <b>{snapshot['rank']}</b>"
                 )

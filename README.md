@@ -154,17 +154,28 @@ bo'ladi (2- va 3-tur testlar uchun).
 
 ### Umumiy natijalar va ularda ko‘rsatiladigan nom
 
-Test yakunlangach (yopilganda va natijalar e’lon qilinganda) umumiy
-natijalar **PDF ko‘rinishida test egasiga va adminlarga avtomatik
-yuboriladi**. Jadval ustunlari: `№ · F.I.SH (yoki ID raqami) · BALL ·
-FOIZ · DARAJA`.
+Test yakunlangach (yopilganda va natijalar e’lon qilinganda) test egasiga
+va adminlarga **ikkita PDF** avtomatik yuboriladi:
 
-Daraja ustuni **rang bilan ajratiladi** — yuqori daraja to‘q yashil,
-pastga tushgan sari och yashil, limon, sariq va apelsin rangga o‘tadi;
-daraja olinmagan qatorlar kulrang. Fon och, matn to‘q, shuning uchun
-jadval oq-qora printerda ham o‘qiladi. Bu barcha PDF hisobotlarga
-tegishli: umumiy natijalar, to‘liq hisobot (reyting va darajalar
-taqsimoti) va sertifikatlar ro‘yxati.
+| Fayl | Kimga | Ustunlar |
+|------|-------|----------|
+| `umumiy-natijalar-…pdf` | **kanalga qo‘yish uchun** | `№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA` |
+| `admin-hisobot-…pdf` | **faqat admin** | yuqoridagilarga qo‘shimcha `TO‘G‘RI · FOIZ (to‘g‘ri javob) · SERT. % · SANA`, umumiy statistika va savollar qiyinchiligi |
+
+Birinchi faylda **nechta savolni to‘g‘ri topgani ko‘rsatilmaydi** — shu
+sababli uni kanalga qo‘yish mumkin va qaysi ball qanday darajaga to‘g‘ri
+kelishini tashqaridan hisoblab bo‘lmaydi. Ikkinchi fayl faqat adminlar
+uchun, unda hamma narsa bor.
+
+Qatnashchining o‘z natijasida ham (botda va web ilovada) RASH testlari
+uchun faqat ball, foiz va daraja ko‘rinadi.
+
+Daraja bo‘yicha **butun qator rang bilan ajratiladi** — yuqori daraja
+to‘q yashil, pastga tushgan sari och yashil, limon, sariq va apelsin
+rangga o‘tadi; daraja olinmagan qatorlar kulrang. Fon och, matn to‘q,
+shuning uchun jadval oq-qora printerda ham o‘qiladi. Bu barcha PDF
+hisobotlarga tegishli: umumiy natijalar, to‘liq hisobot va sertifikatlar
+ro‘yxati.
 
 Nom test turiga qarab tanlanadi:
 

@@ -1080,6 +1080,30 @@ def test_exports() -> None:
 
     from apps.attempts.services import ranked_attempts as _ranked
 
+    # --- Ikkita hisobot: e'lon uchun va faqat admin uchun ---
+    from bot.texts import admin as _TA
+
+    reports_py = (BASE_DIR / "bot/services/reports.py").read_text(encoding="utf-8")
+    sched_py = (BASE_DIR / "bot/tasks/scheduler.py").read_text(encoding="utf-8")
+
+    R.check("E'lon PDF si tayyorlanadi", "overall_results_report(exam)" in reports_py)
+    R.check("Admin PDF si tayyorlanadi", "results_report(exam)" in reports_py)
+    R.check("Ikkalasi ham yuboriladi",
+            'payload["pdf"]' in sched_py and 'payload["admin_pdf"]' in sched_py)
+    R.check("Admin fayli alohida nom bilan",
+            '"admin-hisobot"' in sched_py and '"umumiy-natijalar"' in sched_py)
+    R.check("Admin nusxasi ogohlantiriladi",
+            "kanalga qo" in _TA.REPORT_ADMIN_COPY)
+    R.check("E'lon fayli kanalga mo'ljallangani aytiladi",
+            "kanalga" in _TA.REPORT_PUBLISHED and "kanalga" in _TA.REPORT_CLOSED)
+
+    # Qatnashchiga yuboriladigan xabarda to'g'ri javoblar soni yo'q.
+    my_tests_py = (BASE_DIR / "bot/handlers/my_tests.py").read_text(encoding="utf-8")
+    rasch_block = my_tests_py.split("if exam.uses_rasch:", 1)[1].split("else:", 1)[0]
+    R.check("Qatnashchi xabarida to'g'ri javoblar soni yo'q",
+            "correct" not in rasch_block)
+    R.check("Qatnashchi xabarida foiz bor", "award_percent" in rasch_block)
+
     # E'lon qilinadigan jadvaldagi foiz — `ball * 100 / 65`, to'g'ri
     # javoblar ulushi emas. Har bir qatnashchi uchun tekshiramiz.
     for item in _ranked(exam)[:5]:

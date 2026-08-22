@@ -171,7 +171,8 @@ REPORT_CLOSED = (
     "Kod: <code>{code}</code>\n"
     "Turi: {type}\n"
     "Qatnashchilar: <b>{participants}</b> ta\n\n"
-    "Umumiy natijalar quyidagi faylda."
+    "Umumiy natijalar quyidagi faylda — <b>kanalga qo’yish uchun</b>. "
+    "Unda nechta savolni to’g’ri topgani ko’rsatilmaydi."
 )
 
 REPORT_PUBLISHED = (
@@ -179,7 +180,18 @@ REPORT_PUBLISHED = (
     "Test: <b>{title}</b>\n"
     "Kod: <code>{code}</code>\n"
     "Qatnashchilar: <b>{participants}</b> ta\n\n"
-    "E’lon qilingan umumiy natijalar quyidagi faylda."
+    "E’lon qilingan umumiy natijalar quyidagi faylda — "
+    "<b>kanalga qo’yish uchun</b>. Unda nechta savolni to’g’ri "
+    "topgani ko’rsatilmaydi."
+)
+
+#: Ikkinchi PDF — to'liq hisobot, faqat adminlarga.
+REPORT_ADMIN_COPY = (
+    "<b>Faqat admin uchun</b>\n\n"
+    "Test: <b>{title}</b> (<code>{code}</code>)\n\n"
+    "To‘liq hisobot: umumiy statistika, darajalar taqsimoti, savollar "
+    "qiyinchiligi va reyting — to‘g‘ri javoblar soni bilan.\n"
+    "<b>Bu faylni kanalga qo‘ymang.</b>"
 )
 
 REPORT_NO_PARTICIPANTS = (

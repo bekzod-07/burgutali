@@ -23,13 +23,22 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
     """
     Hisobotni tayyorlaydi: kerak bo'lsa natijalarni hisoblaydi va PDF yasaydi.
 
+    Ikkita PDF yasaladi:
+
+      * `pdf` — **e'lon uchun**: `№ · F.I.SH · Ball · Foiz · Daraja`.
+        Nechta savolni to'g'ri topgani ko'rinmaydi, shuning uchun uni
+        kanalga qo'yish mumkin.
+      * `admin_pdf` — **faqat admin uchun**: yuqoridagilarga qo'shimcha
+        to'g'ri javoblar soni, ularning foizi, umumiy statistika va
+        savollar qiyinchiligi.
+
     Qaytaradi: `{"exam", "title", "code", "type", "participants", "pdf",
-    "recipients"}` yoki test topilmasa `None`.
+    "admin_pdf", "recipients"}` yoki test topilmasa `None`.
     """
     from apps.attempts.models import Attempt
     from apps.exams.models import Exam
     from apps.exports import charts
-    from apps.exports.pdf_report import overall_results_report
+    from apps.exports.pdf_report import overall_results_report, results_report
     from apps.rasch.services import calculate_exam
 
     exam = Exam.objects.select_related("owner").filter(pk=exam_id).first()
@@ -41,6 +50,7 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
     ).count()
 
     pdf = b""
+    admin_pdf = b""
     images: list[tuple[str, bytes]] = []
     if participants:
         # Test yopilgan, lekin hali hisoblanmagan bo'lsa — avval hisoblaymiz,
@@ -49,6 +59,7 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
             calculate_exam(exam)
             exam.refresh_from_db()
         pdf = overall_results_report(exam)
+        admin_pdf = results_report(exam)
 
         # Savollar qiyinchiligi diagrammasi — faqat adminlarga.
         summary = charts.build_summary(exam)
@@ -67,6 +78,7 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
         "status": exam.get_status_display(),
         "participants": participants,
         "pdf": pdf,
+        "admin_pdf": admin_pdf,
         "images": images,
         "recipients": exam_services.report_recipients(exam),
     }

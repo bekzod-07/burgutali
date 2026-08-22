@@ -101,10 +101,21 @@ async def _send_report(bot: Bot, exam_id: int, reason: str) -> None:
         type=esc(payload["type"]),
         participants=payload["participants"],
     )
-    filename = timestamped_name(
-        "umumiy-natijalar", "pdf", payload["code"]
-    )
+    # 1-fayl — e'lon uchun: nechta to'g'ri topgani ko'rinmaydi, uni
+    # kanalga qo'yish mumkin.
+    filename = timestamped_name("umumiy-natijalar", "pdf", payload["code"])
     await _broadcast(bot, recipients, caption, payload["pdf"], filename)
+
+    # 2-fayl — faqat adminlar uchun: to'g'ri javoblar soni bilan to'liq
+    # hisobot. Kanalga qo'yiladigan faylda bu ma'lumot bo'lmasligi kerak.
+    if payload.get("admin_pdf"):
+        admin_caption = TA.REPORT_ADMIN_COPY.format(
+            title=esc(payload["title"]), code=esc(payload["code"])
+        )
+        admin_name = timestamped_name("admin-hisobot", "pdf", payload["code"])
+        await _broadcast(
+            bot, recipients, admin_caption, payload["admin_pdf"], admin_name
+        )
 
     # Savollar qiyinchiligi va ballar taqsimoti — faqat adminlarga.
     await _broadcast_charts(bot, recipients, payload)
