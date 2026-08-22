@@ -592,3 +592,25 @@ body.mpad-open { padding-bottom: calc(var(--mpad-h, 340px) + 24px); }
 
 /* «Yangi test» sahifasidagi varaqa — kartaning butun kengligida. */
 #key-sheet .ksheet { margin-top: 4px; }
+
+/* ------------------------------------------------ yopishqoq amal paneli */
+
+/*
+   Uzun sahifalarda (masalan javoblar varaqasi 45 qator) asosiy tugma
+   pastda yopishib turadi va har doim ko'rinadi.
+*/
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 -2px 10px rgba(15, 43, 70, .06);
+}
+.action-bar .btn { margin: 0; }

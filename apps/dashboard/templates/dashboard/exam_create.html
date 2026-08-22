@@ -117,12 +117,19 @@
         Muqobil javoblarni <code>;</code> emas, alohida maydonda ko‘rsating.
       </div>
 
-      <button class="btn btn-primary mt" type="submit">
-        <svg class="icon"><use href="#i-check"></use></svg> Testni yaratish
-      </button>
-      <a class="btn btn-outline mt" href="{% url 'dashboard:exam_list' %}">Bekor qilish</a>
     </div>
   </section>
+
+  {#
+     Javoblar varaqasi uzun (milliy shablonda 45 qator), shuning uchun
+     tugma varaq oxirida qolib ketmasin — u pastda yopishib turadi.
+  #}
+  <div class="action-bar">
+    <button class="btn btn-primary" type="submit">
+      <svg class="icon"><use href="#i-check"></use></svg> Testni yaratish
+    </button>
+    <a class="btn btn-outline" href="{% url 'dashboard:exam_list' %}">Bekor qilish</a>
+  </div>
 
 </form>
 

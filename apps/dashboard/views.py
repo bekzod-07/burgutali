@@ -252,12 +252,49 @@ def _dashboard_owner(request):
     Web paneldan yaratilgan testning egasini aniqlaydi.
 
     Panel Django foydalanuvchisi bilan ishlaydi, testlar esa Telegram
-    foydalanuvchisiga bog'lanadi. Shuning uchun panel uchun maxsus
-    «tizim» hisobi ishlatiladi (yoki mavjud admin).
+    foydalanuvchisiga (`BotUser`) bog'lanadi. Bog'lanish quyidagicha:
+
+      * Telegram orqali kirilgan bo'lsa, hisob nomi `tg_<telegram_id>` —
+        o'sha `BotUser` egasi bo'ladi;
+      * login-parol bilan kirilgan bo'lsa, shu Django hisobi uchun
+        alohida `BotUser` yaratiladi. Uning `telegram_id` si manfiy,
+        chunki haqiqiy Telegram ID lari doim musbat — to'qnashmaydi.
+
+    Ilgari bu yerda **birinchi admin** qaytarilardi, shuning uchun
+    paneldan yaratilgan har bir testda kim yaratganidan qat'i nazar
+    o'sha odamning ismi «Yaratuvchi» bo'lib chiqardi.
     """
-    owner = BotUser.objects.filter(is_admin=True).order_by("id").first()
-    if owner is not None:
-        return owner
+    account = getattr(request, "user", None)
+    if account is None or not account.is_authenticated:
+        return _panel_service_owner()
+
+    # --- Telegram orqali kirgan admin ---
+    username = account.get_username()
+    if username.startswith("tg_"):
+        raw = username[3:]
+        if raw.lstrip("-").isdigit():
+            owner = BotUser.objects.filter(telegram_id=int(raw)).first()
+            if owner is not None:
+                return owner
+
+    # --- Login-parol bilan kirgan hisob ---
+    display = (account.get_full_name() or "").strip() or username
+    owner, created = BotUser.objects.get_or_create(
+        telegram_id=-int(account.pk),
+        defaults={
+            "full_name": display[:120],
+            "is_registered": True,
+            "is_admin": True,
+        },
+    )
+    if not created and owner.full_name != display[:120]:
+        owner.full_name = display[:120]
+        owner.save(update_fields=["full_name", "updated_at"])
+    return owner
+
+
+def _panel_service_owner():
+    """Hisob aniqlanmagan holat uchun zaxira «Web panel» egasi."""
     owner, _ = BotUser.objects.get_or_create(
         telegram_id=0,
         defaults={

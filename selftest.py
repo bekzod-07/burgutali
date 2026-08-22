@@ -1080,6 +1080,59 @@ def test_exports() -> None:
 
     from apps.attempts.services import ranked_attempts as _ranked
 
+    # --- Test egasi: paneldan kim yaratsa, o'sha ko'rinadi ---
+    from django.contrib.auth.models import User as _DjangoUser
+
+    from apps.dashboard.views import _dashboard_owner
+    from apps.users.models import BotUser as _BotUser
+
+    class _Req:
+        def __init__(self, user):
+            self.user = user
+
+    tg_admin, _ = _BotUser.objects.get_or_create(
+        telegram_id=770001,
+        defaults={"full_name": "Telegramdan Kirgan", "is_admin": True,
+                  "is_registered": True},
+    )
+    _DjangoUser.objects.filter(username="tg_770001").delete()
+    tg_account = _DjangoUser.objects.create(username="tg_770001", is_staff=True)
+    R.equal("Telegram orqali kirgan admin o'zi egasi",
+            _dashboard_owner(_Req(tg_account)).pk, tg_admin.pk)
+
+    _DjangoUser.objects.filter(username="panel_xodim").delete()
+    plain = _DjangoUser.objects.create(
+        username="panel_xodim", first_name="Panel", last_name="Xodimi", is_staff=True
+    )
+    owner_a = _dashboard_owner(_Req(plain))
+    R.equal("Login bilan kirganga alohida egalik",
+            owner_a.full_name, "Panel Xodimi")
+    R.check("Egalik boshqa adminga tegishli emas", owner_a.pk != tg_admin.pk)
+    R.check("Telegram ID manfiy (to'qnashmaydi)", owner_a.telegram_id < 0)
+    R.equal("Ikkinchi chaqiruvda o'sha egalik",
+            _dashboard_owner(_Req(plain)).pk, owner_a.pk)
+
+    # --- «Testni yaratish» tugmasi doim ko'rinadi ---
+    create_html = (
+        BASE_DIR / "apps/dashboard/templates/dashboard/exam_create.html"
+    ).read_text(encoding="utf-8")
+    R.check("Panelda yopishqoq amal paneli", 'class="action-bar"' in create_html)
+    dash_css = (
+        BASE_DIR / "apps/dashboard/static/dashboard/css/dashboard.css"
+    ).read_text(encoding="utf-8")
+    R.check("Amal paneli uslubi bor", ".action-bar {" in dash_css
+            and "position: sticky" in dash_css)
+
+    app_js_create = (BASE_DIR / "apps/miniapp/static/miniapp/js/app.js").read_text(
+        encoding="utf-8"
+    )
+    R.check("Ilovada ham yopishqoq panel",
+            '<div class="finish-bar">' in app_js_create)
+    R.check("Yaratish ekranida panel yoqiladi",
+            'view === "attempt" || view === "create"' in app_js_create)
+    R.check("Ro'yxatdan o'tmaganga darhol aytiladi",
+            "Avval ro" in app_js_create and "is_registered" in app_js_create)
+
     # --- SQLite qulfida amal qayta bajariladi ---
     from django.db import OperationalError
 

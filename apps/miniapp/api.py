@@ -132,6 +132,13 @@ def get_exam_or_404(code: str) -> Exam:
     return exam
 
 
+def _bot_config():
+    """Bot sozlamalari (havolalar uchun)."""
+    from bot.config import get_config
+
+    return get_config()
+
+
 def get_owned_exam(code: str, user) -> Exam:
     """Testni oladi va boshqarish huquqini tekshiradi."""
     exam = get_exam_or_404(code)
@@ -210,6 +217,8 @@ def bootstrap(request, user):
             {"from": low, "to": high, "grade": grade} for low, high, grade in C.GRADE_TABLE
         ],
         "max_ball": C.MAX_BALL,
+        # Ro'yxatdan o'tmagan foydalanuvchini botga yo'naltirish uchun.
+        "bot_url": _bot_config().bot_link(),
     }
 
 

@@ -275,9 +275,13 @@
     loading();
     var view = state.view;
 
-    /* Test topshirish ekranida pastki menyu o'rniga yopishqoq
-       «Yakunlash» paneli ko'rsatiladi. */
-    body.classList.toggle("attempt-open", view === "attempt");
+    /* Test topshirish va test yaratish ekranlarida pastki menyu o'rniga
+       yopishqoq amal paneli ko'rsatiladi («Yakunlash», «Testni yaratish»).
+       Ikkalasida ham ostidagi ro'yxat uzun bo'lishi mumkin, tugma esa
+       doim ko'rinib turishi kerak. */
+    body.classList.toggle(
+        "has-finish-bar", view === "attempt" || view === "create"
+    );
 
     if (view === "home") { return viewHome(); }
     if (view === "exams") { return viewExams(); }
@@ -1081,6 +1085,22 @@
     var isAdmin = state.user && state.user.is_admin;
     var html = "";
 
+    /*
+       Test yaratish ro'yxatdan o'tishni talab qiladi (ism-familiya va
+       telefon). Buni oxirida — «Testni yaratish» bosilgandan keyin emas,
+       darhol aytamiz, aks holda foydalanuvchi butun varaqani to'ldirib,
+       so'ng rad javobini oladi.
+    */
+    if (state.user && !state.user.is_registered) {
+      html += '<div class="alert alert-warn">' + ic("info") +
+        "<div><b>Avval ro‘yxatdan o‘ting</b><br>Test yaratish uchun botda " +
+        "ism-familiya va telefon raqamingizni kiriting.</div></div>";
+      if (state.boot && state.boot.bot_url) {
+        html += '<button class="btn" data-act="open-link" data-url="' +
+          esc(state.boot.bot_url) + '">' + ic("telegram") + "Botni ochish</button>";
+      }
+    }
+
     html += '<div class="card"><div class="card-head">' + ic("info") + "<h2>Test turi</h2></div>" +
       '<div class="seg" id="seg-type">' +
       '<button data-type="simple" class="is-active">1-tur · Bepul oddiy</button>' +
@@ -1157,10 +1177,18 @@
       '<input type="checkbox" id="f-cert"></div>' +
       "</div>";
 
-    html += '<button class="btn btn-green" data-act="create-exam">' + ic("check") + "Testni yaratish</button>";
     html += '<div id="create-errors"></div>';
 
+    /*
+       Javob kalitlari varaqasi uzun (milliy shablonda 45 qator), shuning
+       uchun tugma varaq oxirida qolib ketmasin — u pastda yopishib
+       turadi va har doim ko'rinadi.
+    */
+    html += '<div class="finish-bar"><button class="btn btn-green" data-act="create-exam">' +
+      ic("check") + "Testni yaratish</button></div>";
+
     el.screen.innerHTML = html;
+    syncFinishBar();
     bindCreateForm();
   }
 
