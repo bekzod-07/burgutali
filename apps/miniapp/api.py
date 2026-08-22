@@ -35,6 +35,8 @@ from core.math_expr import MAX_INPUT_LENGTH, normalize_expression, parse_express
 from core.text_utils import is_valid_full_name, normalize_phone
 
 from . import serializers as S
+from core.db_retry import retry_on_lock
+
 from .auth import MiniAppAuthError, resolve_user
 
 logger = logging.getLogger(__name__)
@@ -88,7 +90,9 @@ def api_view(*methods: str):
                 )
 
             try:
-                payload = func(request, user, *args, **kwargs)
+                # Imtihon paytida o'nlab qatnashchi bir vaqtda javob
+                # saqlaydi — SQLite qulfida amal qayta bajariladi.
+                payload = retry_on_lock(func)(request, user, *args, **kwargs)
             except ApiError as exc:
                 return JsonResponse({"ok": False, "error": exc.message}, status=exc.status)
             except Exception:  # pragma: no cover - kutilmagan xato

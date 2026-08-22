@@ -7,19 +7,36 @@ from asgiref.sync import sync_to_async
 from apps.attempts import services as attempt_services
 from apps.attempts.models import Attempt
 from core import constants as C
+from core.db_retry import retry_on_lock
 
+# --------------------------------------------------------------------------
+#  Yozuvchi amallar SQLite qulfida qayta bajariladi: bot va web-server
+#  bitta faylga yozadi, imtihon paytida esa yozuvlar bir-biriga urilishi
+#  mumkin (`core/db_retry.py` ga qarang).
 # --------------------------------------------------------------------------
 
 can_participate = sync_to_async(attempt_services.can_participate, thread_sensitive=True)
-start_attempt = sync_to_async(attempt_services.start_attempt, thread_sensitive=True)
+start_attempt = sync_to_async(
+    retry_on_lock(attempt_services.start_attempt), thread_sensitive=True
+)
 get_draft_attempt = sync_to_async(attempt_services.get_draft_attempt, thread_sensitive=True)
-cancel_attempt = sync_to_async(attempt_services.cancel_attempt, thread_sensitive=True)
-save_answer = sync_to_async(attempt_services.save_answer, thread_sensitive=True)
-toggle_multi_choice = sync_to_async(attempt_services.toggle_multi_choice, thread_sensitive=True)
-set_current_order = sync_to_async(attempt_services.set_current_order, thread_sensitive=True)
+cancel_attempt = sync_to_async(
+    retry_on_lock(attempt_services.cancel_attempt), thread_sensitive=True
+)
+save_answer = sync_to_async(
+    retry_on_lock(attempt_services.save_answer), thread_sensitive=True
+)
+toggle_multi_choice = sync_to_async(
+    retry_on_lock(attempt_services.toggle_multi_choice), thread_sensitive=True
+)
+set_current_order = sync_to_async(
+    retry_on_lock(attempt_services.set_current_order), thread_sensitive=True
+)
 progress = sync_to_async(attempt_services.progress, thread_sensitive=True)
 unanswered_orders = sync_to_async(attempt_services.unanswered_orders, thread_sensitive=True)
-submit_attempt = sync_to_async(attempt_services.submit_attempt, thread_sensitive=True)
+submit_attempt = sync_to_async(
+    retry_on_lock(attempt_services.submit_attempt), thread_sensitive=True
+)
 get_result = sync_to_async(attempt_services.get_result, thread_sensitive=True)
 rating = sync_to_async(attempt_services.rating, thread_sensitive=True)
 participants_count = sync_to_async(attempt_services.participants_count, thread_sensitive=True)

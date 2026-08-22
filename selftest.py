@@ -1080,6 +1080,49 @@ def test_exports() -> None:
 
     from apps.attempts.services import ranked_attempts as _ranked
 
+    # --- SQLite qulfida amal qayta bajariladi ---
+    from django.db import OperationalError
+
+    from core.db_retry import is_lock_error, retry_on_lock
+
+    R.check("Qulf xatosi tanildi",
+            is_lock_error(OperationalError("database is locked")))
+    R.check("Boshqa xato tanilmaydi",
+            not is_lock_error(OperationalError("no such table: x")))
+
+    calls = {"n": 0}
+
+    @retry_on_lock
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise OperationalError("database is locked")
+        return "ok"
+
+    R.equal("Qulfdan keyin amal bajariladi", flaky(), "ok")
+    R.equal("Uchinchi urinishda o'tdi", calls["n"], 3)
+
+    other = {"n": 0}
+
+    @retry_on_lock
+    def broken():
+        other["n"] += 1
+        raise OperationalError("no such column: zzz")
+
+    try:
+        broken()
+        R.check("Boshqa xato qayta urinilmaydi", False)
+    except OperationalError:
+        R.equal("Boshqa xato darhol chiqadi", other["n"], 1)
+
+    api_src = (BASE_DIR / "apps/miniapp/api.py").read_text(encoding="utf-8")
+    bot_src = (BASE_DIR / "bot/services/attempts.py").read_text(encoding="utf-8")
+    R.check("Web API qulfda qayta uriniladi", "retry_on_lock(func)" in api_src)
+    R.check("Bot javob saqlashda qayta uriniladi",
+            "retry_on_lock(attempt_services.save_answer)" in bot_src)
+    R.check("Bot yuborishda qayta uriniladi",
+            "retry_on_lock(attempt_services.submit_attempt)" in bot_src)
+
     # --- Ilovaga botsiz kirganda yo'l ko'rsatiladi (Main Mini App) ---
     from apps.miniapp.auth import MiniAppAuthError
 
