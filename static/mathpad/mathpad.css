@@ -42,7 +42,9 @@
      Pastki to'ldirish — telefonning jest chizig'i oxirgi tugmalar
      qatorini yopib qolmasligi uchun. Eng kamida 6px.
   */
-  padding: 0 7px max(6px, env(safe-area-inset-bottom, 0px));
+  /* Web ilovada `--safe-bot` qobiqdan keladi (Telegram bergan chekka),
+     panelda esa brauzerning o'z `env()` qiymati ishlatiladi. */
+  padding: 0 7px max(6px, var(--safe-bot, env(safe-area-inset-bottom, 0px)));
   background: var(--mpad-bg);
   color: var(--mpad-ink);
   box-shadow: 0 -8px 26px rgba(14, 26, 45, .22);

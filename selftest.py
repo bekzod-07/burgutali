@@ -1593,6 +1593,7 @@ def test_miniapp_api() -> None:
 
     from django.test import Client
 
+    from apps.exams import services as exam_services
     from apps.exams.models import Exam
     from apps.users.models import BotUser
 
@@ -1675,6 +1676,8 @@ def test_miniapp_api() -> None:
     R.equal("5 ta savol", created["question_count"], 5)
     R.check("Test faollashtirildi", response.json()["activated"])
     exam_code = created["code"]
+    # Kodlar qayta ishlatiladi, shuning uchun testni `id` bo'yicha kuzatamiz.
+    exam_id = exam_services.get_exam_by_code(exam_code).pk
 
     # --- Noto'g'ri kalit rad etiladi ---
     response = call("/app/api/test-yaratish/", {
@@ -1770,12 +1773,14 @@ def test_miniapp_api() -> None:
     response = call(f"/app/api/test/{exam_code}/amal/", {"action": "duplicate"}, who=admin)
     R.equal("Nusxa yaratildi", response.status_code, 200)
     copy_code = response.json()["exam"]["code"]
-    # Kod noyob emas: test yakunlangach u bo'shaydi va boshqa testga
-    # berilishi mumkin. Shuning uchun o'chirilganini `id` bo'yicha
-    # tekshiramiz — kod bo'yicha tekshiruv beqaror bo'lardi.
-    copy_id = Exam.objects.get(code=copy_code, status="draft").pk
-    R.check("Nusxa boshqa kodga ega", copy_code != exam_code)
+    # Kod noyob emas: test yakunlangach u bo'shab, boshqa testga berilishi
+    # mumkin (`release_code`). Shuning uchun nusxani kod bo'yicha emas,
+    # `id` bo'yicha kuzatamiz.
+    copy_id = Exam.objects.filter(code=copy_code, status="draft").order_by("-id").first().pk
+    R.check("Nusxa — alohida test", copy_id != exam_id)
     R.equal("Nusxa qoralama holatida", response.json()["exam"]["status"], "draft")
+    R.check("Nusxa kod bo'yicha topiladi",
+            exam_services.get_exam_by_code(copy_code).pk == copy_id)
 
     # --- Ifodani tekshirish ---
     response = call("/app/api/ifoda/", {"expr": "1/2 + 1/2"}, who=participant)
@@ -1800,7 +1805,7 @@ def test_miniapp_api() -> None:
 
     response = call(f"/app/api/test/{exam_code}/ochirish/", {"confirm": True}, who=admin)
     R.equal("Tasdiq bilan o'chirildi", response.status_code, 200)
-    R.check("Test o'chdi", not Exam.objects.filter(code=exam_code).exists())
+    R.check("Test o'chdi", not Exam.objects.filter(pk=exam_id).exists())
 
     # --- Sahifa ochiladi ---
     response = client.get("/app/?view=exams")
@@ -2368,7 +2373,7 @@ def test_mathpad() -> None:
     )
     R.check(
         "Panel pastida telefon uchun bo'sh joy qoldiriladi",
-        "max(6px, env(safe-area-inset-bottom" in pad_css,
+        "max(6px, var(--safe-bot, env(safe-area-inset-bottom" in pad_css,
     )
 
     # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
@@ -2384,6 +2389,48 @@ def test_mathpad() -> None:
         )
 
     R.check("Klaviaturada emoji yo'q", not _has_emoji(source))
+
+    # --- Pastdagi bo'sh joy (telefon: panel kontentni yopib qo'ymasin) ---
+    app_css = (BASE_DIR / "apps/miniapp/static/miniapp/css/app.css").read_text(
+        encoding="utf-8"
+    )
+    app_js = (BASE_DIR / "apps/miniapp/static/miniapp/js/app.js").read_text(
+        encoding="utf-8"
+    )
+
+    R.check("Pastki chekka o'zgaruvchisi bor", "--safe-bot:" in app_css)
+    R.check(
+        "Telegram bergan chekka hisobga olinadi",
+        "--tg-safe-area-inset-bottom" in app_css
+        and "--tg-content-safe-area-inset-bottom" in app_css,
+    )
+    R.check(
+        "Faqat `env()` ga tayanmaydi",
+        "env(safe-area-inset-bottom, 0px));" not in app_css
+        and "+ env(safe-area-inset-bottom, 0px))" not in app_css,
+    )
+    for name, rule in (
+        ("varaq", "padding-bottom: calc(var(--tab-h) + var(--safe-bot))"),
+        ("pastki menyu", "padding-bottom: var(--safe-bot)"),
+        ("«Yakunlash» paneli", "calc(10px + var(--safe-bot))"),
+        ("xabar", "calc(var(--tab-h) + 16px + var(--safe-bot))"),
+    ):
+        R.check(f"Umumiy chekka ishlatiladi: {name}", rule in app_css)
+
+    R.check(
+        "«Yakunlash» ostidagi joy panel balandligidan olinadi",
+        "var(--finish-h, 72px)" in app_css,
+    )
+    R.check("Chekka mijozdan o'qiladi", "function syncSafeArea" in app_js)
+    R.check("Panel balandligi o'lchanadi", "function syncFinishBar" in app_js)
+    R.check(
+        "Telegram hodisalariga ulangan",
+        '"safeAreaChanged"' in app_js and '"viewportChanged"' in app_js,
+    )
+    R.check(
+        "Klaviatura ham umumiy chekkani oladi",
+        "var(--safe-bot, env(safe-area-inset-bottom, 0px))" in pad_css,
+    )
 
     # --- Sahifa haqiqatan ochiladi ---
     client = Client()

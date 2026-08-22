@@ -68,6 +68,47 @@
     return '<svg class="icon' + (cls ? " " + cls : "") + '"><use href="#i-' + name + '"></use></svg>';
   }
 
+  /* =====================================================================
+     Pastdagi bo'sh joy
+
+     Telegram webview'ida `env(safe-area-inset-bottom)` ko'pincha 0 bo'ladi,
+     shuning uchun mijoz bergan chekkani CSS o'zgaruvchisiga yozamiz. Shu
+     bilan «Yakunlash» tugmasi va oxirgi kartalar pastki panel ostida
+     qolib ketmaydi.
+     ===================================================================== */
+
+  function syncSafeArea() {
+    if (!tg) { return; }
+    var root = document.documentElement.style;
+
+    /*
+       Qiymatni faqat mijoz haqiqatan bergan bo'lsa yozamiz. Eski
+       versiyalarda `safeAreaInset` yo'q — u holda Telegram o'zi qo'ygan
+       CSS o'zgaruvchisini nol bilan bosib ketmaymiz.
+    */
+    function apply(name, value) {
+      if (typeof value !== "number" || !isFinite(value)) { return; }
+      root.setProperty(name, Math.max(0, Math.round(value)) + "px");
+    }
+
+    apply("--tg-safe-area-inset-bottom",
+          tg.safeAreaInset && tg.safeAreaInset.bottom);
+    apply("--tg-content-safe-area-inset-bottom",
+          tg.contentSafeAreaInset && tg.contentSafeAreaInset.bottom);
+  }
+
+  /* «Yakunlash» paneli balandligi — varaq shuncha pastdan bo'sh joy oladi. */
+  function syncFinishBar() {
+    var bar = el.screen ? el.screen.querySelector(".finish-bar") : null;
+    var root = document.documentElement.style;
+    if (!bar) {
+      root.removeProperty("--finish-h");
+      return;
+    }
+    var height = Math.ceil(bar.getBoundingClientRect().height);
+    if (height > 0) { root.setProperty("--finish-h", height + "px"); }
+  }
+
   function haptic(kind) {
     if (!tg || !tg.HapticFeedback) { return; }
     try {
@@ -515,6 +556,7 @@
       ic("check-circle") + "Yakunlash va yuborish</button></div>";
 
     el.screen.innerHTML = html;
+    syncFinishBar();
     window.scrollTo(0, 0);
 
     if (hasOpen) {
@@ -1760,10 +1802,21 @@
       };
       syncTheme();
       syncFullscreen();
+      syncSafeArea();
       if (typeof tg.onEvent === "function") {
         try {
           tg.onEvent("themeChanged", syncTheme);
-          tg.onEvent("fullscreenChanged", syncFullscreen);
+          tg.onEvent("fullscreenChanged", function () {
+            syncFullscreen();
+            syncSafeArea();
+            syncFinishBar();
+          });
+          tg.onEvent("safeAreaChanged", syncSafeArea);
+          tg.onEvent("contentSafeAreaChanged", syncSafeArea);
+          tg.onEvent("viewportChanged", function () {
+            syncSafeArea();
+            syncFinishBar();
+          });
         } catch (e) { /* eski versiyalar */ }
       }
 
@@ -1779,6 +1832,12 @@
       }
     } catch (e) { /* eski versiyalar */ }
   }
+
+  /* Ekran burilganda yoki oyna o'lchami o'zgarganda panel qayta o'lchanadi. */
+  window.addEventListener("resize", function () {
+    syncSafeArea();
+    syncFinishBar();
+  });
 
   /* Brauzer (sessiya) rejimida sarlavhada "Chiqish" tugmasi ko'rinadi. */
   if (el.logout && !(tg && tg.initData)) {

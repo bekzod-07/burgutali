@@ -78,12 +78,28 @@ body {
      qoldiradi. Ba'zi mijozlar inset bermaydi, shuning uchun max(). */
   --fs-extra: 0px;
   --safe-top: max(var(--tg-content-safe-area-inset-top, 0px), var(--fs-extra));
+
+  /*
+     Pastdagi bo'sh joy. Telegram webview'ida `env(safe-area-inset-bottom)`
+     ko'pincha 0 qaytadi (telefonning «home indicator» i va Telegram'ning
+     o'z pastki paneli hisobga olinmaydi), shuning uchun mijoz bergan
+     qiymatlarni ham olamiz — ular `app.js` da CSS o'zgaruvchisiga
+     yoziladi. Eng kattasi tanlanadi.
+  */
+  --fs-bottom: 0px;
+  --safe-bot: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--tg-safe-area-inset-bottom, 0px),
+    var(--tg-content-safe-area-inset-bottom, 0px),
+    var(--fs-bottom)
+  );
+
   padding-top: calc(var(--bar-h) + var(--safe-top));
-  padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--tab-h) + var(--safe-bot));
 }
 
 /* Fullscreen'da inset kelmagan mijozlar uchun zaxira bo'sh joy. */
-body.tg-fullscreen { --fs-extra: 46px; }
+body.tg-fullscreen { --fs-extra: 46px; --fs-bottom: 24px; }
 
 /* --------------------------------------------------------------- ikonka */
 
@@ -177,8 +193,8 @@ body.tg-fullscreen { --fs-extra: 46px; }
 .tabbar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(var(--tab-h) + var(--safe-bot));
+  padding-bottom: var(--safe-bot);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   background: var(--bg);
@@ -623,13 +639,18 @@ textarea.input { resize: vertical; min-height: 72px; font-family: "SF Mono", Con
   z-index: 25;
   display: flex;
   justify-content: center;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 12px calc(10px + var(--safe-bot));
   background: var(--bg);
   border-top: 1px solid var(--line);
 }
 .finish-bar .btn { margin: 0; min-height: 52px; font-size: 16px; max-width: 640px; }
 body.attempt-open .tabbar { display: none; }
-body.attempt-open { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+/*
+   Panel balandligi `app.js` da o'lchanadi va `--finish-h` ga yoziladi —
+   shrift o'lchami yoki tugma matni o'zgarsa ham oxirgi savol panel ostida
+   qolib ketmaydi. Zaxira qiymat: 10 + 52 + 10 = 72px.
+*/
+body.attempt-open { padding-bottom: calc(var(--finish-h, 72px) + var(--safe-bot) + 16px); }
 body.mpad-open .finish-bar { display: none; }
 
 /* ------------------------------------------------- matematik klaviatura */
@@ -778,7 +799,7 @@ body.mpad-open .screen { padding-bottom: calc(var(--mpad-h, 320px) + 28px); }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--tab-h) + 16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--tab-h) + 16px + var(--safe-bot));
   transform: translateX(-50%);
   max-width: 90%;
   padding: 10px 16px;
