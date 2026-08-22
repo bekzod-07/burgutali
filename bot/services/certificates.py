@@ -6,12 +6,13 @@ from asgiref.sync import sync_to_async
 
 from apps.certificates import services as certificate_services
 from apps.certificates.models import Certificate
+from core.db_retry import sync_db_call
 
 # --------------------------------------------------------------------------
 
 check_eligibility = sync_to_async(certificate_services.check_eligibility, thread_sensitive=True)
-issue_certificate = sync_to_async(certificate_services.issue_certificate, thread_sensitive=True)
-issue_for_exam = sync_to_async(certificate_services.issue_for_exam, thread_sensitive=True)
+issue_certificate = sync_db_call(certificate_services.issue_certificate)
+issue_for_exam = sync_db_call(certificate_services.issue_for_exam)
 get_certificate = sync_to_async(certificate_services.get_certificate, thread_sensitive=True)
 
 

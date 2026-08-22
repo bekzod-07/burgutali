@@ -1080,6 +1080,29 @@ def test_exports() -> None:
 
     from apps.attempts.services import ranked_attempts as _ranked
 
+    # --- Belgi (favicon): logda 404 qolmasin ---
+    from django.test import Client as _Client
+
+    client = _Client()
+    R.check("Belgi fayli bor", (BASE_DIR / "static/favicon.svg").is_file())
+    fav = client.get("/favicon.ico")
+    R.check("favicon.ico yo'naltiriladi", fav.status_code in (301, 302),
+            str(fav.status_code))
+    for name, url in (("bosh sahifa", "/"), ("panel", "/panel/kirish/")):
+        page = client.get(url).content.decode("utf-8", "replace")
+        R.check(f"Belgi ulangan: {name}", "favicon.svg" in page)
+
+    # --- Kartalar sarlavhasi chapda turadi ---
+    dash_css_head = (
+        BASE_DIR / "apps/dashboard/static/dashboard/css/dashboard.css"
+    ).read_text(encoding="utf-8")
+    head_rule = dash_css_head.split(".card-head {", 1)[1].split("}", 1)[0]
+    R.check("Sarlavha o'ng chetga uchmaydi",
+            "space-between" not in head_rule, head_rule.strip())
+    R.check("Izoh o'ng chetga suriladi",
+            ".card-head .sub { font-size: 12.5px; color: var(--muted); margin-left: auto; }"
+            in dash_css_head)
+
     # --- Test egasi: paneldan kim yaratsa, o'sha ko'rinadi ---
     from django.contrib.auth.models import User as _DjangoUser
 
@@ -1169,12 +1192,27 @@ def test_exports() -> None:
         R.equal("Boshqa xato darhol chiqadi", other["n"], 1)
 
     api_src = (BASE_DIR / "apps/miniapp/api.py").read_text(encoding="utf-8")
-    bot_src = (BASE_DIR / "bot/services/attempts.py").read_text(encoding="utf-8")
     R.check("Web API qulfda qayta uriniladi", "retry_on_lock(func)" in api_src)
-    R.check("Bot javob saqlashda qayta uriniladi",
-            "retry_on_lock(attempt_services.save_answer)" in bot_src)
-    R.check("Bot yuborishda qayta uriniladi",
-            "retry_on_lock(attempt_services.submit_attempt)" in bot_src)
+
+    # Botdagi yozuvchi amallar ham himoyalangan bo'lishi kerak — ular
+    # himoyasiz qolsa, foydalanuvchi umuman javob olmaydi.
+    protected = {
+        "attempts": ["start_attempt", "save_answer", "submit_attempt",
+                     "toggle_multi_choice", "set_current_order"],
+        "users": ["get_or_create_user", "save_full_name", "save_phone",
+                  "set_subscription"],
+        "exams": ["create_exam", "activate_exam", "close_exam",
+                  "publish_results", "delete_exam"],
+        "certificates": ["issue_certificate", "issue_for_exam"],
+        "codes": ["create_codes", "activate_code", "consume_code"],
+    }
+    for module, names in protected.items():
+        src = (BASE_DIR / f"bot/services/{module}.py").read_text(encoding="utf-8")
+        missing = [n for n in names if f"{n} = sync_db_call(" not in src]
+        R.check(f"Qulf himoyasi: {module}", not missing, ", ".join(missing))
+
+    reports_src = (BASE_DIR / "bot/services/reports.py").read_text(encoding="utf-8")
+    R.check("Hisobot tayyorlashda ham himoya", "@retry_on_lock" in reports_src)
 
     # --- Ilovaga botsiz kirganda yo'l ko'rsatiladi (Main Mini App) ---
     from apps.miniapp.auth import MiniAppAuthError

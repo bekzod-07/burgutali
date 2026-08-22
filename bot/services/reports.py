@@ -10,15 +10,17 @@ from __future__ import annotations
 from asgiref.sync import sync_to_async
 
 from apps.exams import services as exam_services
+from core.db_retry import retry_on_lock, sync_db_call
 
 exams_awaiting_report = sync_to_async(
     exam_services.exams_awaiting_report, thread_sensitive=True
 )
-mark_report_sent = sync_to_async(exam_services.mark_report_sent, thread_sensitive=True)
+mark_report_sent = sync_db_call(exam_services.mark_report_sent)
 report_recipients = sync_to_async(exam_services.report_recipients, thread_sensitive=True)
 
 
 @sync_to_async(thread_sensitive=True)
+@retry_on_lock
 def prepare_report(exam_id: int, reason: str) -> dict | None:
     """
     Hisobotni tayyorlaydi: kerak bo'lsa natijalarni hisoblaydi va PDF yasaydi.
@@ -85,6 +87,7 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
 
 
 @sync_to_async(thread_sensitive=True)
+@retry_on_lock
 def mark_report_sent_by_id(exam_id: int, reason: str) -> None:
     """Hisobot yuborilganini test ID si bo'yicha belgilaydi."""
     from apps.exams.models import Exam

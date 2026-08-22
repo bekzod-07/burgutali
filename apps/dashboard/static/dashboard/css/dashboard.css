@@ -217,17 +217,25 @@ h1, h2, h3 { letter-spacing: -.3px; }
   box-shadow: var(--shadow-sm);
 }
 
+/*
+   Karta sarlavhasi: ikonka va nom **chapda** yonma-yon turadi, izoh va
+   qo'shimcha tugmalar esa o'ng chetga suriladi. Ilgari bu yerda
+   `space-between` turardi va ikkita elementli sarlavhada (ikonka + nom)
+   nom o'ng chetga uchib ketardi.
+*/
 .card-head {
   padding: 15px 18px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .card-head h2 { margin: 0; font-size: 15.5px; }
-.card-head .sub { font-size: 12.5px; color: var(--muted); }
+.card-head .sub { font-size: 12.5px; color: var(--muted); margin-left: auto; }
+.card-head .btn { margin-left: auto; }
+.card-head .sub ~ .btn,
+.card-head .sub ~ .key-progress { margin-left: 0; }
 
 .card-body { padding: 18px; }
 .card-body.tight { padding: 0; }

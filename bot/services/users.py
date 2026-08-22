@@ -6,17 +6,22 @@ from asgiref.sync import sync_to_async
 
 from apps.users import services as user_services
 from apps.users.models import BotUser
+from core.db_retry import sync_db_call
 
 # --------------------------------------------------------------------------
 #  Asosiy amallar
+#
+#  Bazaga yozadigan amallar `sync_db_call` bilan o'raladi: bot va
+#  web-server bitta SQLite fayliga yozgani uchun imtihon paytida qulf
+#  yuz berishi mumkin (`core/db_retry.py`).
 # --------------------------------------------------------------------------
 
-get_or_create_user = sync_to_async(user_services.get_or_create_user, thread_sensitive=True)
-save_full_name = sync_to_async(user_services.save_full_name, thread_sensitive=True)
-save_phone = sync_to_async(user_services.save_phone, thread_sensitive=True)
-set_subscription = sync_to_async(user_services.set_subscription, thread_sensitive=True)
-sync_admins = sync_to_async(user_services.sync_admins, thread_sensitive=True)
-log_action = sync_to_async(user_services.log_action, thread_sensitive=True)
+get_or_create_user = sync_db_call(user_services.get_or_create_user)
+save_full_name = sync_db_call(user_services.save_full_name)
+save_phone = sync_db_call(user_services.save_phone)
+set_subscription = sync_db_call(user_services.set_subscription)
+sync_admins = sync_db_call(user_services.sync_admins)
+log_action = sync_db_call(user_services.log_action)
 user_statistics = sync_to_async(user_services.user_statistics, thread_sensitive=True)
 
 

@@ -7,23 +7,24 @@ from asgiref.sync import sync_to_async
 from apps.exams import keys as key_parser
 from apps.exams import services as exam_services
 from apps.exams.models import Exam, Question
+from core.db_retry import sync_db_call
 
 # --------------------------------------------------------------------------
 #  To'g'ridan-to'g'ri o'raladigan funksiyalar
 # --------------------------------------------------------------------------
 
-create_exam = sync_to_async(exam_services.create_exam, thread_sensitive=True)
-apply_single_keys = sync_to_async(exam_services.apply_single_keys, thread_sensitive=True)
-apply_multi_keys = sync_to_async(exam_services.apply_multi_keys, thread_sensitive=True)
-apply_open_keys = sync_to_async(exam_services.apply_open_keys, thread_sensitive=True)
-activate_exam = sync_to_async(exam_services.activate_exam, thread_sensitive=True)
-close_exam = sync_to_async(exam_services.close_exam, thread_sensitive=True)
-publish_results = sync_to_async(exam_services.publish_results, thread_sensitive=True)
-archive_exam = sync_to_async(exam_services.archive_exam, thread_sensitive=True)
-duplicate_exam = sync_to_async(exam_services.duplicate_exam, thread_sensitive=True)
+create_exam = sync_db_call(exam_services.create_exam)
+apply_single_keys = sync_db_call(exam_services.apply_single_keys)
+apply_multi_keys = sync_db_call(exam_services.apply_multi_keys)
+apply_open_keys = sync_db_call(exam_services.apply_open_keys)
+activate_exam = sync_db_call(exam_services.activate_exam)
+close_exam = sync_db_call(exam_services.close_exam)
+publish_results = sync_db_call(exam_services.publish_results)
+archive_exam = sync_db_call(exam_services.archive_exam)
+duplicate_exam = sync_db_call(exam_services.duplicate_exam)
 deletion_summary = sync_to_async(exam_services.deletion_summary, thread_sensitive=True)
-delete_exam = sync_to_async(exam_services.delete_exam, thread_sensitive=True)
-auto_close_expired = sync_to_async(exam_services.auto_close_expired, thread_sensitive=True)
+delete_exam = sync_db_call(exam_services.delete_exam)
+auto_close_expired = sync_db_call(exam_services.auto_close_expired)
 get_exam_by_code = sync_to_async(exam_services.get_exam_by_code, thread_sensitive=True)
 list_available_exams = sync_to_async(exam_services.list_available_exams, thread_sensitive=True)
 list_owned_exams = sync_to_async(exam_services.list_owned_exams, thread_sensitive=True)

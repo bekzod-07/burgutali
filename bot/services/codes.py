@@ -7,14 +7,15 @@ from asgiref.sync import sync_to_async
 from apps.accesscodes import services as code_services
 from apps.accesscodes.generator import is_valid_format, normalize_code
 from apps.accesscodes.models import AccessCode, CodeBatch
+from core.db_retry import sync_db_call
 
 # --------------------------------------------------------------------------
 
-create_codes = sync_to_async(code_services.create_codes, thread_sensitive=True)
+create_codes = sync_db_call(code_services.create_codes)
 check_code = sync_to_async(code_services.check_code, thread_sensitive=True)
-activate_code = sync_to_async(code_services.activate_code, thread_sensitive=True)
-consume_code = sync_to_async(code_services.consume_code, thread_sensitive=True)
-release_code = sync_to_async(code_services.release_code, thread_sensitive=True)
+activate_code = sync_db_call(code_services.activate_code)
+consume_code = sync_db_call(code_services.consume_code)
+release_code = sync_db_call(code_services.release_code)
 find_active_code = sync_to_async(code_services.find_active_code, thread_sensitive=True)
 code_statistics = sync_to_async(code_services.code_statistics, thread_sensitive=True)
 

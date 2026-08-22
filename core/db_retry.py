@@ -83,4 +83,23 @@ def retry_on_lock(func: Callable[..., T]) -> Callable[..., T]:
     return wrapper
 
 
-__all__ = ["retry_on_lock", "is_lock_error", "MAX_RETRIES", "BASE_DELAY"]
+def sync_db_call(func: Callable[..., T]):
+    """
+    Bazaga **yozadigan** amalni bot uchun asinxron ko'rinishga o'raydi.
+
+    `sync_to_async(retry_on_lock(func), thread_sensitive=True)` bilan bir
+    xil, lekin qisqa va bir joyda: yangi yozuvchi amal qo'shilganda uni
+    shu funksiya bilan o'rash yetarli.
+    """
+    from asgiref.sync import sync_to_async
+
+    return sync_to_async(retry_on_lock(func), thread_sensitive=True)
+
+
+__all__ = [
+    "retry_on_lock",
+    "sync_db_call",
+    "is_lock_error",
+    "MAX_RETRIES",
+    "BASE_DELAY",
+]

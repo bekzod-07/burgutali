@@ -6,6 +6,8 @@
   <title>{% block title %}Boshqaruv paneli{% endblock %} — {{ SITE_NAME }}</title>
   {# Telegram webview CSS ni uzoq keshlaydi — fayl o'zgarsa `?v=` yangilanadi. #}
   {# Matematik klaviatura va javoblar varaqasi — web ilova bilan umumiy. #}
+  {# Belgi — brauzer va Telegram uni har sahifada so'raydi. #}
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'mathpad/mathpad.css' %}?v={{ PANEL_CSS_VERSION }}">
   <link rel="stylesheet" href="{% static 'keysheet/keysheet.css' %}?v={{ PANEL_CSS_VERSION }}">
   <link rel="stylesheet" href="{% static 'dashboard/css/dashboard.css' %}?v={{ PANEL_CSS_VERSION }}">
