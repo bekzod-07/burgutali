@@ -67,6 +67,14 @@ def _is_code_free(code: str) -> bool:
     if exam is None:
         # Kod band qilingan, lekin test hali yaratilmagan — tegmaymiz.
         return False
+
+    # Bandlik yozuvi shu testdan **keyin** yaratilgan bo'lsa, u boshqa
+    # (hali yaratilib ulgurmagan) testga tegishli. Kodni eski, yakunlangan
+    # testga qarab bo'shatib yuborsak, bitta kod ikkita testga berilib
+    # qolardi — kodlar 2-3 xonali bo'lgani uchun bu tez-tez uchraydi.
+    if exam.created_at and reservation.created_at and exam.created_at < reservation.created_at:
+        return False
+
     if exam.status in LIVE_STATUSES:
         return False
 

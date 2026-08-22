@@ -2044,6 +2044,7 @@ def test_exam_codes() -> None:
         archive_exam,
         close_exam,
         create_exam,
+        _reserve_code,
         delete_exam,
         generate_exam_code,
         get_exam_by_code,
@@ -2070,6 +2071,26 @@ def test_exam_codes() -> None:
     R.check("Kodlar faqat raqamdan iborat", all(code.isdigit() for code in codes))
     R.check("Kodlar 2–3 xonali", all(2 <= len(code) <= 3 for code in codes))
     R.equal("Kodlar takrorlanmaydi", len(set(codes)), len(codes))
+
+    # --- Yangi band qilingan kod eski test tufayli bo'shab ketmasin ---
+    # Kodlar 2-3 xonali, shuning uchun yangi kod ilgari ishlatilib
+    # yakunlangan testnikiga tushib qolishi odatiy hol. Shunda bandlik
+    # yozuvi (hali yaratilmagan test uchun) bo'shatilmasligi kerak.
+    finished = new_exam("Yakunlangan test")
+    finished_code = finished.code
+    finished.status = Exam.Status.PUBLISHED
+    finished.save(update_fields=["status"])
+    release_code(finished_code)
+
+    R.check("Yakunlangan testning kodi bo'shaydi",
+            generate_exam_code("Yangi egasi") is not None)
+    ReservedExamCode.objects.filter(code=finished_code).delete()
+
+    # Kodni qo'lda band qilamiz — test hali yaratilmagan.
+    R.check("Kod band qilindi", _reserve_code(finished_code, "Hali yaratilmagan"))
+    R.check("Band kod ikkinchi marta berilmaydi",
+            not _reserve_code(finished_code, "Boshqa test"))
+    ReservedExamCode.objects.filter(code=finished_code).delete()
 
     # --- Faol testda kod band ---
     first = new_exam("Kod sinovi — birinchi")
