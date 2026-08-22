@@ -71,8 +71,20 @@ def api_view(*methods: str):
             try:
                 user = resolve_user(request)
             except MiniAppAuthError as exc:
+                from bot.config import get_config
+
+                config = get_config()
                 return JsonResponse(
-                    {"ok": False, "error": exc.reason, "auth": False}, status=401
+                    {
+                        "ok": False,
+                        "error": exc.reason,
+                        "auth": False,
+                        # Ilova shu kodga qarab kerakli tugmani chizadi.
+                        "code": getattr(exc, "code", "invalid"),
+                        "bot_url": config.bot_link(),
+                        "channel_url": config.required_channel_url,
+                    },
+                    status=401,
                 )
 
             try:

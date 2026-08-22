@@ -160,11 +160,28 @@ INIT_DATA_HEADER = "HTTP_X_TELEGRAM_INIT_DATA"
 
 
 class MiniAppAuthError(Exception):
-    """Mini App autentifikatsiyasi muvaffaqiyatsiz tugadi."""
+    """
+    Mini App autentifikatsiyasi muvaffaqiyatsiz tugadi.
 
-    def __init__(self, reason: str = "Autentifikatsiya talab qilinadi") -> None:
+    `code` — ilova qaysi tugmani ko'rsatishini hal qilishi uchun:
+
+      * `not_registered` — botda `/start` bosilmagan («Botni ochish»);
+      * `not_subscribed` — majburiy kanalga a'zo emas («Kanalga o'tish»);
+      * `blocked` — hisob bloklangan;
+      * `invalid` — `initData` yaroqsiz yoki muddati o'tgan.
+
+    Bu ayniqsa Main Mini App (chat ro'yxatidagi «Open» tugmasi) uchun
+    kerak: u yerdan ilovaga botga hech qachon kirmagan odam ham tushadi.
+    """
+
+    def __init__(
+        self,
+        reason: str = "Autentifikatsiya talab qilinadi",
+        code: str = "invalid",
+    ) -> None:
         super().__init__(reason)
         self.reason = reason
+        self.code = code
 
 
 def _require_subscription(user) -> None:
@@ -188,7 +205,8 @@ def _require_subscription(user) -> None:
 
     raise MiniAppAuthError(
         f"Ilovadan foydalanish uchun {config.required_channel} kanaliga "
-        "a'zo bo'ling, so'ng botga qaytib «A'zolikni tekshirish» tugmasini bosing."
+        "a'zo bo'ling, so'ng botga qaytib «A'zolikni tekshirish» tugmasini bosing.",
+        code="not_subscribed",
     )
 
 
@@ -213,10 +231,12 @@ def resolve_user(request):
         user = BotUser.objects.filter(telegram_id=telegram_id).first()
         if user is None:
             raise MiniAppAuthError(
-                "Siz botda ro'yxatdan o'tmagansiz. Avval botga /start yuboring."
+                "Ilovadan foydalanish uchun avval botni oching va «Boshlash» "
+                "tugmasini bosing.",
+                code="not_registered",
             )
         if user.is_blocked:
-            raise MiniAppAuthError("Hisobingiz bloklangan.")
+            raise MiniAppAuthError("Hisobingiz bloklangan.", code="blocked")
         _require_subscription(user)
         return user
 
@@ -234,10 +254,12 @@ def resolve_user(request):
         if user is None:
             request.session.pop(SESSION_KEY, None)
             raise MiniAppAuthError(
-                "Siz botda ro'yxatdan o'tmagansiz. Avval botga /start yuboring."
+                "Ilovadan foydalanish uchun avval botni oching va «Boshlash» "
+                "tugmasini bosing.",
+                code="not_registered",
             )
         if user.is_blocked:
-            raise MiniAppAuthError("Hisobingiz bloklangan.")
+            raise MiniAppAuthError("Hisobingiz bloklangan.", code="blocked")
         _require_subscription(user)
         return user
 

@@ -1700,8 +1700,29 @@
         location.href = "/app/kirish/";
         return;
       }
+      /*
+         Ilovaga botga hech qachon kirmagan odam ham tushishi mumkin —
+         masalan, chat ro'yxatidagi «Open» tugmasi (Main Mini App) yoki
+         `t.me/<bot>/app` havolasi orqali. Shuning uchun tupik xabar
+         o'rniga keyingi qadamni ko'rsatuvchi tugma beramiz.
+      */
+      var payload = error.payload || {};
+      var actions = "";
+
+      if (payload.code === "not_registered" && payload.bot_url) {
+        actions += '<button class="btn" data-act="open-link" data-url="' +
+          esc(payload.bot_url) + '">' + ic("telegram") + "Botni ochish</button>";
+      } else if (payload.code === "not_subscribed" && payload.channel_url) {
+        actions += '<button class="btn" data-act="open-link" data-url="' +
+          esc(payload.channel_url) + '">' + ic("telegram") + "Kanalga o‘tish</button>";
+        if (payload.bot_url) {
+          actions += '<button class="btn btn-ghost" data-act="open-link" data-url="' +
+            esc(payload.bot_url) + '">' + ic("arrow-left") + "Botga qaytish</button>";
+        }
+      }
+
       el.screen.innerHTML = '<div class="empty">' + ic("lock", "icon-xl") +
-        "<b>Kirish yopiq</b><p>" + esc(error.message) + "</p>" +
+        "<b>Kirish yopiq</b><p>" + esc(error.message) + "</p>" + actions +
         '<button class="btn btn-ghost" data-act="reload">Qayta urinish</button></div>';
       return;
     }
@@ -1774,6 +1795,18 @@
       return;
     }
 
+    if (act === "open-link") {
+      var url = target.dataset.url;
+      if (!url) { return; }
+      /* Telegram havolalari ilovadan chiqmasdan ochiladi. */
+      if (tg && typeof tg.openTelegramLink === "function" &&
+          url.indexOf("https://t.me/") === 0) {
+        tg.openTelegramLink(url);
+      } else {
+        window.open(url, "_blank");
+      }
+      return;
+    }
     if (act === "create-exam") { submitCreate(); return; }
     if (act === "exam-action") { runExamAction(target.dataset.action); return; }
     if (act === "delete-exam") { deleteExam(target.dataset.code); return; }

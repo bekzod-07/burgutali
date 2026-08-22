@@ -1080,6 +1080,30 @@ def test_exports() -> None:
 
     from apps.attempts.services import ranked_attempts as _ranked
 
+    # --- Ilovaga botsiz kirganda yo'l ko'rsatiladi (Main Mini App) ---
+    from apps.miniapp.auth import MiniAppAuthError
+
+    err = MiniAppAuthError("x", code="not_registered")
+    R.equal("Xato sababi kodlanadi", err.code, "not_registered")
+    R.equal("Standart kod", MiniAppAuthError("x").code, "invalid")
+
+    api_py = (BASE_DIR / "apps/miniapp/api.py").read_text(encoding="utf-8")
+    R.check("401 javobida kod bor", '"code": getattr(exc, "code"' in api_py)
+    R.check("401 javobida bot havolasi bor", '"bot_url"' in api_py)
+    R.check("401 javobida kanal havolasi bor", '"channel_url"' in api_py)
+
+    app_js_auth = (BASE_DIR / "apps/miniapp/static/miniapp/js/app.js").read_text(
+        encoding="utf-8"
+    )
+    R.check("Ro'yxatdan o'tmaganga «Botni ochish»",
+            'payload.code === "not_registered"' in app_js_auth
+            and "Botni ochish" in app_js_auth)
+    R.check("A'zo bo'lmaganga «Kanalga o'tish»",
+            'payload.code === "not_subscribed"' in app_js_auth
+            and "Kanalga o" in app_js_auth)
+    R.check("Havola Telegram ichida ochiladi",
+            "openTelegramLink" in app_js_auth)
+
     # --- Ikkita hisobot: e'lon uchun va faqat admin uchun ---
     from bot.texts import admin as _TA
 
