@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from django import forms
 
+from apps.broadcasts import formatting as tg_format
+from apps.broadcasts.models import Broadcast
 from apps.exams import keys as key_parser
 from apps.exams.models import Exam, Question
 from core import constants as C
@@ -363,3 +365,161 @@ class KeyImportForm(forms.Form):
             }
         ),
     )
+
+
+class BroadcastForm(forms.ModelForm):
+    """
+    Reklama xabarini tayyorlash: matn, rasm va tugmalar.
+
+    Matn Telegram HTML uslubida bo'ladi (`<b>`, `<i>`, `<a href>`), lekin
+    ruxsatsiz teglar avtomatik ekranlanadi — yuborishda «can't parse
+    entities» xatosi chiqmaydi. Tugmalar har bir qatorda
+    «Matn | https://havola» ko'rinishida yoziladi.
+    """
+
+    #: Rasm hajmi chegarasi (Telegram 10 MB gacha qabul qiladi).
+    MAX_IMAGE_BYTES: int = 8 * 1024 * 1024
+
+    buttons_raw = forms.CharField(
+        label="Tugmalar",
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input",
+                "rows": 4,
+                "placeholder": (
+                    "Kanalga o'tish | https://t.me/Burgutali\n"
+                    "Sayt | https://burgutali.uz || Bot | https://t.me/bot"
+                ),
+            }
+        ),
+        help_text=(
+            "Har bir qator — bitta tugma qatori. Bitta qatorga ikki tugma "
+            "qo'yish uchun ularni «||» bilan ajrating."
+        ),
+    )
+    remove_image = forms.BooleanField(label="Rasmni olib tashlash", required=False)
+
+    class Meta:
+        model = Broadcast
+        fields = ["title", "text", "image", "audience", "exam"]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={"class": "input", "placeholder": "Masalan: Yangi mock test e'loni"}
+            ),
+            "text": forms.Textarea(
+                attrs={
+                    "class": "input",
+                    "rows": 8,
+                    "placeholder": "Xabar matni. Qalin uchun <b>matn</b>, qiya uchun <i>matn</i>.",
+                }
+            ),
+            "audience": forms.Select(attrs={"class": "input"}),
+            "exam": forms.Select(attrs={"class": "input"}),
+        }
+        labels = {
+            "title": "Sarlavha (faqat panelda ko'rinadi)",
+            "text": "Xabar matni",
+            "image": "Rasm (ixtiyoriy)",
+            "audience": "Kimga yuborilsin",
+            "exam": "Test (faqat «test ishtirokchilari» uchun)",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].required = False
+        self.fields["text"].required = False
+        self.fields["exam"].required = False
+        self.fields["exam"].queryset = Exam.objects.order_by("-created_at")
+        self.fields["exam"].empty_label = "— tanlanmagan —"
+        self.fields["image"].widget.attrs.update(
+            {"class": "input", "accept": "image/*"}
+        )
+        if self.instance and self.instance.pk:
+            self.fields["buttons_raw"].initial = tg_format.buttons_to_text(
+                self.instance.button_rows
+            )
+        if not (self.instance and self.instance.pk and self.instance.has_image):
+            self.fields.pop("remove_image", None)
+
+    # ------------------------------------------------------------------
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        if not image or not hasattr(image, "size"):
+            return image
+        if image.size > self.MAX_IMAGE_BYTES:
+            raise forms.ValidationError(
+                f"Rasm hajmi {self.MAX_IMAGE_BYTES // (1024 * 1024)} MB dan oshmasligi kerak."
+            )
+        # Django yangi yuklangan faylga tekshirilgan `PIL.Image` ni biriktiradi.
+        opened = getattr(image, "image", None)
+        if opened is not None and opened.width + opened.height > 10000:
+            raise forms.ValidationError(
+                "Rasm juda katta: eni va bo'yi yig'indisi 10000 nuqtadan oshmasin."
+            )
+        return image
+
+    def clean_buttons_raw(self):
+        raw = self.cleaned_data.get("buttons_raw", "")
+        try:
+            self._button_rows = tg_format.parse_buttons(raw)
+        except tg_format.FormatError as error:
+            raise forms.ValidationError(str(error)) from error
+        return raw
+
+    def clean(self):
+        data = super().clean()
+
+        # --- Matn: ruxsat etilgan teglargina qoladi ---
+        text_html = ""
+        if not self.has_error("text"):
+            try:
+                text_html = tg_format.sanitize_html(data.get("text", ""))
+            except tg_format.FormatError as error:
+                self.add_error("text", str(error))
+        self._text_html = text_html
+
+        # --- Rasm bormi (yangi yuklangan yoki avval saqlangan) ---
+        has_image = bool(data.get("image"))
+        if not has_image and self.instance and self.instance.pk:
+            has_image = self.instance.has_image and not data.get("remove_image")
+
+        if not text_html.strip() and not has_image:
+            self.add_error(
+                "text", "Xabar bo'sh bo'lmasligi kerak: matn yoki rasm qo'shing."
+            )
+
+        limit = tg_format.CAPTION_LIMIT if has_image else tg_format.TEXT_LIMIT
+        length = tg_format.visible_length(text_html)
+        if length > limit:
+            where = "rasm izohi" if has_image else "xabar"
+            self.add_error(
+                "text",
+                f"Matn juda uzun: {length} belgi. Telegram {where}i uchun "
+                f"chegara — {limit} belgi.",
+            )
+
+        # --- Test ishtirokchilari tanlansa, test ko'rsatilishi shart ---
+        if data.get("audience") == Broadcast.Audience.EXAM and not data.get("exam"):
+            self.add_error("exam", "Auditoriya sifatida test tanlangan — testni ko'rsating.")
+
+        return data
+
+    # ------------------------------------------------------------------
+    def save(self, commit: bool = True) -> Broadcast:
+        broadcast = super().save(commit=False)
+        # Bazada tozalangan HTML saqlanadi — bot aynan shu matnni yuboradi,
+        # panel ko'rinishi esa yuboriladigan xabar bilan bir xil bo'ladi.
+        broadcast.text = getattr(self, "_text_html", broadcast.text)
+        broadcast.buttons = getattr(self, "_button_rows", [])
+        if self.cleaned_data.get("remove_image"):
+            broadcast.image = None
+            broadcast.image_file_id = ""
+        elif self.cleaned_data.get("image"):
+            # Yangi rasm — eski `file_id` endi mos kelmaydi.
+            broadcast.image_file_id = ""
+        if broadcast.audience != Broadcast.Audience.EXAM:
+            broadcast.exam = None
+        if commit:
+            broadcast.save()
+        return broadcast

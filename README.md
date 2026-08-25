@@ -442,10 +442,55 @@ Imkoniyatlari:
 * **ID kodlar**: yaratish, Excel eksport, bekor qilish, tiklash;
 * **sertifikatlar**: PDF qayta yaratish, bekor qilish, tiklash, o‘chirish;
 * **foydalanuvchilar**: tafsilot, bloklash, admin qilish, natijalari va testlari;
+* **reklama** — botdagi hamma foydalanuvchiga matn, rasm va tugmali xabar
+  (pastda batafsil);
 * **amallar tarixi** (audit jurnali) — filtrlar bilan;
 * reyting, statistika, darajalar taqsimoti, Excel/PDF eksport;
 * **savollar qiyinchiligi** va **ballar taqsimoti** diagrammalari
   (natijalar sahifasida, faqat adminlarga).
+
+### Reklama — ommaviy xabar yuborish
+
+`/panel/reklama/` bo‘limida botdagi foydalanuvchilarga **matn + rasm +
+tugmali** xabar tayyorlanadi va yuboriladi.
+
+**Xabar tarkibi**
+
+| Nima | Qanday kiritiladi |
+|------|-------------------|
+| Matn | Telegram HTML: `<b>qalin</b>`, `<i>qiya</i>`, `<u>tagi chizilgan</u>`, `<code>kod</code>`, `<a href="https://...">havola</a>` |
+| Rasm | Odatdagi fayl tanlash (JPG/PNG, 8 MB gacha) |
+| Tugmalar | Har bir qatorda `Tugma matni \| https://havola`; bitta qatorga ikki tugma qo‘yish uchun ularni `\|\|` bilan ajrating |
+
+Yozilayotgan xabar o‘ng tomonda **Telegramdagidek** ko‘rinib turadi —
+rasm, matn va tugmalar bilan. Belgi hisoblagichi chegarani ham
+ko‘rsatadi: rasmsiz xabar 4096 belgi, rasm izohi esa 1024 belgi.
+
+**Kimga**
+
+* barcha foydalanuvchilar;
+* ro‘yxatdan o‘tganlar;
+* oxirgi 30 kunda faol bo‘lganlar;
+* faqat adminlar;
+* tanlangan test ishtirokchilari.
+
+Panelda **bloklangan** foydalanuvchilarga reklama yuborilmaydi.
+
+**Yuborish tartibi**
+
+1. Xabar saqlanadi (qoralama holatida).
+2. «Sinov yuborish» — xabar avval faqat o‘zingizga keladi, Telegramda
+   qanday ko‘rinishini shundan bilasiz.
+3. «Yuborish» — auditoriya ro‘yxati aynan o‘sha payt tuziladi va xabar
+   navbatga qo‘yiladi. Kerak bo‘lsa yuborish vaqtini oldindan belgilash
+   mumkin.
+4. Xabarlarni **bot** yuboradi (sekundiga 20 ta). Panelda jarayon jonli
+   ko‘rinadi: yetkazilgan, botni bloklaganlar va yetkazilmaganlar soni.
+5. Yakunda adminlarga qisqa hisobot boradi.
+
+Yuborishni istalgan paytda **to‘xtatish** va keyin **davom ettirish**
+mumkin — xabar olganlarga takroran yuborilmaydi. Bot qayta ishga tushsa
+ham yuborish qolgan joyidan davom etadi.
 
 ---
 
@@ -551,7 +596,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (582 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (820 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -581,6 +626,9 @@ rashmodel_matematikabot/
 │   │   ├── auth.py            initData imzosi va foydalanuvchini aniqlash
 │   │   ├── serializers.py     modellarni JSON ga o'girish
 │   │   └── static/            app.css, app.js (bir sahifali ilova)
+│   ├── broadcasts/            reklama: matn + rasm + tugmali ommaviy xabar
+│   │   ├── formatting.py      Telegram HTML tozalash, tugmalarni o'qish
+│   │   └── services.py        auditoriya, navbat, hisoblagichlar
 │   └── dashboard/             web boshqaruv paneli (o'z CSS dizayni)
 │
 ├── bot/                       Telegram bot (aiogram 3)
@@ -594,6 +642,8 @@ rashmodel_matematikabot/
 │   ├── services/              ORM ga asinxron ko'prik
 │   ├── utils/                 formatlash, obuna, fayllar
 │   ├── tasks/                 fon vazifalari
+│   │   ├── scheduler.py       testlarni yopish, natijalar hisoboti
+│   │   └── broadcast.py       reklama xabarlarini yuborish
 │   └── handlers/
 │       ├── start.py           /start va deep-link
 │       ├── subscription.py    majburiy obuna
@@ -627,7 +677,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 582 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 820 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

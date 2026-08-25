@@ -31,6 +31,9 @@ from apps.accesscodes.models import AccessCode, CodeBatch
 from apps.accesscodes.services import code_statistics, create_codes
 from apps.attempts import services as attempt_services
 from apps.attempts.models import Attempt
+from apps.broadcasts import formatting as tg_format
+from apps.broadcasts import services as broadcast_services
+from apps.broadcasts.models import Broadcast, BroadcastDelivery
 from apps.certificates.models import Certificate
 from apps.certificates.services import issue_certificate, issue_for_exam
 from apps.common.mixins import staff_required
@@ -47,6 +50,7 @@ from apps.users.services import user_statistics
 from core import constants as C
 
 from .forms import (
+    BroadcastForm,
     CodeGenerationForm,
     ExamCreateForm,
     ExamDeleteForm,
@@ -981,6 +985,253 @@ def audit_list(request):
             "selected_kind": kind,
             "search": search,
         },
+    )
+
+
+# ==========================================================================
+#  Reklama (botdagi barcha foydalanuvchilarga ommaviy xabar)
+# ==========================================================================
+
+
+def _panel_telegram_id(user) -> int | None:
+    """
+    Panelga Telegram orqali kirgan adminning Telegram ID si.
+
+    `telegram_login` shunday hisoblar uchun `tg_<id>` nomini beradi.
+    Login/parol bilan kirilganda ID noma'lum bo'ladi.
+    """
+    username = getattr(user, "username", "") or ""
+    if username.startswith("tg_") and username[3:].isdigit():
+        return int(username[3:])
+    return None
+
+
+def _default_test_target(user) -> int | None:
+    """Sinov xabari uchun taklif qilinadigan Telegram ID."""
+    telegram_id = _panel_telegram_id(user)
+    if telegram_id:
+        return telegram_id
+    admin = BotUser.objects.filter(is_admin=True).order_by("id").first()
+    return admin.telegram_id if admin else None
+
+
+def _parse_schedule(raw: str):
+    """`datetime-local` maydonidan kelgan vaqtni o'qiydi."""
+    from django.utils.dateparse import parse_datetime
+
+    value = (raw or "").strip()
+    if not value:
+        return None
+    parsed = parse_datetime(value)
+    if parsed is None:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed
+
+
+@staff_required
+def broadcast_list(request):
+    """Reklama xabarlari ro'yxati."""
+    queryset = Broadcast.objects.select_related("exam", "created_by").order_by(
+        "-created_at"
+    )
+    status = request.GET.get("holati", "")
+    if status:
+        queryset = queryset.filter(status=status)
+
+    return render(
+        request,
+        "dashboard/broadcast_list.html",
+        {
+            "section": "broadcasts",
+            "broadcasts": queryset[:200],
+            "status_choices": Broadcast.Status.choices,
+            "selected_status": status,
+            "stats": broadcast_services.broadcast_statistics(),
+            "audience_counts": broadcast_services.audience_summary(),
+        },
+    )
+
+
+def _broadcast_form_page(request, broadcast: Broadcast | None):
+    """Yaratish va tahrirlash sahifasining umumiy qismi."""
+    form = BroadcastForm(instance=broadcast)
+
+    if request.method == "POST":
+        form = BroadcastForm(request.POST, request.FILES, instance=broadcast)
+        if form.is_valid():
+            saved = form.save(commit=False)
+            if saved.created_by_id is None and request.user.is_authenticated:
+                saved.created_by = request.user
+            saved.save()
+            messages.success(
+                request,
+                "Reklama saqlandi. Yuborishdan oldin ko'rinishini tekshirib oling.",
+            )
+            return redirect("dashboard:broadcast_detail", pk=saved.pk)
+        messages.error(request, "Formada xatolar bor.")
+
+    return render(
+        request,
+        "dashboard/broadcast_form.html",
+        {
+            "section": "broadcasts",
+            "broadcast": broadcast,
+            "form": form,
+            "audience_counts": broadcast_services.audience_summary(),
+            "caption_limit": tg_format.CAPTION_LIMIT,
+            "text_limit": tg_format.TEXT_LIMIT,
+        },
+    )
+
+
+@staff_required
+def broadcast_create(request):
+    """Yangi reklama xabari."""
+    return _broadcast_form_page(request, None)
+
+
+@staff_required
+def broadcast_edit(request, pk: int):
+    """Qoralama holatidagi xabarni tahrirlash."""
+    broadcast = get_object_or_404(Broadcast, pk=pk)
+    if not broadcast.is_editable:
+        messages.warning(
+            request,
+            "Yuborilgan xabarni tahrirlab bo'lmaydi — undan nusxa oling.",
+        )
+        return redirect("dashboard:broadcast_detail", pk=pk)
+    return _broadcast_form_page(request, broadcast)
+
+
+@staff_required
+def broadcast_detail(request, pk: int):
+    """Xabar ko'rinishi, auditoriya va yuborish holati."""
+    broadcast = get_object_or_404(
+        Broadcast.objects.select_related("exam", "created_by"), pk=pk
+    )
+
+    problems = (
+        broadcast.deliveries.filter(
+            status__in=[
+                BroadcastDelivery.Status.FAILED,
+                BroadcastDelivery.Status.BLOCKED,
+            ]
+        )
+        .select_related("user")
+        .order_by("-id")[:50]
+    )
+
+    return render(
+        request,
+        "dashboard/broadcast_detail.html",
+        {
+            "section": "broadcasts",
+            "broadcast": broadcast,
+            "recipients": broadcast_services.audience_count(
+                broadcast.audience, broadcast.exam
+            ),
+            "problems": problems,
+            "test_target": broadcast.test_target_id or _default_test_target(request.user),
+        },
+    )
+
+
+@staff_required
+@require_POST
+def broadcast_action(request, pk: int, action: str):
+    """Reklama ustidagi amallar (barchasi POST orqali)."""
+    broadcast = get_object_or_404(Broadcast, pk=pk)
+
+    if action == "yuborish":
+        if broadcast.is_running:
+            messages.info(request, "Bu xabar allaqachon navbatda.")
+            return redirect("dashboard:broadcast_detail", pk=pk)
+        scheduled_at = _parse_schedule(request.POST.get("vaqt", ""))
+        total = broadcast_services.queue_broadcast(broadcast, scheduled_at=scheduled_at)
+        if not total:
+            broadcast_services.cancel_broadcast(broadcast)
+            messages.warning(
+                request, "Bu auditoriyada bironta ham foydalanuvchi topilmadi."
+            )
+        elif scheduled_at:
+            messages.success(
+                request,
+                f"Reklama {total} ta foydalanuvchiga "
+                f"{timezone.localtime(scheduled_at):%d.%m.%Y %H:%M} da yuboriladi.",
+            )
+        else:
+            messages.success(
+                request, f"Reklama {total} ta foydalanuvchiga yuborilmoqda."
+            )
+
+    elif action == "toxtatish":
+        broadcast_services.cancel_broadcast(broadcast)
+        messages.success(request, "Yuborish to'xtatildi.")
+
+    elif action == "davom":
+        total = broadcast_services.queue_broadcast(broadcast)
+        messages.success(
+            request,
+            f"Yuborish davom ettirildi — {total - broadcast.processed} ta xabar qoldi.",
+        )
+
+    elif action == "qoralama":
+        broadcast_services.reset_broadcast(broadcast)
+        messages.success(request, "Xabar qoralama holatiga qaytarildi.")
+
+    elif action == "nusxa":
+        copy = broadcast_services.duplicate_broadcast(broadcast, request.user)
+        messages.success(request, "Nusxa yaratildi.")
+        return redirect("dashboard:broadcast_edit", pk=copy.pk)
+
+    elif action == "sinov":
+        raw_target = (request.POST.get("telegram_id") or "").strip()
+        target = raw_target if raw_target.lstrip("-").isdigit() else None
+        if target is None:
+            messages.error(request, "Sinov uchun to'g'ri Telegram ID kiriting.")
+        else:
+            broadcast_services.request_test_send(broadcast, int(target))
+            messages.success(
+                request,
+                "Sinov xabari navbatga qo'yildi — bir necha soniyada yetib boradi.",
+            )
+
+    elif action == "ochirish":
+        if broadcast.is_running:
+            messages.error(
+                request, "Yuborilayotgan xabarni o'chirib bo'lmaydi — avval to'xtating."
+            )
+            return redirect("dashboard:broadcast_detail", pk=pk)
+        broadcast.delete()
+        messages.success(request, "Reklama o'chirildi.")
+        return redirect("dashboard:broadcast_list")
+
+    else:
+        messages.error(request, "Noma'lum amal.")
+
+    return redirect("dashboard:broadcast_detail", pk=pk)
+
+
+@staff_required
+def broadcast_progress(request, pk: int):
+    """Yuborish holati (sahifa uni bir necha soniyada bir so'raydi)."""
+    broadcast = get_object_or_404(Broadcast, pk=pk)
+    return JsonResponse(
+        {
+            "status": broadcast.status,
+            "status_label": broadcast.get_status_display(),
+            "total": broadcast.total,
+            "sent": broadcast.sent,
+            "failed": broadcast.failed,
+            "blocked": broadcast.blocked,
+            "processed": broadcast.processed,
+            "percent": broadcast.progress_percent,
+            "finished": broadcast.is_finished,
+            "test_sent": broadcast.test_sent_at is not None,
+            "test_error": broadcast.test_error,
+        }
     )
 
 

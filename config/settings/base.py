@@ -73,6 +73,7 @@ LOCAL_APPS = [
     "apps.certificates",
     "apps.exports",
     "apps.miniapp",
+    "apps.broadcasts",
     "apps.dashboard",
 ]
 

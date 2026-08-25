@@ -1,0 +1,126 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}{% if broadcast %}Reklamani tahrirlash{% else %}Yangi reklama{% endif %}{% endblock %}
+{% block page_title %}{% if broadcast %}Reklamani tahrirlash{% else %}Yangi reklama{% endif %}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:broadcast_list' %}">Reklama</a> /
+  {% if broadcast %}{{ broadcast.display_title }}{% else %}Yangi xabar{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method="post" enctype="multipart/form-data"
+      data-broadcast-form
+      data-caption-limit="{{ caption_limit }}"
+      data-text-limit="{{ text_limit }}">
+  {% csrf_token %}
+
+  <div class="grid grid-2">
+
+    <section class="card">
+      <div class="card-head"><h2>Xabar</h2></div>
+      <div class="card-body">
+
+        <div class="form-row">
+          <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+          {{ form.title }}
+          {% if form.title.errors %}<div class="errors">{{ form.title.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-row">
+          <label for="{{ form.text.id_for_label }}">{{ form.text.label }}</label>
+          {{ form.text }}
+          <div class="help">
+            Qalin — <code>&lt;b&gt;matn&lt;/b&gt;</code>, qiya — <code>&lt;i&gt;matn&lt;/i&gt;</code>,
+            havola — <code>&lt;a href="https://..."&gt;matn&lt;/a&gt;</code>.
+            Boshqa teglar oddiy matn sifatida ko‘rinadi.
+          </div>
+          <div class="help"><span data-bc-counter>0</span> / <span data-bc-limit>{{ text_limit }}</span> belgi</div>
+          {% if form.text.errors %}<div class="errors">{{ form.text.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-row">
+          <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
+          {{ form.image }}
+          <div class="help">
+            Rasm qo‘shilsa matn uning izohi bo‘ladi va chegara {{ caption_limit }} belgiga tushadi.
+          </div>
+          {% if form.image.errors %}<div class="errors">{{ form.image.errors|striptags }}</div>{% endif %}
+          {% if form.remove_image %}
+            <label class="check-row" style="margin-top:8px;">
+              {{ form.remove_image }} <span>{{ form.remove_image.label }}</span>
+            </label>
+          {% endif %}
+        </div>
+
+        <div class="form-row">
+          <label for="{{ form.buttons_raw.id_for_label }}">{{ form.buttons_raw.label }}</label>
+          {{ form.buttons_raw }}
+          <div class="help">{{ form.buttons_raw.help_text }}</div>
+          {% if form.buttons_raw.errors %}<div class="errors">{{ form.buttons_raw.errors|striptags }}</div>{% endif %}
+        </div>
+
+      </div>
+    </section>
+
+    <div>
+
+      <section class="card mb">
+        <div class="card-head"><h2>Kimga yuboriladi</h2></div>
+        <div class="card-body">
+          <div class="form-row">
+            <label for="{{ form.audience.id_for_label }}">{{ form.audience.label }}</label>
+            {{ form.audience }}
+            {% if form.audience.errors %}<div class="errors">{{ form.audience.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div class="form-row" data-bc-exam-row>
+            <label for="{{ form.exam.id_for_label }}">{{ form.exam.label }}</label>
+            {{ form.exam }}
+            {% if form.exam.errors %}<div class="errors">{{ form.exam.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div class="kv"><span class="k">Barcha foydalanuvchilar</span><span class="v">{{ audience_counts.all }}</span></div>
+          <div class="kv"><span class="k">Ro‘yxatdan o‘tganlar</span><span class="v">{{ audience_counts.registered }}</span></div>
+          <div class="kv"><span class="k">Oxirgi 30 kunda faol</span><span class="v">{{ audience_counts.active }}</span></div>
+          <div class="kv"><span class="k">Adminlar</span><span class="v">{{ audience_counts.admins }}</span></div>
+          <div class="help">Bloklangan foydalanuvchilarga reklama yuborilmaydi.</div>
+        </div>
+      </section>
+
+      <section class="card mb">
+        <div class="card-head"><h2>Ko‘rinishi</h2></div>
+        <div class="card-body">
+          <div class="tg-preview">
+            <div class="tg-bubble">
+              <img class="tg-photo" data-bc-photo alt="Reklama rasmi"
+                   {% if broadcast.has_image %}src="{{ broadcast.image.url }}"{% else %}hidden{% endif %}>
+              <div class="tg-text" data-bc-text></div>
+              <div class="tg-buttons" data-bc-buttons></div>
+            </div>
+          </div>
+          <div class="help">Bu — foydalanuvchi Telegramda ko‘radigan taxminiy ko‘rinish.</div>
+        </div>
+      </section>
+
+      <div class="chip-row">
+        <button class="btn btn-primary" type="submit">
+          <svg class="icon"><use href="#i-save"></use></svg> Saqlash
+        </button>
+        <a class="btn btn-outline"
+           href="{% if broadcast %}{% url 'dashboard:broadcast_detail' broadcast.pk %}{% else %}{% url 'dashboard:broadcast_list' %}{% endif %}">
+          Bekor qilish
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+  <script defer src="{% static 'dashboard/js/broadcast.js' %}?v={{ PANEL_CSS_VERSION }}"></script>
+{% endblock %}

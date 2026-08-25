@@ -11,6 +11,10 @@ Ikkita vazifa bajariladi:
      PDF ko'rinishida test egasiga va asosiy adminlarga yuboriladi.
      Hisobot testning qayerda yopilganidan (bot, web ilova yoki panel)
      qat'i nazar yuboriladi — vazifa bazadagi belgilarga qarab ishlaydi.
+
+  3. **Reklama xabarlarini yuborish** — panelda tayyorlangan ommaviy
+     xabar (matn, rasm, tugmalar) foydalanuvchilarga yetkaziladi
+     (`bot/tasks/broadcast.py`).
 """
 
 from __future__ import annotations
@@ -183,10 +187,13 @@ async def _broadcast(
 
 def start_scheduler(bot: Bot | None = None) -> list[asyncio.Task]:
     """Fon vazifalarini ishga tushiradi va ularning ro'yxatini qaytaradi."""
+    from bot.tasks.broadcast import QUEUE_INTERVAL, broadcast_loop
+
     config = get_config()
     tasks = [asyncio.create_task(auto_close_loop(config.auto_close_interval))]
     if bot is not None:
         tasks.append(asyncio.create_task(results_report_loop(bot, REPORT_INTERVAL)))
+        tasks.append(asyncio.create_task(broadcast_loop(bot, QUEUE_INTERVAL)))
     logger.info("Fon vazifalari ishga tushdi (%s ta).", len(tasks))
     return tasks
 

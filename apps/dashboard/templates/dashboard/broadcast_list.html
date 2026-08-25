@@ -1,0 +1,125 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Reklama{% endblock %}
+{% block page_title %}Reklama xabarlari{% endblock %}
+{% block crumbs %}Botdagi foydalanuvchilarga matn, rasm va tugmali xabar yuborish{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-primary" href="{% url 'dashboard:broadcast_create' %}">
+    <svg class="icon"><use href="#i-plus"></use></svg> Yangi reklama
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-4 mb">
+  <div class="stat">
+    <div class="ico"><svg class="icon"><use href="#i-send"></use></svg></div>
+    <div><div class="value">{{ stats.total }}</div><div class="label">Jami xabarlar</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico gold"><svg class="icon"><use href="#i-hourglass"></use></svg></div>
+    <div><div class="value">{{ stats.running }}</div><div class="label">Yuborilmoqda</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico green"><svg class="icon"><use href="#i-check-circle"></use></svg></div>
+    <div><div class="value">{{ stats.done }}</div><div class="label">Yakunlangan</div></div>
+  </div>
+  <div class="stat">
+    <div class="ico purple"><svg class="icon"><use href="#i-users"></use></svg></div>
+    <div><div class="value">{{ stats.sent }}</div><div class="label">Yetkazilgan xabar</div></div>
+  </div>
+</div>
+
+<section class="card mb">
+  <div class="card-body">
+    <form method="get" class="filters">
+      <div>
+        <label class="small muted" for="holati">Holati</label>
+        <select class="input" id="holati" name="holati" onchange="this.form.submit()">
+          <option value="">Barchasi</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <a class="btn btn-outline" href="{% url 'dashboard:broadcast_list' %}">Tozalash</a>
+      <div class="small muted" style="margin-left:auto; align-self:center;">
+        Auditoriya: barchasi {{ audience_counts.all }} ta,
+        ro‘yxatdan o‘tgan {{ audience_counts.registered }} ta,
+        faol {{ audience_counts.active }} ta
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-body tight">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="num">№</th>
+            <th>Xabar</th>
+            <th>Kimga</th>
+            <th>Holati</th>
+            <th>Yuborildi</th>
+            <th>Sana</th>
+            <th class="num"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in broadcasts %}
+            <tr>
+              <td class="num">{{ item.pk }}</td>
+              <td>
+                <a href="{% url 'dashboard:broadcast_detail' item.pk %}">{{ item.display_title }}</a>
+                <div class="small muted">
+                  {% if item.has_image %}<span class="badge badge-gray">Rasm</span>{% endif %}
+                  {% if item.button_count %}<span class="badge badge-gray">{{ item.button_count }} ta tugma</span>{% endif %}
+                </div>
+              </td>
+              <td class="small">{{ item.audience_label }}</td>
+              <td>
+                {% if item.status == 'draft' %}<span class="badge badge-gray">Qoralama</span>
+                {% elif item.status == 'queued' %}<span class="badge badge-orange">Navbatda</span>
+                {% elif item.status == 'sending' %}<span class="badge badge-navy">Yuborilmoqda</span>
+                {% elif item.status == 'done' %}<span class="badge badge-green">Yakunlandi</span>
+                {% elif item.status == 'cancelled' %}<span class="badge badge-gold">To‘xtatildi</span>
+                {% else %}<span class="badge badge-red">Xato</span>{% endif %}
+              </td>
+              <td class="small nowrap">
+                {{ item.sent }} / {{ item.total }}
+                <div class="bar green" style="margin-top:4px; width:110px;">
+                  <span style="width: {{ item.progress_percent }}%"></span>
+                </div>
+              </td>
+              <td class="small">{{ item.created_at|date:"d.m.Y H:i" }}</td>
+              <td class="num nowrap">
+                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:broadcast_detail' item.pk %}" title="Batafsil">
+                  <svg class="icon"><use href="#i-eye"></use></svg>
+                </a>
+                {% if item.is_editable %}
+                  <a class="btn btn-outline btn-sm" href="{% url 'dashboard:broadcast_edit' item.pk %}" title="Tahrirlash">
+                    <svg class="icon"><use href="#i-edit"></use></svg>
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">
+                <div class="empty">
+                  Hali reklama yuborilmagan.
+                  <a href="{% url 'dashboard:broadcast_create' %}">Birinchi xabarni yarating</a>.
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

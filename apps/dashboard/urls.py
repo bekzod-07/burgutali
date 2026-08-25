@@ -69,6 +69,18 @@ urlpatterns = [
         name="user_action",
     ),
 
+    # --- Reklama (ommaviy xabar) ---
+    path("reklama/", views.broadcast_list, name="broadcast_list"),
+    path("reklama/yangi/", views.broadcast_create, name="broadcast_create"),
+    path("reklama/<int:pk>/", views.broadcast_detail, name="broadcast_detail"),
+    path("reklama/<int:pk>/tahrir/", views.broadcast_edit, name="broadcast_edit"),
+    path("reklama/<int:pk>/holat/", views.broadcast_progress, name="broadcast_progress"),
+    path(
+        "reklama/<int:pk>/amal/<str:action>/",
+        views.broadcast_action,
+        name="broadcast_action",
+    ),
+
     # --- Amallar tarixi ---
     path("tarix/", views.audit_list, name="audit_list"),
 ]

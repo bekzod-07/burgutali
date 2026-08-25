@@ -15,6 +15,7 @@ _PANEL_ASSETS = (
     _PANEL_STATIC / "css" / "dashboard.css",
     _PANEL_STATIC / "js" / "mathpad.js",
     _PANEL_STATIC / "js" / "keysheet.js",
+    _PANEL_STATIC / "js" / "broadcast.js",
     # Umumiy matematik klaviatura ham shu versiya bilan yangilanadi.
     _SHARED_STATIC / "mathpad.css",
     _SHARED_STATIC / "mathpad.js",

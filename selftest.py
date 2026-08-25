@@ -2768,6 +2768,568 @@ def test_keysheet() -> None:
 
 
 # ==========================================================================
+#  23. Reklama (ommaviy xabar): matn + rasm + tugmalar
+# ==========================================================================
+
+
+class _FakePhoto:
+    """Telegram qaytaradigan rasm haqidagi ma'lumot."""
+
+    def __init__(self, file_id: str) -> None:
+        self.file_id = file_id
+
+
+class _FakeSentMessage:
+    """`send_photo` javobining soddalashtirilgan ko'rinishi."""
+
+    def __init__(self, photo=None) -> None:
+        self.photo = photo
+
+
+class _FakeBot:
+    """
+    Telegram o'rniga ishlaydigan soxta bot.
+
+    Reklama yuborishda faqat `send_message` va `send_photo` chaqiriladi,
+    shuning uchun shu ikkitasi yetarli.
+    """
+
+    FILE_ID = "SINOV_FILE_ID_123"
+
+    def __init__(self, blocked=(), broken=()) -> None:
+        self.messages: list[dict] = []
+        self.photos: list[dict] = []
+        self.blocked = set(blocked)
+        self.broken = set(broken)
+        self.count = 0
+
+    # ----------------------------------------------------------------
+    def _guard(self, chat_id: int) -> None:
+        from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+
+        self.count += 1
+        self.on_send(chat_id)
+        if chat_id in self.blocked:
+            raise TelegramForbiddenError(None, "bot was blocked by the user")
+        if chat_id in self.broken:
+            raise TelegramBadRequest(None, "chat not found")
+
+    def on_send(self, chat_id: int) -> None:
+        """Merosxo'r sinflar uchun ilgak."""
+
+    # ----------------------------------------------------------------
+    async def send_message(
+        self, chat_id, text=None, parse_mode="HTML", reply_markup=None, **kwargs
+    ):
+        self._guard(chat_id)
+        self.messages.append(
+            {
+                "chat_id": chat_id,
+                "text": text or "",
+                "parse_mode": parse_mode,
+                "markup": reply_markup,
+            }
+        )
+        return _FakeSentMessage()
+
+    async def send_photo(
+        self, chat_id, photo, caption=None, parse_mode="HTML", reply_markup=None, **kwargs
+    ):
+        self._guard(chat_id)
+        self.photos.append(
+            {
+                "chat_id": chat_id,
+                "photo": photo,
+                "caption": caption or "",
+                "parse_mode": parse_mode,
+                "markup": reply_markup,
+            }
+        )
+        return _FakeSentMessage([_FakePhoto(self.FILE_ID)])
+
+
+def test_broadcast() -> None:
+    import asyncio
+
+    from io import BytesIO
+
+    from django.contrib.auth.models import User
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from django.utils import timezone as dj_timezone
+
+    from apps.broadcasts import formatting as fmt
+    from apps.broadcasts import services as broadcast_services
+    from apps.broadcasts.models import Broadcast, BroadcastDelivery
+    from apps.dashboard.forms import BroadcastForm
+    from apps.users.models import BotUser
+    from bot.tasks import broadcast as worker
+
+    R.head("23. Reklama: matn, rasm va tugmali xabar")
+
+    # ------------------------------------------------------------------
+    #  Matnni tayyorlash
+    # ------------------------------------------------------------------
+    R.equal(
+        "Ruxsat etilgan teglar saqlanadi",
+        fmt.sanitize_html("Salom <b>dunyo</b>"),
+        "Salom <b>dunyo</b>",
+    )
+    R.equal(
+        "Ruxsatsiz teg oddiy matnga aylanadi",
+        fmt.sanitize_html("<script>alert(1)</script>"),
+        "&lt;script&gt;alert(1)&lt;/script&gt;",
+    )
+    R.equal(
+        "Yolg'iz «<» ekranlanadi",
+        fmt.sanitize_html("5 < 7 & 8"),
+        "5 &lt; 7 &amp; 8",
+    )
+    R.equal(
+        "Tozalash takrorlanganda o'zgarmaydi",
+        fmt.sanitize_html(fmt.sanitize_html("5 < 7 & 8")),
+        "5 &lt; 7 &amp; 8",
+    )
+    R.equal(
+        "Havola tegi saqlanadi",
+        fmt.sanitize_html('<a href="https://t.me/x">bu yerda</a>'),
+        '<a href="https://t.me/x">bu yerda</a>',
+    )
+    R.equal("«br» qator uzilishiga aylanadi", fmt.sanitize_html("a<br>b"), "a\nb")
+    R.raises(
+        "Yopilmagan teg xato beradi",
+        lambda: fmt.sanitize_html("<b>ochiq qoldi"),
+        fmt.FormatError,
+    )
+    R.raises(
+        "Noto'g'ri tartibda yopilgan teg xato beradi",
+        lambda: fmt.sanitize_html("<b><i>matn</b></i>"),
+        fmt.FormatError,
+    )
+    R.raises(
+        "Xavfli havola rad etiladi",
+        lambda: fmt.sanitize_html('<a href="javascript:alert(1)">x</a>'),
+        fmt.FormatError,
+    )
+    R.equal(
+        "Uzunlik teglarsiz hisoblanadi",
+        fmt.visible_length("<b>Salom</b>"),
+        5,
+    )
+    R.equal("Xabar chegarasi 4096", fmt.TEXT_LIMIT, 4096)
+    R.equal("Rasm izohi chegarasi 1024", fmt.CAPTION_LIMIT, 1024)
+
+    # ------------------------------------------------------------------
+    #  Tugmalar
+    # ------------------------------------------------------------------
+    rows = fmt.parse_buttons(
+        "Kanal | https://t.me/Burgutali\n"
+        "Sayt | https://burgutali.uz || Bot | https://t.me/sinov_bot"
+    )
+    R.equal("Tugmalar ikki qatorga bo'lindi", len(rows), 2)
+    R.equal("Ikkinchi qatorda ikkita tugma", len(rows[1]), 2)
+    R.equal("Tugma matni o'qildi", rows[0][0]["text"], "Kanal")
+    R.equal("Tugma havolasi o'qildi", rows[0][0]["url"], "https://t.me/Burgutali")
+    R.equal(
+        "Tugmalar matnga qaytariladi",
+        fmt.buttons_to_text(rows).splitlines()[0],
+        "Kanal | https://t.me/Burgutali",
+    )
+    R.raises(
+        "Havolasiz tugma rad etiladi",
+        lambda: fmt.parse_buttons("Kanal - https://t.me/x"),
+        fmt.FormatError,
+    )
+    R.raises(
+        "Noto'g'ri sxemali havola rad etiladi",
+        lambda: fmt.parse_buttons("Kanal | ftp://fayl.uz"),
+        fmt.FormatError,
+    )
+    R.raises(
+        "Bir qatorda to'rtta tugma rad etiladi",
+        lambda: fmt.parse_buttons(
+            "a | https://a.uz || b | https://b.uz || c | https://c.uz || d | https://d.uz"
+        ),
+        fmt.FormatError,
+    )
+
+    # ------------------------------------------------------------------
+    #  Sinov foydalanuvchilari
+    # ------------------------------------------------------------------
+    BotUser.objects.filter(telegram_id__in=[900001, 900002, 900003]).delete()
+    BotUser.objects.create(
+        telegram_id=900001, tg_first_name="Reklama qabul qiluvchi",
+        is_registered=True, last_seen_at=dj_timezone.now(),
+    )
+    blocker = BotUser.objects.create(
+        telegram_id=900002, tg_first_name="Botni bloklagan", is_registered=True
+    )
+    banned = BotUser.objects.create(
+        telegram_id=900003, tg_first_name="Panelda bloklangan", is_blocked=True
+    )
+
+    reachable = BotUser.objects.filter(is_blocked=False).count()
+    R.equal(
+        "Auditoriya bloklanganlarni hisobga olmaydi",
+        broadcast_services.audience_count(Broadcast.Audience.ALL),
+        reachable,
+    )
+    R.check(
+        "Bloklangan foydalanuvchi auditoriyaga tushmaydi",
+        not broadcast_services.audience_queryset(Broadcast.Audience.ALL)
+        .filter(pk=banned.pk)
+        .exists(),
+    )
+    R.check(
+        "«Ro'yxatdan o'tganlar» auditoriyasi kichikroq yoki teng",
+        broadcast_services.audience_count(Broadcast.Audience.REGISTERED) <= reachable,
+    )
+
+    # ------------------------------------------------------------------
+    #  Panel orqali yaratish
+    # ------------------------------------------------------------------
+    User.objects.filter(username="selftest_admin").delete()
+    User.objects.create_superuser("selftest_admin", "admin@test.local", "SelfTest12345!")
+    client = Client()
+    R.check(
+        "Admin panelga kirdi",
+        client.login(username="selftest_admin", password="SelfTest12345!"),
+    )
+
+    R.equal(
+        "Reklama ro'yxati ochiladi", client.get("/panel/reklama/").status_code, 200
+    )
+    R.equal(
+        "Yangi reklama formasi ochiladi",
+        client.get("/panel/reklama/yangi/").status_code,
+        200,
+    )
+    R.check(
+        "Panel menyusida «Reklama» bo'limi bor",
+        "Reklama" in client.get("/panel/").content.decode("utf-8", "replace"),
+    )
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (600, 400), (29, 78, 126)).save(buffer, format="PNG")
+    image_bytes = buffer.getvalue()
+
+    response = client.post(
+        "/panel/reklama/yangi/",
+        {
+            "title": "Sinov reklamasi",
+            "text": "Salom <b>do'stlar</b>! 5 < 7 <script>x</script>",
+            "buttons_raw": (
+                "Kanalga o'tish | https://t.me/Burgutali\n"
+                "Sayt | https://burgutali.uz || Bot | https://t.me/sinov_bot"
+            ),
+            "audience": Broadcast.Audience.ALL,
+            "exam": "",
+            "image": SimpleUploadedFile("reklama.png", image_bytes, content_type="image/png"),
+        },
+    )
+    R.check("Reklama saqlandi (redirect)", response.status_code in (301, 302))
+
+    broadcast = Broadcast.objects.order_by("-id").first()
+    R.check("Reklama bazaga yozildi", broadcast is not None)
+    R.check("Qalin teg saqlandi", "<b>do'stlar</b>" in broadcast.text)
+    R.check("Ruxsatsiz teg ekranlandi", "&lt;script&gt;" in broadcast.text)
+    R.equal("Uchta tugma saqlandi", broadcast.button_count, 3)
+    R.equal("Tugmalar ikki qatorda", len(broadcast.button_rows), 2)
+    R.check("Rasm biriktirildi", broadcast.has_image)
+    R.equal("Yangi xabar qoralama holatida", broadcast.status, Broadcast.Status.DRAFT)
+    R.check("Xabar tahrirlash uchun ochiq", broadcast.is_editable)
+
+    detail = client.get(f"/panel/reklama/{broadcast.pk}/")
+    R.equal("Reklama tafsiloti ochiladi", detail.status_code, 200)
+    detail_html = detail.content.decode("utf-8", "replace")
+    R.check(
+        "Tafsilotda tugma havolasi ko'rinadi",
+        "https://t.me/Burgutali" in detail_html,
+    )
+    R.check("Tafsilotda rasm ko'rinadi", "/media/broadcasts/" in detail_html)
+    R.check(
+        "Ruxsatsiz teg sahifada matn bo'lib qoladi",
+        "<script>x</script>" not in detail_html,
+    )
+    R.equal(
+        "Tahrirlash sahifasi ochiladi",
+        client.get(f"/panel/reklama/{broadcast.pk}/tahrir/").status_code,
+        200,
+    )
+
+    # --- Forma tekshiruvlari ---
+    empty_form = BroadcastForm(data={"text": "", "audience": Broadcast.Audience.ALL})
+    R.check("Bo'sh xabar qabul qilinmaydi", not empty_form.is_valid())
+
+    long_form = BroadcastForm(
+        data={
+            "text": "a" * (fmt.CAPTION_LIMIT + 10),
+            "audience": Broadcast.Audience.ALL,
+            "buttons_raw": "",
+        },
+        files={
+            "image": SimpleUploadedFile("katta.png", image_bytes, content_type="image/png")
+        },
+    )
+    R.check(
+        "Rasm izohi 1024 belgidan oshsa xato beriladi",
+        not long_form.is_valid() and "text" in long_form.errors,
+    )
+
+    bad_buttons = BroadcastForm(
+        data={
+            "text": "Matn",
+            "audience": Broadcast.Audience.ALL,
+            "buttons_raw": "Kanal | havola-emas",
+        }
+    )
+    R.check(
+        "Noto'g'ri tugma formada ushlanadi",
+        not bad_buttons.is_valid() and "buttons_raw" in bad_buttons.errors,
+    )
+
+    no_exam = BroadcastForm(
+        data={"text": "Matn", "audience": Broadcast.Audience.EXAM, "buttons_raw": ""}
+    )
+    R.check(
+        "«Test ishtirokchilari» uchun test ko'rsatilishi shart",
+        not no_exam.is_valid() and "exam" in no_exam.errors,
+    )
+
+    # ------------------------------------------------------------------
+    #  Navbatga qo'yish
+    # ------------------------------------------------------------------
+    response = client.post(f"/panel/reklama/{broadcast.pk}/amal/yuborish/")
+    R.check("Yuborish buyrug'i qabul qilindi", response.status_code in (301, 302))
+    broadcast.refresh_from_db()
+    R.equal("Reklama navbatga tushdi", broadcast.status, Broadcast.Status.QUEUED)
+    R.equal("Yuborish ro'yxati tuzildi", broadcast.total, reachable)
+    R.check(
+        "Bloklangan foydalanuvchi ro'yxatga kirmadi",
+        not BroadcastDelivery.objects.filter(
+            broadcast=broadcast, telegram_id=banned.telegram_id
+        ).exists(),
+    )
+    R.check(
+        "Yuborish holati JSON ko'rinishida beriladi",
+        client.get(f"/panel/reklama/{broadcast.pk}/holat/").json()["total"] == reachable,
+    )
+
+    # ------------------------------------------------------------------
+    #  Bot yuboradi
+    # ------------------------------------------------------------------
+    R.close("Tezlik sekundiga 20 ta xabar", worker.MESSAGES_PER_SECOND, 20.0, 0.001)
+    R.equal("Bir bo'lakda 50 ta xabar", worker.BATCH_SIZE, 50)
+    worker.SEND_PAUSE = 0.0  # sinovda kutib o'tirmaymiz
+
+    bot = _FakeBot(blocked={blocker.telegram_id})
+    R.check("Bot navbatdagi reklamani oldi", asyncio.run(worker.process_queue(bot)))
+
+    broadcast.refresh_from_db()
+    R.equal("Yuborish yakunlandi", broadcast.status, Broadcast.Status.DONE)
+    R.equal("Yetkazilganlar soni", broadcast.sent, reachable - 1)
+    R.equal("Botni bloklaganlar soni", broadcast.blocked, 1)
+    R.equal("Yuborilmaganlar yo'q", broadcast.failed, 0)
+    R.equal("Jarayon 100 foiz", broadcast.progress_percent, 100)
+    R.equal("Barcha xabar rasm bilan ketdi", len(bot.photos), reachable - 1)
+    R.check(
+        "Yakunda adminlarga hisobot yuborildi",
+        any("Reklama yuborildi" in item["text"] for item in bot.messages),
+    )
+
+    first_photo = bot.photos[0]
+    R.check(
+        "Birinchi xabarda rasm faylini yuklandi",
+        not isinstance(first_photo["photo"], str),
+    )
+    R.check(
+        "Keyingi xabarlarda Telegram fayl belgisi ishlatildi",
+        isinstance(bot.photos[-1]["photo"], str),
+    )
+    R.equal("Fayl belgisi saqlandi", broadcast.image_file_id, _FakeBot.FILE_ID)
+    R.check("Izoh xabar matni bilan bir xil", first_photo["caption"] == broadcast.text)
+    R.check("Tugmalar biriktirildi", first_photo["markup"] is not None)
+    R.equal(
+        "Klaviatura ikki qatorli", len(first_photo["markup"].inline_keyboard), 2
+    )
+    R.equal(
+        "Ikkinchi qatorda ikkita tugma",
+        len(first_photo["markup"].inline_keyboard[1]),
+        2,
+    )
+    R.equal(
+        "Tugma havolasi to'g'ri",
+        first_photo["markup"].inline_keyboard[0][0].url,
+        "https://t.me/Burgutali",
+    )
+
+    R.check(
+        "Bloklagan foydalanuvchi alohida belgilandi",
+        BroadcastDelivery.objects.filter(
+            broadcast=broadcast,
+            telegram_id=blocker.telegram_id,
+            status=BroadcastDelivery.Status.BLOCKED,
+        ).exists(),
+    )
+    R.check(
+        "Navbat bo'shadi",
+        not asyncio.run(worker.process_queue(_FakeBot())),
+    )
+
+    # ------------------------------------------------------------------
+    #  To'xtatish va davom ettirish
+    # ------------------------------------------------------------------
+    second = Broadcast.objects.create(
+        title="To'xtatiladigan xabar",
+        text="Ikkinchi xabar",
+        audience=Broadcast.Audience.ALL,
+        status=Broadcast.Status.DRAFT,
+    )
+    broadcast_services.queue_broadcast(second)
+    worker.BATCH_SIZE = 2
+
+    class _CancellingBot(_FakeBot):
+        """Ikkinchi xabardan keyin yuborishni to'xtatadi."""
+
+        def on_send(self, chat_id: int) -> None:
+            if self.count == 2:
+                Broadcast.objects.filter(pk=second.pk).update(
+                    status=Broadcast.Status.CANCELLED
+                )
+
+    asyncio.run(worker.process_queue(_CancellingBot()))
+    second.refresh_from_db()
+    R.equal("Xabar to'xtatilgan holatda", second.status, Broadcast.Status.CANCELLED)
+    R.equal("Ikkita xabar yuborilib ulgurdi", second.sent, 2)
+    R.check(
+        "Qolganlari navbatda qoldi",
+        BroadcastDelivery.objects.filter(
+            broadcast=second, status=BroadcastDelivery.Status.PENDING
+        ).count()
+        == second.total - 2,
+    )
+
+    resumed = _FakeBot()
+    broadcast_services.queue_broadcast(second)
+    asyncio.run(worker.process_queue(resumed))
+    second.refresh_from_db()
+    R.equal("Davom ettirilgach yakunlandi", second.status, Broadcast.Status.DONE)
+    R.equal("Hammaga yetib bordi", second.sent, second.total)
+    delivered_again = [
+        item for item in resumed.messages if item["text"] == "Ikkinchi xabar"
+    ]
+    R.equal(
+        "Avval olganlarga takror yuborilmadi", len(delivered_again), second.total - 2
+    )
+    worker.BATCH_SIZE = 50
+
+    # ------------------------------------------------------------------
+    #  Matn Telegram tomonidan rad etilsa — teglarsiz yuboriladi
+    # ------------------------------------------------------------------
+    class _PickyBot(_FakeBot):
+        """HTML matnni qabul qilmaydigan Telegram."""
+
+        async def send_message(
+            self, chat_id, text=None, parse_mode="HTML", reply_markup=None, **kwargs
+        ):
+            from aiogram.exceptions import TelegramBadRequest
+
+            if parse_mode == "HTML":
+                raise TelegramBadRequest(None, "can't parse entities: unexpected tag")
+            return await super().send_message(
+                chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup
+            )
+
+    picky_target = BotUser.objects.get(telegram_id=900001)
+    third = Broadcast.objects.create(
+        title="Teglar bilan xabar",
+        text="<b>Qalin</b> matn",
+        audience=Broadcast.Audience.ADMINS,
+        status=Broadcast.Status.DRAFT,
+    )
+    BroadcastDelivery.objects.create(
+        broadcast=third, user=picky_target, telegram_id=picky_target.telegram_id
+    )
+    Broadcast.objects.filter(pk=third.pk).update(
+        status=Broadcast.Status.QUEUED, total=1
+    )
+
+    picky = _PickyBot()
+    asyncio.run(worker.process_queue(picky))
+    third.refresh_from_db()
+    R.equal("Teglarsiz bo'lsa ham yetkazildi", third.sent, 1)
+    R.equal("Ikkinchi urinish teglarsiz ketdi", picky.messages[0]["parse_mode"], None)
+    R.equal("Matn teglarsiz yuborildi", picky.messages[0]["text"], "Qalin matn")
+
+    # ------------------------------------------------------------------
+    #  Sinov yuborish
+    # ------------------------------------------------------------------
+    broadcast_services.request_test_send(broadcast, 900001)
+    test_bot = _FakeBot()
+    R.check("Sinov xabari yuborildi", asyncio.run(worker.process_test_sends(test_bot)))
+    broadcast.refresh_from_db()
+    R.check("Sinov vaqti belgilandi", broadcast.test_sent_at is not None)
+    R.equal("Sinov xatosi yo'q", broadcast.test_error, "")
+    targets = {item["chat_id"] for item in test_bot.messages + test_bot.photos}
+    R.equal("Sinov faqat bitta odamga ketdi", targets, {900001})
+    R.equal("Sinovda ham rasm yuborildi", len(test_bot.photos), 1)
+    R.check(
+        "Sinov ikkinchi marta takrorlanmaydi",
+        not asyncio.run(worker.process_test_sends(_FakeBot())),
+    )
+
+    # ------------------------------------------------------------------
+    #  Qoralamaga qaytarish va o'chirish
+    # ------------------------------------------------------------------
+    client.post(f"/panel/reklama/{second.pk}/amal/qoralama/")
+    second.refresh_from_db()
+    R.equal("Qoralamaga qaytdi", second.status, Broadcast.Status.DRAFT)
+    R.equal("Yuborish tarixi tozalandi", second.total, 0)
+    R.check(
+        "Yuborish ro'yxati o'chirildi",
+        not BroadcastDelivery.objects.filter(broadcast=second).exists(),
+    )
+
+    client.post(f"/panel/reklama/{second.pk}/amal/nusxa/")
+    R.check(
+        "Nusxa yaratildi",
+        Broadcast.objects.filter(title__endswith="(nusxa)").exists(),
+    )
+
+    client.post(f"/panel/reklama/{third.pk}/amal/ochirish/")
+    R.check(
+        "Reklama o'chirildi", not Broadcast.objects.filter(pk=third.pk).exists()
+    )
+    R.check(
+        "O'chirilgan reklamaning yuborishlari ham ketdi",
+        not BroadcastDelivery.objects.filter(broadcast_id=third.pk).exists(),
+    )
+
+    # --- Yuborilayotgan xabarni o'chirib bo'lmaydi ---
+    Broadcast.objects.filter(pk=broadcast.pk).update(status=Broadcast.Status.SENDING)
+    client.post(f"/panel/reklama/{broadcast.pk}/amal/ochirish/")
+    R.check(
+        "Yuborilayotgan xabar o'chirilmaydi",
+        Broadcast.objects.filter(pk=broadcast.pk).exists(),
+    )
+    Broadcast.objects.filter(pk=broadcast.pk).update(status=Broadcast.Status.DONE)
+
+    # --- Anonim foydalanuvchi kira olmaydi ---
+    anonymous = Client()
+    R.check(
+        "Reklama bo'limi anonim foydalanuvchiga berilmaydi",
+        anonymous.get("/panel/reklama/").status_code in {302, 403},
+    )
+    R.check(
+        "Reklama yuborishni anonim foydalanuvchi boshlay olmaydi",
+        anonymous.post(f"/panel/reklama/{broadcast.pk}/amal/yuborish/").status_code
+        in {302, 403},
+    )
+
+
+# ==========================================================================
 #  Asosiy oqim
 # ==========================================================================
 
@@ -2801,6 +3363,7 @@ def main() -> int:
         test_charts,
         test_mathpad,
         test_keysheet,
+        test_broadcast,
     ]
 
     for step in steps:

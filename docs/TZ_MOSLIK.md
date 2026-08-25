@@ -155,5 +155,5 @@ Barcha chetlanishlar funksionallikni kamaytirmaydi.
 
 | Skript | Tekshiruvlar | Nimani qamrab oladi |
 |--------|--------------|---------------------|
-| `selftest.py` | 582 | konstantalar, matn, SymPy (xavfsizlik hujumlari bilan), Rasch algoritmi, kalit tahlili, ID generatori, migratsiyalar, 45-savollik to‘liq oqim, oddiy test, pullik test + sertifikat, eksport, Mini App imzosi, web sahifalar, panel, bot modullari, chegaraviy holatlar, test kodining qayta ishlatilishi, savollar qiyinchiligi diagrammasi |
+| `selftest.py` | 820 | konstantalar, matn, SymPy (xavfsizlik hujumlari bilan), Rasch algoritmi, kalit tahlili, ID generatori, migratsiyalar, 45-savollik to‘liq oqim, oddiy test, pullik test + sertifikat, eksport, Mini App imzosi, web sahifalar, panel, bot modullari, chegaraviy holatlar, test kodining qayta ishlatilishi, savollar qiyinchiligi diagrammasi, reklama (matn + rasm + tugmalar) yuborish |
 | `simulate.py` | 157 | botning haqiqiy oqimi: obuna → ro‘yxat → test yaratish → testga kirish → javob berish → yuborish → natija → admin paneli → ID kodlar → hisoblash → e'lon → sertifikat PDF |

@@ -1,0 +1,243 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}{{ broadcast.display_title }}{% endblock %}
+{% block page_title %}{{ broadcast.display_title }}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:broadcast_list' %}">Reklama</a> / №{{ broadcast.pk }}
+{% endblock %}
+
+{% block actions %}
+  {% if broadcast.is_editable %}
+    <a class="btn btn-outline" href="{% url 'dashboard:broadcast_edit' broadcast.pk %}">
+      <svg class="icon"><use href="#i-edit"></use></svg> Tahrirlash
+    </a>
+  {% endif %}
+  <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'nusxa' %}">
+    {% csrf_token %}
+    <button class="btn btn-outline" type="submit">
+      <svg class="icon"><use href="#i-copy"></use></svg> Nusxa olish
+    </button>
+  </form>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-2 mb">
+
+  <section class="card">
+    <div class="card-head"><h2>Xabar ko‘rinishi</h2></div>
+    <div class="card-body">
+      <div class="tg-preview">
+        <div class="tg-bubble">
+          {% if broadcast.has_image %}
+            <img class="tg-photo" src="{{ broadcast.image.url }}" alt="Reklama rasmi">
+          {% endif %}
+          <div class="tg-text">{{ broadcast.text|safe|linebreaksbr }}</div>
+          {% if broadcast.button_rows %}
+            <div class="tg-buttons">
+              {% for row in broadcast.button_rows %}
+                <div class="tg-button-row">
+                  {% for button in row %}
+                    <a class="tg-button" href="{{ button.url }}" target="_blank" rel="noopener">{{ button.text }}</a>
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div>
+
+    <section class="card mb" data-bc-progress
+             data-url="{% url 'dashboard:broadcast_progress' broadcast.pk %}"
+             data-running="{% if broadcast.is_running %}1{% else %}0{% endif %}">
+      <div class="card-head">
+        <h2>Holati</h2>
+        <span class="sub" data-bc-status-label>{{ broadcast.get_status_display }}</span>
+      </div>
+      <div class="card-body">
+        <div class="bar green mb">
+          <span data-bc-bar style="width: {{ broadcast.progress_percent }}%"></span>
+        </div>
+        <div class="kv"><span class="k">Kimga</span><span class="v">{{ broadcast.audience_label }}</span></div>
+        <div class="kv">
+          <span class="k">Auditoriyada hozir</span><span class="v">{{ recipients }} ta</span>
+        </div>
+        <div class="kv"><span class="k">Ro‘yxatga olingan</span><span class="v" data-bc-total>{{ broadcast.total }}</span></div>
+        <div class="kv"><span class="k">Yuborildi</span><span class="v" data-bc-sent>{{ broadcast.sent }}</span></div>
+        <div class="kv"><span class="k">Botni bloklaganlar</span><span class="v" data-bc-blocked>{{ broadcast.blocked }}</span></div>
+        <div class="kv"><span class="k">Yuborilmadi</span><span class="v" data-bc-failed>{{ broadcast.failed }}</span></div>
+        {% if broadcast.scheduled_at %}
+          <div class="kv"><span class="k">Rejalashtirilgan</span><span class="v">{{ broadcast.scheduled_at|date:"d.m.Y H:i" }}</span></div>
+        {% endif %}
+        {% if broadcast.started_at %}
+          <div class="kv"><span class="k">Boshlandi</span><span class="v">{{ broadcast.started_at|date:"d.m.Y H:i" }}</span></div>
+        {% endif %}
+        {% if broadcast.finished_at %}
+          <div class="kv"><span class="k">Tugadi</span><span class="v">{{ broadcast.finished_at|date:"d.m.Y H:i" }}</span></div>
+        {% endif %}
+        {% if broadcast.created_by %}
+          <div class="kv"><span class="k">Yaratdi</span><span class="v">{{ broadcast.created_by.get_username }}</span></div>
+        {% endif %}
+        {% if broadcast.error %}
+          <div class="message message-error" style="margin-top:12px;">{{ broadcast.error }}</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card mb">
+      <div class="card-head"><h2>Amallar</h2></div>
+      <div class="card-body">
+
+        {% if broadcast.is_running %}
+          <p class="small muted">
+            Xabarlarni bot yuboradi. Jarayon shu sahifada o‘zi yangilanib turadi.
+          </p>
+          <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'toxtatish' %}">
+            {% csrf_token %}
+            <button class="btn btn-red" type="submit" onclick="return confirm('Yuborish to‘xtatilsinmi?')">
+              <svg class="icon"><use href="#i-stop"></use></svg> To‘xtatish
+            </button>
+          </form>
+
+        {% elif broadcast.status == 'cancelled' %}
+          <p class="small muted">
+            Yuborish to‘xtatilgan. Davom ettirilsa, xabar olmaganlarga yuboriladi —
+            allaqachon olganlarga takror ketmaydi.
+          </p>
+          <div class="chip-row">
+            <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'davom' %}">
+              {% csrf_token %}
+              <button class="btn btn-primary" type="submit">
+                <svg class="icon"><use href="#i-play"></use></svg> Davom ettirish
+              </button>
+            </form>
+            <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'qoralama' %}">
+              {% csrf_token %}
+              <button class="btn btn-outline" type="submit"
+                      onclick="return confirm('Yuborish tarixi o‘chiriladi va xabar qoralamaga qaytadi. Davom etilsinmi?')">
+                <svg class="icon"><use href="#i-refresh"></use></svg> Qoralamaga qaytarish
+              </button>
+            </form>
+          </div>
+
+        {% elif broadcast.status == 'done' %}
+          <p class="small muted">Yuborish yakunlangan.</p>
+          <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'qoralama' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline" type="submit"
+                    onclick="return confirm('Yuborish tarixi o‘chiriladi va xabar qoralamaga qaytadi. Davom etilsinmi?')">
+              <svg class="icon"><use href="#i-refresh"></use></svg> Qoralamaga qaytarish
+            </button>
+          </form>
+
+        {% else %}
+          <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'yuborish' %}">
+            {% csrf_token %}
+            <div class="form-row">
+              <label for="vaqt">Yuborish vaqti</label>
+              <input class="input" type="datetime-local" id="vaqt" name="vaqt">
+              <div class="help">Bo‘sh qoldirilsa darhol yuboriladi.</div>
+            </div>
+            <button class="btn btn-primary" type="submit"
+                    onclick="return confirm('Reklama {{ recipients }} ta foydalanuvchiga yuborilsinmi?')">
+              <svg class="icon"><use href="#i-send"></use></svg> Yuborish
+            </button>
+          </form>
+        {% endif %}
+
+      </div>
+    </section>
+
+    <section class="card mb">
+      <div class="card-head"><h2>Sinov yuborish</h2></div>
+      <div class="card-body">
+        <p class="small muted">
+          Xabarni avval o‘zingizga yuborib ko‘ring — tugmalar va rasm
+          Telegramda qanday ko‘rinishini shundan bilasiz.
+        </p>
+        <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'sinov' %}">
+          {% csrf_token %}
+          <div class="form-row">
+            <label for="telegram_id">Telegram ID</label>
+            <input class="input" type="text" id="telegram_id" name="telegram_id"
+                   value="{{ test_target|default_if_none:'' }}" placeholder="masalan: 123456789">
+          </div>
+          <button class="btn btn-gold" type="submit">
+            <svg class="icon"><use href="#i-send"></use></svg> Sinov yuborish
+          </button>
+        </form>
+        {% if broadcast.test_error %}
+          <div class="message message-error" style="margin-top:12px;">{{ broadcast.test_error }}</div>
+        {% elif broadcast.test_sent_at %}
+          <div class="message message-success" style="margin-top:12px;">
+            Sinov xabari {{ broadcast.test_sent_at|date:"d.m.Y H:i" }} da yuborildi.
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    {% if not broadcast.is_running %}
+      <form method="post" action="{% url 'dashboard:broadcast_action' broadcast.pk 'ochirish' %}">
+        {% csrf_token %}
+        <button class="btn btn-red" type="submit"
+                onclick="return confirm('Reklama butunlay o‘chirilsinmi?')">
+          <svg class="icon"><use href="#i-trash"></use></svg> Reklamani o‘chirish
+        </button>
+      </form>
+    {% endif %}
+
+  </div>
+
+</div>
+
+{% if problems %}
+  <section class="card">
+    <div class="card-head">
+      <h2>Yetkazilmagan xabarlar</h2>
+      <span class="sub">Oxirgi {{ problems|length }} tasi</span>
+    </div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Foydalanuvchi</th>
+              <th class="num">Telegram ID</th>
+              <th>Holati</th>
+              <th>Sabab</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in problems %}
+              <tr>
+                <td class="small">
+                  <a href="{% url 'dashboard:user_detail' item.user.pk %}">{{ item.user.display_name }}</a>
+                </td>
+                <td class="num small">{{ item.telegram_id }}</td>
+                <td>
+                  {% if item.status == 'blocked' %}
+                    <span class="badge badge-gold">Botni bloklagan</span>
+                  {% else %}
+                    <span class="badge badge-red">Xato</span>
+                  {% endif %}
+                </td>
+                <td class="small">{{ item.error|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+  <script defer src="{% static 'dashboard/js/broadcast.js' %}?v={{ PANEL_CSS_VERSION }}"></script>
+{% endblock %}

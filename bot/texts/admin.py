@@ -223,4 +223,25 @@ CHARTS_EMPTY = (
 )
 
 
+# --------------------------------------------------------------------------
+#  Reklama (ommaviy xabar)
+# --------------------------------------------------------------------------
+
+#: Yuborish yakunlanganda adminlarga boradigan qisqa hisobot.
+BROADCAST_DONE = (
+    "<b>Reklama yuborildi</b>\n\n"
+    "Xabar: <b>{title}</b>\n"
+    "Qabul qiluvchilar: <b>{total}</b> ta\n"
+    "Yetkazildi: <b>{sent}</b> ta\n"
+    "Botni bloklaganlar: <b>{blocked}</b> ta\n"
+    "Yetkazilmadi: <b>{failed}</b> ta"
+)
+
+#: Sinov xabaridan oldin yuboriladigan izoh.
+BROADCAST_TEST_NOTE = (
+    "<b>Sinov xabari</b> — quyida reklama qanday ko‘rinishi ko‘rsatiladi. "
+    "Bu xabar boshqa foydalanuvchilarga yuborilmadi."
+)
+
+
 __all__ = [name for name in dir() if not name.startswith("_")]
