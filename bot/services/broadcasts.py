@@ -3,8 +3,8 @@ Reklama yuborish uchun baza amallari.
 
 Panel xabarni bazaga yozadi, bot esa shu yerdagi funksiyalar orqali uni
 o'qiydi va yuborilganini belgilaydi. Barcha amallar ORM ustida bo'lgani
-uchun asinxron ko'rinishga o'ralgan (`sync_db_call` SQLite qulfida
-qayta urinadi ham).
+uchun asinxron ko'rinishga o'ralgan; ustiga `retry_on_lock` qo'yilgan —
+web va bot bitta SQLite fayliga yozgani uchun qulfda qayta urinadi.
 """
 
 from __future__ import annotations
@@ -104,14 +104,6 @@ def _next_deliveries(broadcast_id: int, limit: int) -> list[tuple[int, int]]:
         .values_list("id", "telegram_id")[:limit]
     )
     return list(rows)
-
-
-@retry_on_lock
-def _mark_delivery(delivery_id: int, status: str, error: str = "") -> None:
-    """Bitta yuborishning natijasini yozadi."""
-    BroadcastDelivery.objects.filter(pk=delivery_id).update(
-        status=status, error=error[:200], sent_at=timezone.now()
-    )
 
 
 @retry_on_lock
@@ -242,7 +234,6 @@ def _report_recipients() -> list[int]:
 #: uchun bu yerda faqat asinxron ko'rinishga o'tkaziladi.
 claim_next = sync_to_async(_claim_next, thread_sensitive=True)
 next_deliveries = sync_to_async(_next_deliveries, thread_sensitive=True)
-mark_delivery = sync_to_async(_mark_delivery, thread_sensitive=True)
 mark_deliveries = sync_to_async(_mark_deliveries, thread_sensitive=True)
 current_status = sync_to_async(_current_status, thread_sensitive=True)
 update_counters = sync_to_async(_update_counters, thread_sensitive=True)
@@ -257,7 +248,6 @@ report_recipients = sync_to_async(_report_recipients, thread_sensitive=True)
 __all__ = [
     "claim_next",
     "next_deliveries",
-    "mark_delivery",
     "mark_deliveries",
     "current_status",
     "update_counters",

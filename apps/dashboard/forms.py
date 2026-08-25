@@ -432,8 +432,12 @@ class BroadcastForm(forms.ModelForm):
         self.fields["exam"].required = False
         self.fields["exam"].queryset = Exam.objects.order_by("-created_at")
         self.fields["exam"].empty_label = "— tanlanmagan —"
-        self.fields["image"].widget.attrs.update(
-            {"class": "input", "accept": "image/*"}
+        # Standart `ClearableFileInput` inglizcha «Currently / Change / Clear»
+        # yozuvlarini chiqaradi — panel esa butunlay o'zbekcha. Shuning uchun
+        # oddiy fayl maydoni ishlatiladi, rasmni olib tashlash uchun esa
+        # quyidagi `remove_image` katagi bor.
+        self.fields["image"].widget = forms.FileInput(
+            attrs={"class": "input", "accept": "image/*"}
         )
         if self.instance and self.instance.pk:
             self.fields["buttons_raw"].initial = tg_format.buttons_to_text(
