@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.attempts.grading import grade_attempt
@@ -373,25 +373,27 @@ def _persist_difficulties(items: list[Item], difficulties: np.ndarray) -> None:
 
 
 def _assign_ranks(exam: Exam) -> None:
-    """Reyting o'rinlarini belgilaydi (bir xil ballga bir xil o'rin)."""
+    """
+    Reyting o'rinlarini belgilaydi — ketma-ket, takrorlanmaydigan raqamlar.
+
+    O'rinlar 1, 2, 3, ... tartibida yuradi: bir xil o'rin ikki marta
+    yozilmaydi. Ballari teng chiqqanda testni **oldinroq** topshirgan
+    yuqoriroq o'rinni oladi, kechroq topshirgani esa keyingi o'ringa
+    tushadi (masalan 10 va 11).
+    """
     attempts = list(
         Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
-        .order_by("-ball", "-raw_score", "submitted_at", "id")
+        .order_by(
+            models.F("ball").desc(nulls_last=True),
+            "-raw_score",
+            models.F("submitted_at").asc(nulls_last=True),
+            "id",
+        )
     )
-    previous_key = None
-    previous_rank = 0
-    updated: list[Attempt] = []
     for index, attempt in enumerate(attempts, start=1):
-        key = (round(attempt.ball or 0.0, 4), round(attempt.raw_score or 0.0, 4))
-        if key == previous_key:
-            attempt.rank = previous_rank
-        else:
-            attempt.rank = index
-            previous_rank = index
-            previous_key = key
-        updated.append(attempt)
-    if updated:
-        Attempt.objects.bulk_update(updated, ["rank"], batch_size=500)
+        attempt.rank = index
+    if attempts:
+        Attempt.objects.bulk_update(attempts, ["rank"], batch_size=500)
 
 
 def _update_statistics(exam: Exam, matrix: np.ndarray, items: list[Item]) -> None:
@@ -416,6 +418,10 @@ def _update_statistics(exam: Exam, matrix: np.ndarray, items: list[Item]) -> Non
     if matrix.size and matrix.shape[1] == len(items):
         p_values = matrix.mean(axis=0)
         biserial = estimator._point_biserial(matrix)  # noqa: SLF001
+        # Diagramma uchun odamlar soni ham saqlanadi: nechtasi savolni
+        # topgan va nechtasi topa olmagan (`apps.exports.charts`).
+        correct_counts = matrix.sum(axis=0)
+        respondents = int(matrix.shape[0])
         for index, item in enumerate(items):
             item_stats.append(
                 {
@@ -424,6 +430,8 @@ def _update_statistics(exam: Exam, matrix: np.ndarray, items: list[Item]) -> Non
                     "p_value": round(float(p_values[index]), 4),
                     "difficulty": round(float(item.difficulty), 4),
                     "point_biserial": round(float(biserial[index]), 4),
+                    "correct": int(correct_counts[index]),
+                    "total": respondents,
                 }
             )
 

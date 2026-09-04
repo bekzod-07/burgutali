@@ -3,8 +3,11 @@ Fon vazifalari.
 
 Ikkita vazifa bajariladi:
 
-  1. **Testlarni avtomatik yopish** — tugash vaqti o'tgan faol testlar
-     yopiladi (javob qabul qilish to'xtaydi).
+  1. **Testlarni avtomatik tugatish va tozalash** — tugash vaqti o'tgan
+     faol testlar tugatiladi (javob qabul qilish to'xtaydi, natijalar
+     hisoblanib e'lon qilinadi). Faol bo'lmagan testlar esa 24 soatdan
+     keyin bazadan butunlay o'chiriladi — ro'yxatda faqat faol testlar
+     qoladi.
 
   2. **Adminga umumiy natijalar hisobotini yuborish** — 2- va 3-tur (RASH)
      testlari yopilganda va natijalar e'lon qilinganda umumiy natijalar
@@ -37,18 +40,35 @@ REPORT_INTERVAL: int = 60
 
 
 async def auto_close_loop(interval: int) -> None:
-    """Belgilangan oraliqda vaqti tugagan testlarni yopadi."""
+    """
+    Vaqti tugagan testlarni tugatadi va eskirganlarini tozalaydi.
+
+    Ikkita ish bir oraliqda bajariladi:
+      * tugash vaqti o'tgan faol test tugatiladi — natijalari hisoblanib
+        e'lon qilinadi;
+      * faol bo'lmagan test 24 soatdan keyin bazadan o'chiriladi.
+    """
     from bot.services import exams as exam_service
 
     while True:
         try:
             closed = await exam_service.auto_close_expired()
             if closed:
-                logger.info("Vaqti tugagan %s ta test avtomatik yopildi.", closed)
+                logger.info("Vaqti tugagan %s ta test avtomatik tugatildi.", closed)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception:  # pragma: no cover - fon vazifasi to'xtamasin
-            logger.exception("Testlarni avtomatik yopishda xato")
+            logger.exception("Testlarni avtomatik tugatishda xato")
+
+        try:
+            purged = await exam_service.auto_purge_finished()
+            if purged:
+                logger.info("%s ta eskirgan test avtomatik o'chirildi.", purged)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception:  # pragma: no cover - fon vazifasi to'xtamasin
+            logger.exception("Eskirgan testlarni tozalashda xato")
+
         await asyncio.sleep(max(15, interval))
 
 

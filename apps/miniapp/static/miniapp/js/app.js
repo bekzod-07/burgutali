@@ -1051,16 +1051,12 @@
     }).catch(handleError);
   }
 
+  /* Test yaratilishi bilan faollashadi, tugatilgani esa 24 soatdan keyin
+     o'chadi — shuning uchun holat ikkitagina. */
   function statusBadge(exam) {
-    var map = {
-      draft: ["badge-muted", "Qoralama"],
-      active: ["badge-green", "Faol"],
-      closed: ["badge-gold", "Yopilgan"],
-      calculated: ["badge-purple", "Hisoblangan"],
-      published: ["badge-accent", "E’lon qilingan"],
-      archived: ["badge-muted", "Arxiv"]
-    };
-    var info = map[exam.status] || ["badge-muted", exam.status_label];
+    var info = exam.status === "active"
+      ? ["badge-green", "Faol"]
+      : ["badge-muted", "Tugatilgan"];
     return '<span class="badge ' + info[0] + '">' + esc(info[1]) + "</span>";
   }
 
@@ -1492,17 +1488,11 @@
 
       html += '<div class="section-title">' + ic("settings", "icon-sm") + "Amallar</div>";
 
-      if (exam.status === "draft" || exam.status === "closed") {
-        html += actionButton("activate", "play", "Faollashtirish", "btn-green");
-      }
-      if (exam.status === "active") {
-        html += actionButton("close", "stop", "Testni yopish", "btn-ghost");
-      }
-      if (["active", "closed", "calculated", "published"].indexOf(exam.status) !== -1) {
-        html += actionButton("calculate", "sigma", "Natijalarni hisoblash", "btn");
-      }
-      if (["calculated", "published"].indexOf(exam.status) !== -1) {
-        html += actionButton("publish", "send", "Natijalarni e’lon qilish", "btn-gold");
+      /* Yagona yakunlovchi amal: yopadi, hisoblaydi va e’lon qiladi. */
+      if (exam.status === "draft" || exam.status === "active") {
+        html += actionButton("finish", "stop", "Testni tugatish", "btn-gold");
+      } else {
+        html += actionButton("recalculate", "sigma", "Natijalarni qayta hisoblash", "btn-ghost");
       }
       if (exam.certificate && exam.status === "published") {
         html += actionButton("certificates", "award", "Sertifikatlarni yaratish", "btn-ghost");
@@ -1515,9 +1505,6 @@
         ic("sheet") + "Natijalar (Excel)</a>";
       html += '<a class="btn btn-ghost" href="' + esc(data.exports.results_pdf) + '" target="_blank" rel="noopener">' +
         ic("file") + "Natijalar (PDF)</a>";
-
-      html += actionButton("duplicate", "copy", "Nusxa yaratish", "btn-ghost");
-      html += actionButton("archive", "save", "Arxivlash", "btn-ghost");
 
       html += '<button class="btn btn-danger" data-act="delete-exam" data-code="' + esc(exam.code) + '">' +
         ic("trash") + "Testni o‘chirish</button>";
@@ -1538,10 +1525,6 @@
       .then(function (data) {
         setBusy(false);
         toast(data.message || "Bajarildi.");
-        if (action === "duplicate" && data.exam) {
-          go("manage", { code: data.exam.code }, true);
-          return;
-        }
         render();
       })
       .catch(function (error) { setBusy(false); toast(error.message, true); });

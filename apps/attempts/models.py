@@ -32,8 +32,19 @@ class AttemptQuerySet(models.QuerySet):
         return self.filter(exam=exam)
 
     def ranked(self):
-        """Reyting tartibida (ball -> to'g'ri javob -> topshirish vaqti)."""
-        return self.order_by("-ball", "-raw_score", "submitted_at")
+        """
+        Reyting tartibida: ball -> to'g'ri javob -> topshirish vaqti.
+
+        Ballari teng bo'lganda testni oldinroq topshirgan yuqorida turadi —
+        o'rinlar aynan shu tartibda 1, 2, 3, ... bo'lib raqamlanadi
+        (`apps.rasch.services._assign_ranks`).
+        """
+        return self.order_by(
+            models.F("ball").desc(nulls_last=True),
+            "-raw_score",
+            models.F("submitted_at").asc(nulls_last=True),
+            "id",
+        )
 
 
 class Attempt(TimeStampedModel):

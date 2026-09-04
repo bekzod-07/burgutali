@@ -19,7 +19,8 @@
   </section>
 
   <section class="section">
-    <div class="grid grid-4">
+    {# Maksimal ball ommaviy sahifada ko'rsatilmaydi — u faqat panelda. #}
+    <div class="grid grid-3">
       <div class="stat">
         <div class="stat-value">{{ stats.exams }}</div>
         <div class="stat-label">Yaratilgan testlar</div>
@@ -31,10 +32,6 @@
       <div class="stat">
         <div class="stat-value">{{ stats.certificates }}</div>
         <div class="stat-label">Berilgan sertifikatlar</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">90.14</div>
-        <div class="stat-label">Maksimal ball</div>
       </div>
     </div>
   </section>
@@ -57,7 +54,8 @@
         <h3>Rasch (IRT-1PL) baholash</h3>
         <p>
           Savol qiyinligi <em>b</em> ma’lumotlardan kalibrlanadi, qobiliyat
-          <em>θ</em> esa MLE orqali topiladi va 90.14 ballik shkalaga o‘tkaziladi.
+          <em>θ</em> esa MLE orqali topiladi va standart ball shkalasiga
+          o‘tkaziladi.
         </p>
       </div>
 

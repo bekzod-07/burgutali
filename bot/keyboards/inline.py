@@ -285,14 +285,12 @@ def exam_manage(exam, *, is_owner: bool = True) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     status = exam.status
 
-    if status in {"draft", "closed"}:
-        builder.button(text=TA.BTN_ACTIVATE, callback_data=ExamCB(action="activate", exam_id=exam.id))
-    if status == "active":
-        builder.button(text=TA.BTN_CLOSE, callback_data=ExamCB(action="close", exam_id=exam.id))
-    if status in {"active", "closed", "calculated", "published"}:
-        builder.button(text=TA.BTN_CALCULATE, callback_data=ExamCB(action="calc", exam_id=exam.id))
-    if status in {"calculated", "published"}:
-        builder.button(text=TA.BTN_PUBLISH, callback_data=ExamCB(action="publish", exam_id=exam.id))
+    # Test yaratilishi bilan faollashadi, «Testni tugatish» esa uni yopadi,
+    # natijalarni hisoblab darhol e'lon qiladi.
+    if status in {"draft", "active"}:
+        builder.button(
+            text=TA.BTN_FINISH, callback_data=ExamCB(action="finish", exam_id=exam.id)
+        )
 
     builder.button(text=TA.BTN_RATING, callback_data=ExamCB(action="rating", exam_id=exam.id))
     builder.button(text=TA.BTN_EXPORT_RESULTS, callback_data=ExamCB(action="xlsx", exam_id=exam.id))
@@ -307,8 +305,6 @@ def exam_manage(exam, *, is_owner: bool = True) -> InlineKeyboardMarkup:
                 text=TA.BTN_CERTIFICATES, callback_data=ExamCB(action="certs", exam_id=exam.id)
             )
 
-    builder.button(text=TA.BTN_DUPLICATE, callback_data=ExamCB(action="copy", exam_id=exam.id))
-    builder.button(text=TA.BTN_ARCHIVE, callback_data=ExamCB(action="archive", exam_id=exam.id))
     builder.button(text=TA.BTN_DELETE, callback_data=ExamCB(action="delete", exam_id=exam.id))
     builder.adjust(1)
 

@@ -21,22 +21,25 @@
 <section class="card mb">
   <div class="card-head">
     <h2>Test boshqaruvi</h2>
-    <span class="sub">Joriy holat: <b>{{ exam.get_status_display }}</b></span>
+    <span class="sub">
+      Joriy holat:
+      {% if exam.status == 'active' %}<b>Faol</b>{% else %}<b>Tugatilgan</b>{% endif %}
+    </span>
   </div>
   <div class="card-body">
+    {% comment %}
+       Test yaratilishi bilan faollashadi, «Testni tugatish» esa uchta ishni
+       bir o‘zi bajaradi: javob qabul qilishni to‘xtatadi, natijalarni
+       hisoblaydi va darhol e’lon qiladi.
+    {% endcomment %}
     <div class="chip-row">
-      <a class="btn btn-green" href="{% url 'dashboard:exam_action' exam.pk 'faollashtirish' %}">
-        <svg class="icon"><use href="#i-play"></use></svg> Faollashtirish
-      </a>
-      <a class="btn btn-outline" href="{% url 'dashboard:exam_action' exam.pk 'yopish' %}">
-        <svg class="icon"><use href="#i-stop"></use></svg> Yopish
-      </a>
-      <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">
-        <svg class="icon"><use href="#i-sigma"></use></svg> Natijalarni hisoblash
-      </a>
-      <a class="btn btn-gold" href="{% url 'dashboard:exam_action' exam.pk 'elon' %}">
-        <svg class="icon"><use href="#i-send"></use></svg> Natijalarni e’lon qilish
-      </a>
+      {% if exam.status == 'active' %}
+        <a class="btn btn-gold" href="{% url 'dashboard:exam_action' exam.pk 'tugatish' %}">
+          <svg class="icon"><use href="#i-stop"></use></svg> Testni tugatish
+        </a>
+      {% else %}
+        <span class="badge badge-green">Test tugatilgan — natijalar e’lon qilingan</span>
+      {% endif %}
       {% if exam.can_issue_certificate %}
         <a class="btn btn-outline" href="{% url 'dashboard:exam_action' exam.pk 'sertifikatlar' %}">
           <svg class="icon"><use href="#i-award"></use></svg> Sertifikatlarni yaratish
@@ -51,13 +54,22 @@
       <a class="btn btn-outline" href="{% url 'dashboard:export_participants' exam.pk %}">
         <svg class="icon"><use href="#i-users"></use></svg> Ishtirokchilar
       </a>
-      <a class="btn btn-outline" href="{% url 'dashboard:exam_duplicate' exam.pk %}">
-        <svg class="icon"><use href="#i-copy"></use></svg> Nusxa yaratish
-      </a>
       <a class="btn btn-red" href="{% url 'dashboard:exam_delete' exam.pk %}">
         <svg class="icon"><use href="#i-trash"></use></svg> Testni o‘chirish
       </a>
     </div>
+
+    {% if exam.status == 'active' %}
+      <div class="message mt">
+        Test tugatilgach natijalar avtomatik hisoblanadi va e’lon qilinadi.
+        Tugatilgan test 24 soatdan keyin bazadan butunlay o‘chadi.
+      </div>
+    {% else %}
+      <div class="message message-warning mt">
+        Test tugatilgan. U 24 soatdan keyin bazadan butunlay o‘chadi —
+        kerakli natijalarni oldindan yuklab oling.
+      </div>
+    {% endif %}
 
     {% if missing_keys %}
       <div class="message message-warning mt">

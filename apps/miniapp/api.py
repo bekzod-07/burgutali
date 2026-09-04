@@ -604,9 +604,11 @@ def exam_create(request, user):
     if open_keys:
         exam_services.apply_open_keys(exam, open_keys)
 
+    # Test saqlangan zahoti o'zi faollashadi — qo'lda faollashtirish yo'q.
+    # Pullik test bundan mustasno: unda avval ID kodlar yaratilishi kerak.
     activated = False
     message = ""
-    if bool(data.get("activate", True)) and exam_type != Exam.Type.RASCH_PAID:
+    if exam_type != Exam.Type.RASCH_PAID:
         activated, message = exam_services.activate_exam(exam)
         exam.refresh_from_db()
 
@@ -650,26 +652,29 @@ def exam_delete_preview(request, user, code: str):
 
 @api_view("POST")
 def exam_action(request, user, code: str):
-    """Test ustidagi amallar: faollashtirish, yopish, hisoblash, e'lon qilish."""
+    """
+    Test ustidagi amallar.
+
+    Asosiysi — «finish»: test yopiladi, natijalar hisoblanadi va darhol
+    e'lon qilinadi. Alohida yopish / hisoblash / e'lon qilish bosqichlari
+    yo'q, chunki test yaratilishi bilan faol bo'ladi.
+    """
     exam = get_owned_exam(code, user)
     action = str(body(request).get("action", ""))
 
-    if action == "activate":
-        ok, message = exam_services.activate_exam(exam)
-    elif action == "close":
-        ok, message = exam_services.close_exam(exam)
-    elif action == "calculate":
+    if action == "finish":
+        ok, message = exam_services.finish_exam(exam)
+        if ok and exam.can_issue_certificate:
+            exam.refresh_from_db()
+            result = certificate_services.issue_for_exam(exam)
+            message += f" Sertifikatlar: {result['created']} ta."
+    elif action == "recalculate":
         report = calculate_exam(exam)
         ok = True
         message = (
-            f"{report.participants} ta qatnashchi hisoblandi. "
+            f"{report.participants} ta qatnashchi qayta hisoblandi. "
             f"Ishonchlilik: {report.reliability:.3f}"
         )
-    elif action == "publish":
-        ok, message = exam_services.publish_results(exam)
-        if ok and exam.can_issue_certificate:
-            result = certificate_services.issue_for_exam(exam)
-            message += f" Sertifikatlar: {result['created']} ta."
     elif action == "certificates":
         if not exam.can_issue_certificate:
             raise ApiError("Bu testda sertifikat berish yoqilmagan.")
@@ -679,14 +684,6 @@ def exam_action(request, user, code: str):
             f"{result['created']} ta sertifikat yaratildi, "
             f"{result['skipped']} ta o'tkazib yuborildi."
         )
-    elif action == "archive":
-        ok, message = exam_services.archive_exam(exam)
-    elif action == "duplicate":
-        copy = exam_services.duplicate_exam(exam, user)
-        return {
-            "message": "Test nusxalandi.",
-            "exam": S.exam_dict(copy, participants=0, detailed=True),
-        }
     else:
         raise ApiError("Noma'lum amal.")
 

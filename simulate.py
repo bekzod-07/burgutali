@@ -788,19 +788,16 @@ async def scenario_admin(sim: Simulator) -> None:
     R.check("Boshqaruv kartochkasi ochildi", "MILLIY SERTIFIKAT MOCK №9" in text)
     R.check("ID kodlar ma'lumoti bor", "ID kodlar" in text)
 
-    index = await sim.click(ADMIN_ID, f"exam:calc:{exam.id}")
+    # Yagona yakunlovchi amal: yopadi, hisoblaydi va e'lon qiladi.
+    index = await sim.click(ADMIN_ID, f"exam:finish:{exam.id}")
     text = sim.joined_texts(index)
-    R.check("Natijalar hisoblandi", "Natijalar hisoblandi" in text)
-    R.check("Ishonchlilik ko'rsatildi", "Ishonchlilik" in text)
+    R.check("Test tugatildi", "Test tugatildi" in text)
+    R.check("Natijalar e'lon qilindi", "e’lon qilindi" in text)
+    R.check("Sertifikatlar yaratildi", "Sertifikatlar" in text)
 
     attempt = await q(lambda: Attempt.objects.filter(exam=exam, status="submitted").first())
     R.check("Ball hisoblandi", attempt.ball is not None)
     R.check("Daraja belgilandi", bool(attempt.grade))
-
-    index = await sim.click(ADMIN_ID, f"exam:publish:{exam.id}")
-    text = sim.joined_texts(index)
-    R.check("Natijalar e'lon qilindi", "Natijalar e’lon qilindi" in text)
-    R.check("Sertifikatlar yaratildi", "Sertifikatlar" in text)
 
     await asyncio.sleep(0.4)  # fon xabarnomasi yuborilishini kutamiz
 
@@ -880,7 +877,7 @@ async def scenario_admin(sim: Simulator) -> None:
 async def scenario_manage(sim: Simulator) -> None:
     from apps.exams.models import Exam
 
-    R.head("5. Test nusxalash va o'chirish (bot orqali)")
+    R.head("5. Testni tugatish va o'chirish (bot orqali)")
 
     # --- Vaqtinchalik test yaratamiz ---
     index = await sim.send(SECOND_ID, "Test yaratish")
@@ -901,20 +898,22 @@ async def scenario_manage(sim: Simulator) -> None:
     text = sim.joined_texts(index)
     R.check("Boshqaruv kartochkasi ochildi", "Ochiriladigan test" in text)
 
+    finish_cb = sim.find_callback(index, lambda b: (b.callback_data or "").startswith("exam:finish"))
     copy_cb = sim.find_callback(index, lambda b: (b.callback_data or "").startswith("exam:copy"))
     delete_cb = sim.find_callback(index, lambda b: (b.callback_data or "").startswith("exam:delete:"))
-    R.check("«Nusxa yaratish» tugmasi bor", copy_cb is not None)
+    R.check("«Testni tugatish» tugmasi bor", finish_cb is not None)
+    R.check("«Nusxa yaratish» tugmasi olib tashlandi", copy_cb is None)
     R.check("«O'chirish» tugmasi bor", delete_cb is not None)
 
-    # --- Nusxalash ---
-    index = await sim.click(SECOND_ID, copy_cb)
-    R.check("Nusxa yaratildi", "Test nusxalandi" in sim.joined_texts(index))
+    # --- Testni tugatish ---
+    index = await sim.click(SECOND_ID, finish_cb)
+    R.check("Test tugatildi", "tugatildi" in sim.joined_texts(index).lower())
 
-    copy = await q(lambda: Exam.objects.filter(title__contains="nusxa").first())
-    R.check("Nusxa bazada mavjud", copy is not None)
-    R.equal("Nusxa qoralama holatida", copy.status, Exam.Status.DRAFT)
+    await q(exam.refresh_from_db)
+    R.equal("Tugatilgan test e'lon qilingan", exam.status, Exam.Status.PUBLISHED)
 
-    # --- Nusxani o'chirish ---
+    # --- Testni o'chirish ---
+    copy = exam
     index = await sim.click(SECOND_ID, f"exam:delete:{copy.id}")
     text = sim.joined_texts(index).lower()
     R.check("O'chirish tasdiqlash so'raldi", "butunlay o‘chirish" in text or "butunlay o'chirish" in text)

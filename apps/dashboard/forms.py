@@ -16,8 +16,11 @@ class ExamSettingsForm(forms.ModelForm):
 
     class Meta:
         model = Exam
+        # «status» maydoni yo'q: test yaratilishi bilan faollashadi va
+        # «Testni tugatish» tugmasi bilan yakunlanadi — holatni qo'lda
+        # o'zgartirish kerak emas.
         fields = [
-            "title", "description", "status",
+            "title", "description",
             "starts_at", "ends_at", "duration_minutes", "is_public",
             "show_results_to_participants", "show_correct_answers",
             "show_rating_to_participants",
@@ -28,7 +31,6 @@ class ExamSettingsForm(forms.ModelForm):
         widgets = {
             "title": forms.TextInput(attrs={"class": "input"}),
             "description": forms.Textarea(attrs={"class": "input", "rows": 3}),
-            "status": forms.Select(attrs={"class": "input"}),
             "starts_at": forms.DateTimeInput(
                 attrs={"class": "input", "type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
             ),
@@ -159,8 +161,9 @@ class ExamCreateForm(forms.Form):
     Yangi test yaratish formasi.
 
     Test turi, tuzilmasi, javob kalitlari va asosiy sozlamalar bir sahifada
-    to'ldiriladi — shundan so'ng test darhol faollashtiriladi (pullik testdan
-    tashqari: unda avval ID kodlar yaratilishi kerak).
+    to'ldiriladi. Test saqlangan zahoti o'zi faollashadi — qo'lda
+    faollashtirish kerak emas (pullik testdan tashqari: unda avval ID
+    kodlar yaratilishi kerak).
     """
 
     STRUCTURE_CHOICES = [
@@ -248,9 +251,6 @@ class ExamCreateForm(forms.Form):
     )
     certificate = forms.BooleanField(
         label="Sertifikat berilsin (faqat pullik test)", required=False
-    )
-    activate = forms.BooleanField(
-        label="Yaratilgach darhol faollashtirilsin", required=False, initial=True
     )
 
     def __init__(self, *args, user=None, **kwargs):

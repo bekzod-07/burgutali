@@ -2,7 +2,10 @@
 
 {% block title %}Testlar{% endblock %}
 {% block page_title %}Testlar{% endblock %}
-{% block crumbs %}Jami {{ exams|length }} ta test ko‘rsatilmoqda{% endblock %}
+{% block crumbs %}
+  Jami {{ exams|length }} ta test ko‘rsatilmoqda ·
+  <span class="small muted">tugatilgan test 24 soatdan keyin o‘z-o‘zidan o‘chadi</span>
+{% endblock %}
 
 {% block actions %}
   <a class="btn btn-primary" href="{% url 'dashboard:exam_create' %}">
@@ -68,11 +71,9 @@
               </td>
               <td class="small">{{ exam.get_exam_type_display }}</td>
               <td>
+                {# Test yaratilishi bilan faol bo'ladi; tugatilgani 24 soatdan keyin o'chadi. #}
                 {% if exam.status == 'active' %}<span class="badge badge-green">Faol</span>
-                {% elif exam.status == 'published' %}<span class="badge badge-gold">E’lon qilingan</span>
-                {% elif exam.status == 'calculated' %}<span class="badge badge-purple">Hisoblangan</span>
-                {% elif exam.status == 'closed' %}<span class="badge badge-orange">Yopilgan</span>
-                {% else %}<span class="badge badge-gray">{{ exam.get_status_display }}</span>{% endif %}
+                {% else %}<span class="badge badge-gray">Tugatilgan</span>{% endif %}
               </td>
               <td class="num">{{ exam.question_count }}</td>
               <td class="num">{{ exam.participants }}</td>
@@ -86,9 +87,6 @@
                     <svg class="icon"><use href="#i-key"></use></svg>
                   </a>
                 {% endif %}
-                <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:exam_duplicate' exam.pk %}" title="Nusxa yaratish">
-                  <svg class="icon"><use href="#i-copy"></use></svg>
-                </a>
                 <a class="btn btn-red btn-sm" href="{% url 'dashboard:exam_delete' exam.pk %}" title="O‘chirish">
                   <svg class="icon"><use href="#i-trash"></use></svg>
                 </a>

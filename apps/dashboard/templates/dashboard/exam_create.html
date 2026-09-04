@@ -57,9 +57,10 @@
           {{ form.certificate }}
           <label for="{{ form.certificate.id_for_label }}" style="margin:0">{{ form.certificate.label }}</label>
         </div>
-        <div class="check-row">
-          {{ form.activate }}
-          <label for="{{ form.activate.id_for_label }}" style="margin:0">{{ form.activate.label }}</label>
+
+        <div class="message message-success small mt">
+          Test saqlangan zahoti <b>o‘zi faollashadi</b> — qo‘lda
+          faollashtirish kerak emas.
         </div>
 
         <div class="message message-warning small mt">
@@ -81,12 +82,12 @@
     </div>
     <div class="card-body">
 
-      {#
+      {% comment %}
          Javoblar varaqasi — qatnashchi ko‘radigan varaqaning aynan o‘zi
          (`static/keysheet/`). Web ilovadagi bilan bir xil: 1–32 uchun A–D,
          33–35 uchun A–F, har birida faqat bitta javob; ochiq savollarda
          matematik klaviatura.
-      #}
+      {% endcomment %}
       <div class="ks-seg" id="key-mode">
         <button type="button" data-keymode="sheet"
                 class="{% if not form.key_errors %}is-active{% endif %}">Javoblar varaqasi</button>
@@ -120,10 +121,10 @@
     </div>
   </section>
 
-  {#
+  {% comment %}
      Javoblar varaqasi uzun (milliy shablonda 45 qator), shuning uchun
      tugma varaq oxirida qolib ketmasin — u pastda yopishib turadi.
-  #}
+  {% endcomment %}
   <div class="action-bar">
     <button class="btn btn-primary" type="submit">
       <svg class="icon"><use href="#i-check"></use></svg> Testni yaratish

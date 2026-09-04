@@ -663,6 +663,16 @@ def test_rasch_free_flow() -> dict:
     R.check("Ballar oralig'ida", all(0 <= (a.ball or 0) <= exam.max_ball for a in attempts))
     R.check("Reyting o'rinlari berildi", all(a.rank for a in attempts))
     R.equal("Birinchi o'rin = 1", attempts[0].rank, 1)
+    R.equal(
+        "O'rinlar ketma-ket (1, 2, 3, ...)",
+        [a.rank for a in attempts],
+        list(range(1, len(attempts) + 1)),
+    )
+    R.equal(
+        "Bir xil o'rin takrorlanmaydi",
+        len({a.rank for a in attempts}),
+        len(attempts),
+    )
     R.check("Reyting ball bo'yicha kamayadi",
             all(attempts[i].ball >= attempts[i + 1].ball for i in range(len(attempts) - 1)))
     R.check("Yuqori qobiliyat -> yuqori ball",
@@ -1202,7 +1212,8 @@ def test_exports() -> None:
         "users": ["get_or_create_user", "save_full_name", "save_phone",
                   "set_subscription"],
         "exams": ["create_exam", "activate_exam", "close_exam",
-                  "publish_results", "delete_exam"],
+                  "publish_results", "finish_exam", "auto_purge_finished",
+                  "delete_exam"],
         "certificates": ["issue_certificate", "issue_for_exam"],
         "codes": ["create_codes", "activate_code", "consume_code"],
     }
@@ -1529,6 +1540,45 @@ def test_dashboard() -> None:
         anonymous = Client()
         R.check("Diagramma sahifasi anonim foydalanuvchiga berilmaydi",
                 anonymous.get(results_url).status_code in {302, 403})
+
+    # --- Test boshqaruvi: yagona «Testni tugatish» tugmasi ---
+    from apps.exams.services import activate_exam as _activate
+    from apps.exams.services import apply_single_keys as _keys
+    from apps.exams.services import create_exam as _create
+
+    live = _create(
+        owner=exam.owner, title="Panel: faol test",
+        exam_type=Exam.Type.SIMPLE, question_count=3,
+    )
+    _keys(live, ["A", "B", "C"])
+    _activate(live)
+    live_detail = client.get(f"/panel/testlar/{live.pk}/").content.decode("utf-8", "replace")
+    R.check("Faol testda «Testni tugatish» bor", "Testni tugatish" in live_detail)
+    R.check(
+        "Faol testda «Faollashtirish» tugmasi yo'q",
+        "Faollashtirish" not in live_detail,
+    )
+
+    detail = client.get(f"/panel/testlar/{exam.pk}/").content.decode("utf-8", "replace")
+    R.check("«Faollashtirish» tugmasi olib tashlandi", "Faollashtirish" not in detail)
+    R.check("«Nusxa yaratish» tugmasi olib tashlandi", "Nusxa yaratish" not in detail)
+    R.check(
+        "Alohida «hisoblash» va «e'lon qilish» tugmalari yo'q",
+        "Natijalarni hisoblash" not in detail
+        and "Natijalarni e’lon qilish" not in detail,
+    )
+
+    listing = client.get("/panel/testlar/").content.decode("utf-8", "replace")
+    R.check(
+        "Ro'yxatda faqat «Faol» va «Tugatilgan» holatlari",
+        "Qoralama" not in listing and "Hisoblangan" not in listing,
+    )
+
+    creation = client.get("/panel/testlar/yangi/").content.decode("utf-8", "replace")
+    R.check(
+        "Yaratish formasida faollashtirish katagi yo'q",
+        "Yaratilgach darhol faollashtirilsin" not in creation,
+    )
 
     downloads = [
         (f"/panel/testlar/{exam.pk}/eksport/natijalar.xlsx", "Natijalar (Excel)"),
@@ -1940,29 +1990,37 @@ def test_miniapp_api() -> None:
     response = call(f"/app/api/test/{exam_code}/boshqaruv/", who=participant)
     R.equal("Begona foydalanuvchi boshqara olmaydi", response.status_code, 403)
 
-    # --- Amallar ---
+    # --- Amallar: yagona «tugatish» ---
+    response = call(f"/app/api/test/{exam_code}/amal/", {"action": "finish"}, who=admin)
+    R.equal("Test tugatildi", response.status_code, 200)
+    R.equal(
+        "Tugatilgach natijalar e'lon qilingan",
+        response.json()["exam"]["status"],
+        "published",
+    )
+    response = call(f"/app/api/test/{exam_code}/amal/", {"action": "recalculate"}, who=admin)
+    R.equal("Natijalar qayta hisoblandi", response.status_code, 200)
+
     response = call(f"/app/api/test/{exam_code}/amal/", {"action": "close"}, who=admin)
-    R.equal("Test yopildi", response.status_code, 200)
-    response = call(f"/app/api/test/{exam_code}/amal/", {"action": "calculate"}, who=admin)
-    R.equal("Natijalar hisoblandi", response.status_code, 200)
-    response = call(f"/app/api/test/{exam_code}/amal/", {"action": "publish"}, who=admin)
-    R.equal("Natijalar e'lon qilindi", response.status_code, 200)
+    R.equal("Eski «yopish» amali yo'q", response.status_code, 400)
+    response = call(f"/app/api/test/{exam_code}/amal/", {"action": "duplicate"}, who=admin)
+    R.equal("Nusxalash amali olib tashlandi", response.status_code, 400)
 
     response = call(f"/app/api/test/{exam_code}/amal/", {"action": "yoq"}, who=admin)
     R.equal("Noma'lum amal rad etiladi", response.status_code, 400)
 
-    # --- Nusxalash ---
-    response = call(f"/app/api/test/{exam_code}/amal/", {"action": "duplicate"}, who=admin)
-    R.equal("Nusxa yaratildi", response.status_code, 200)
-    copy_code = response.json()["exam"]["code"]
-    # Kod noyob emas: test yakunlangach u bo'shab, boshqa testga berilishi
-    # mumkin (`release_code`). Shuning uchun nusxani kod bo'yicha emas,
-    # `id` bo'yicha kuzatamiz.
-    copy_id = Exam.objects.filter(code=copy_code, status="draft").order_by("-id").first().pk
-    R.check("Nusxa — alohida test", copy_id != exam_id)
-    R.equal("Nusxa qoralama holatida", response.json()["exam"]["status"], "draft")
-    R.check("Nusxa kod bo'yicha topiladi",
-            exam_services.get_exam_by_code(copy_code).pk == copy_id)
+    # --- Javobsiz test: o'chirish uchun yangisini yaratamiz ---
+    response = call("/app/api/test-yaratish/", {
+        "title": "O'chiriladigan test",
+        "type": "simple",
+        "question_count": 3,
+        "single_keys": "ABC",
+        "duration_hours": 0,
+    }, who=admin)
+    R.equal("Ikkinchi test yaratildi", response.status_code, 200)
+    spare_code = response.json()["exam"]["code"]
+    spare_id = exam_services.get_exam_by_code(spare_code).pk
+    R.check("Ikkinchi test — alohida test", spare_id != exam_id)
 
     # --- Ifodani tekshirish ---
     response = call("/app/api/ifoda/", {"expr": "1/2 + 1/2"}, who=participant)
@@ -1973,12 +2031,12 @@ def test_miniapp_api() -> None:
     R.equal("Xavfli ifoda rad etiladi", response.status_code, 400)
 
     # --- O'chirish ---
-    response = call(f"/app/api/test/{copy_code}/ochirish-tekshiruv/", who=admin)
+    response = call(f"/app/api/test/{spare_code}/ochirish-tekshiruv/", who=admin)
     R.equal("O'chirish hisoboti olindi", response.status_code, 200)
 
-    response = call(f"/app/api/test/{copy_code}/ochirish/", {"confirm": True}, who=admin)
-    R.equal("Nusxa o'chirildi", response.status_code, 200)
-    R.check("Baza tozalandi", not Exam.objects.filter(pk=copy_id).exists())
+    response = call(f"/app/api/test/{spare_code}/ochirish/", {"confirm": True}, who=admin)
+    R.equal("Javobsiz test o'chirildi", response.status_code, 200)
+    R.check("Baza tozalandi", not Exam.objects.filter(pk=spare_id).exists())
 
     # --- Tasdiqsiz o'chirish (javoblari bor test) ---
     response = call(f"/app/api/test/{exam_code}/ochirish/", {}, who=admin)
@@ -1997,7 +2055,7 @@ def test_miniapp_api() -> None:
 
 
 # ==========================================================================
-#  17. Test o'chirish va nusxalash (xizmat darajasida)
+#  17. Testni tugatish va o'chirish (xizmat darajasida)
 # ==========================================================================
 
 
@@ -2013,11 +2071,11 @@ def test_delete_duplicate() -> None:
         create_exam,
         delete_exam,
         deletion_summary,
-        duplicate_exam,
+        finish_exam,
     )
     from apps.users.models import BotUser
 
-    R.head("17. Testni nusxalash va o'chirish")
+    R.head("17. Testni tugatish va o'chirish")
 
     owner = BotUser.objects.get(telegram_id=1000)
     stranger = BotUser.objects.get(telegram_id=2001)
@@ -2034,19 +2092,16 @@ def test_delete_duplicate() -> None:
     R.check("Begona boshqara olmaydi", not can_manage(exam, stranger))
     R.check("Admin boshqara oladi", can_manage(exam, stranger, is_admin=True))
 
-    # --- Nusxalash ---
-    copy = duplicate_exam(exam, owner)
-    R.check("Nusxa yaratildi", copy.id != exam.id)
-    R.equal("Nusxadagi savollar soni", copy.questions.count(), 6)
-    R.equal("Kalitlar ko'chirildi", copy.questions.order_by("order").first().correct_key, "A")
-    R.equal("Nusxa qoralama", copy.status, Exam.Status.DRAFT)
-    R.check("Kod noyob", copy.code != exam.code)
-    R.check("Nomida «nusxa» bor", "nusxa" in copy.title)
-
-    # --- Bo'sh testni o'chirish ---
-    ok, message, summary = delete_exam(copy)
+    # --- Javobsiz testni o'chirish ---
+    spare = create_exam(
+        owner=owner, title="Javobsiz test",
+        exam_type=Exam.Type.SIMPLE, question_count=3,
+    )
+    apply_single_keys(spare, ["A", "B", "C"])
+    activate_exam(spare)
+    ok, message, summary = delete_exam(spare)
     R.check("Javobsiz test tasdiqsiz o'chadi", ok, message)
-    R.check("Savollar ham o'chdi", not Question.objects.filter(exam_id=copy.id).exists())
+    R.check("Savollar ham o'chdi", not Question.objects.filter(exam_id=spare.id).exists())
 
     # --- Javoblari bor test ---
     from apps.attempts.services import save_answer, start_attempt, submit_attempt
@@ -2058,6 +2113,16 @@ def test_delete_duplicate() -> None:
     for question in exam.questions.order_by("order"):
         save_answer(attempt, question, selected=question.correct_key)
     submit_attempt(attempt)
+
+    # --- Yagona yakunlovchi amal: yopadi, hisoblaydi va e'lon qiladi ---
+    ok, message = finish_exam(exam)
+    R.check(f"Test tugatildi ({message})", ok)
+    exam.refresh_from_db()
+    R.equal("Tugatilgan test e'lon qilingan holatda", exam.status, Exam.Status.PUBLISHED)
+    R.check("Yopilgan vaqt belgilandi", exam.closed_at is not None)
+    R.check("E'lon vaqti belgilandi", exam.published_at is not None)
+    ok, message = finish_exam(exam)
+    R.check("Ikkinchi marta tugatib bo'lmaydi", not ok)
 
     summary = deletion_summary(exam)
     R.equal("Hisobotda 1 ta topshirilgan javob", summary["submitted"], 1)
@@ -2098,7 +2163,14 @@ def test_delete_duplicate() -> None:
 def test_edge_cases() -> None:
     from apps.attempts.services import can_participate
     from apps.exams.models import Exam
-    from apps.exams.services import activate_exam, close_exam, create_exam, get_exam_by_code, publish_results
+    from apps.exams.services import (
+        activate_exam,
+        close_exam,
+        create_exam,
+        delete_exam,
+        get_exam_by_code,
+        publish_results,
+    )
     from apps.rasch.services import calculate_exam
     from apps.users.models import BotUser
 
@@ -2187,6 +2259,54 @@ def test_edge_cases() -> None:
     R.equal("Bo'sh javoblar 0 ball", lazy_attempt.raw_score, 0.0)
     R.equal("4 ta javobsiz savol", lazy_attempt.empty_count, 4)
     R.close("Foiz 0", lazy_attempt.percent, 0.0, 0.01)
+
+    # --- Faol bo'lmagan testlar 24 soatdan keyin o'z-o'zidan o'chadi ---
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.exams.services import PURGE_AFTER_HOURS, auto_purge_finished
+
+    R.equal("Tozalash muddati — 24 soat", PURGE_AFTER_HOURS, 24)
+
+    stale = create_exam(
+        owner=owner, title="Eskirgan test",
+        exam_type=Exam.Type.SIMPLE, question_count=2,
+    )
+    apply_single_keys(stale, ["A", "B"])
+    activate_exam(stale)
+    close_exam(stale)
+    stale_id = stale.pk
+    long_ago = timezone.now() - timedelta(hours=PURGE_AFTER_HOURS + 1)
+    Exam.objects.filter(pk=stale_id).update(closed_at=long_ago, created_at=long_ago)
+
+    live = create_exam(
+        owner=owner, title="Faol test tegilmaydi",
+        exam_type=Exam.Type.SIMPLE, question_count=2,
+    )
+    apply_single_keys(live, ["A", "B"])
+    activate_exam(live)
+    live_id = live.pk
+    Exam.objects.filter(pk=live_id).update(created_at=long_ago)
+
+    recent = create_exam(
+        owner=owner, title="Yaqinda tugatilgan test",
+        exam_type=Exam.Type.SIMPLE, question_count=2,
+    )
+    apply_single_keys(recent, ["A", "B"])
+    activate_exam(recent)
+    close_exam(recent)
+    recent_id = recent.pk
+
+    removed = auto_purge_finished()
+    R.check(f"Eskirgan testlar o'chirildi ({removed} ta)", removed >= 1)
+    R.check("Eskirgan test bazada yo'q", not Exam.objects.filter(pk=stale_id).exists())
+    R.check("Faol test saqlanib qoldi", Exam.objects.filter(pk=live_id).exists())
+    R.check(
+        "Yaqinda tugatilgan test hali o'chmaydi",
+        Exam.objects.filter(pk=recent_id).exists(),
+    )
+    delete_exam(Exam.objects.get(pk=recent_id), force=True)
 
 
 # ==========================================================================
@@ -2363,10 +2483,39 @@ def test_charts() -> None:
         summary.hardest, key=lambda row: row.percent, reverse=True
     ))
 
+    # --- Ustun ikkiga bo'linadi: topganlar (ko'k) va topmaganlar (qizil) ---
+    people = Attempt.objects.filter(
+        exam=exam, status=Attempt.Status.SUBMITTED
+    ).count()
+    R.check(
+        "Har bir ustun to'liq qatnashchilar soniga teng",
+        all(row.total_count == people for row in summary.rows),
+    )
+    R.check(
+        "Topgan va topmaganlar soni manfiy emas",
+        all(row.correct_count >= 0 and row.wrong_count >= 0 for row in summary.rows),
+    )
+    R.check(
+        "Topmaganlar ulushi qiyinlik foiziga mos",
+        all(
+            abs(row.wrong_count / max(1, row.total_count) * 100.0 - row.percent) < 1.0
+            for row in summary.rows
+        ),
+    )
+    correct_total, wrong_total = (count for _, _, count in summary.answer_counts)
+    R.equal(
+        "Izohdagi jami javoblar soni to'g'ri",
+        correct_total + wrong_total,
+        sum(row.total_count for row in summary.rows),
+    )
+
     # --- SVG (boshqaruv paneli) ---
     svg = charts.difficulty_svg(summary.rows)
     R.check("SVG yaratildi", svg.startswith("<svg") and svg.endswith("</svg>"))
-    R.check("SVG da ustunlar bor", svg.count("<rect") >= len(summary.rows))
+    R.check("Har bir ustun ikki qismdan iborat",
+            svg.count("<rect") >= len(summary.rows) * 2)
+    R.check("Topganlar ko'k rangda", charts.CORRECT_COLOR in svg)
+    R.check("Topmaganlar qizil rangda", charts.WRONG_COLOR in svg)
     R.equal("Bo'sh ma'lumotda SVG bo'sh", charts.difficulty_svg([]), "")
 
     # --- PNG (bot orqali adminga) ---

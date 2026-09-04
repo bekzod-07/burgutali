@@ -8,11 +8,16 @@ ochiq bo'lsin. Shu sababli bu modul faqat ikki joyda ishlatiladi:
   * boshqaruv panelining natijalar sahifasi (`@staff_required`) — SVG;
   * test yakunlangach adminlarga yuboriladigan hisobot — PNG.
 
-Qiyinlik ko'rsatkichi — savolga **noto'g'ri javob bergan** ishtirokchilar
-ulushi (foizda). Bu klassik "difficulty index" bo'lib, Rasch modelidagi
-qiyinlik `b` bilan bir yo'nalishda o'zgaradi, lekin 0–100 oralig'ida
-tushunarli ko'rinadi. Rasch `b` qiymati diagramma yonidagi jadvalda
-alohida ko'rsatiladi.
+Diagramma har bir savol uchun bitta ustun chizadi va ustun ikkiga
+bo'linadi:
+
+  * pastki **ko'k** qism — savolni to'g'ri topgan ishtirokchilar soni;
+  * yuqoridagi **qizil** qism — topa olmaganlar soni.
+
+Ustunning to'liq balandligi — qatnashchilar soni, shuning uchun savollarni
+bir qarashda solishtirish mumkin. Har bir qismning ichiga odamlar soni
+yoziladi. Qiyinlik foizi (noto'g'ri javob bergalar ulushi) va Rasch `b`
+qiymati diagramma yonidagi jadvalda ko'rsatiladi.
 
 Diagrammalar tashqi kutubxonasiz chiziladi: panel uchun — qo'lda
 yig'ilgan SVG, bot uchun — Pillow. Emoji ishlatilmaydi.
@@ -41,6 +46,10 @@ GRID = "#dfe6ee"
 MUTED = "#64758c"
 BLUE = "#2f7fd0"
 BLUE_SOFT = "#cfe3f6"
+
+#: Ustunli diagramma ranglari: topganlar — ko'k, topmaganlar — qizil.
+CORRECT_COLOR = "#2f7fd0"
+WRONG_COLOR = "#e2523f"
 
 #: (yuqori chegara, nomi, rangi) — chegara **ichiga olinmaydi**.
 DIFFICULTY_LEVELS: tuple[tuple[float, str, str], ...] = (
@@ -82,6 +91,15 @@ class DifficultyRow:
     color: str
     difficulty: float
     point_biserial: float
+    #: Savolni to'g'ri topganlar soni (ustunning ko'k qismi).
+    correct_count: int = 0
+    #: Topa olmaganlar soni (ustunning qizil qismi).
+    wrong_count: int = 0
+
+    @property
+    def total_count(self) -> int:
+        """Savolga javob bergan ishtirokchilar soni."""
+        return int(self.correct_count) + int(self.wrong_count)
 
 
 @dataclass(frozen=True)
@@ -116,6 +134,16 @@ class DifficultySummary:
         return result
 
     @property
+    def answer_counts(self) -> list[tuple[str, str, int]]:
+        """Diagramma izohi: `(nom, rang, jami odam)`."""
+        correct = sum(row.correct_count for row in self.rows)
+        wrong = sum(row.wrong_count for row in self.rows)
+        return [
+            ("Topganlar", CORRECT_COLOR, correct),
+            ("Topa olmaganlar", WRONG_COLOR, wrong),
+        ]
+
+    @property
     def hardest(self) -> list[DifficultyRow]:
         return sorted(self.rows, key=lambda row: row.percent, reverse=True)[:5]
 
@@ -137,15 +165,28 @@ def difficulty_rows(exam) -> list[DifficultyRow]:
     if not raw:
         return []
 
+    participants = int(getattr(statistics, "participants", 0) or 0)
     counts = Counter(int(item.get("order") or 0) for item in raw)
     rows: list[DifficultyRow] = []
     for item in raw:
         order = int(item.get("order") or 0)
         part = str(item.get("part") or "a")
-        label = f"{order}{part}" if counts[order] > 1 else str(order)
+        # Ikki qismli (ochiq) savol ustunlari «36(a)», «36(b)» deb belgilanadi.
+        label = f"{order}({part})" if counts[order] > 1 else str(order)
         p_value = float(item.get("p_value") or 0.0)
         percent = max(0.0, min(100.0, (1.0 - p_value) * 100.0))
         level, color = difficulty_level(percent)
+
+        # Yangi hisob-kitobda odamlar soni bevosita saqlanadi; eski
+        # ma'lumotlarda esa faqat `p_value` bor — u qatnashchilar soniga
+        # ko'paytiriladi.
+        total = int(item.get("total") or participants or 0)
+        if item.get("correct") is None:
+            correct = int(round(p_value * total))
+        else:
+            correct = int(item.get("correct") or 0)
+        correct = max(0, min(total, correct))
+
         rows.append(
             DifficultyRow(
                 label=label,
@@ -156,6 +197,8 @@ def difficulty_rows(exam) -> list[DifficultyRow]:
                 color=color,
                 difficulty=float(item.get("difficulty") or 0.0),
                 point_biserial=float(item.get("point_biserial") or 0.0),
+                correct_count=correct,
+                wrong_count=total - correct,
             )
         )
     return rows
@@ -223,13 +266,16 @@ def build_summary(exam) -> DifficultySummary:
 #  SVG (boshqaruv paneli)
 # --------------------------------------------------------------------------
 
-_BAR_WIDTH = 14
-_BAR_GAP = 5
-_PAD_LEFT = 38
+_BAR_WIDTH = 20
+_BAR_GAP = 6
+_PAD_LEFT = 42
 _PAD_RIGHT = 12
 _PAD_TOP = 12
-_PLOT_HEIGHT = 210
+_PLOT_HEIGHT = 260
 _LABEL_HEIGHT = 46
+
+#: Ustun ichidagi son shu balandlikdan boshlab sig'adi (piksel).
+_INNER_LABEL_MIN = 26
 
 
 def _escape(value: object) -> str:
@@ -241,6 +287,29 @@ def _escape(value: object) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+#: O'q qadamini tanlashda sinab ko'riladigan ko'paytuvchilar.
+_AXIS_MULTIPLIERS: tuple[float, ...] = (1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10)
+
+
+def _nice_top(value: int, steps: int = 6) -> tuple[int, int]:
+    """
+    O'q uchun qulay yuqori chegara va qadamni tanlaydi.
+
+    Qadam o'qishga qulay son bo'ladi, yuqori chegara esa ma'lumotdan
+    ortiqcha uzoqlashmaydi: 18 ta qatnashchi uchun `(18, 3)`, 1713 ta
+    uchun `(1800, 300)`.
+    """
+    value = max(1, int(value))
+    rough = value / max(1, steps)
+    magnitude = 10 ** max(0, len(str(int(rough))) - 1)
+    for multiplier in _AXIS_MULTIPLIERS:
+        step = max(1, int(math.ceil(magnitude * multiplier)))
+        if step * steps >= value:
+            return step * int(math.ceil(value / step)), step
+    step = max(1, int(magnitude * 10))
+    return step * int(math.ceil(value / step)), step
 
 
 def _svg_frame(bars: int, y_labels: list[str]) -> tuple[int, int, list[str]]:
@@ -262,44 +331,76 @@ def _svg_frame(bars: int, y_labels: list[str]) -> tuple[int, int, list[str]]:
     return width, height, parts
 
 
+def _inner_value(x: float, top: float, height: float, value: int) -> str:
+    """Ustun qismining ichiga odamlar sonini tik holda yozadi."""
+    if height < _INNER_LABEL_MIN or not value:
+        return ""
+    center_x = x + _BAR_WIDTH / 2
+    center_y = top + height / 2
+    return (
+        f'<text x="{center_x:.1f}" y="{center_y:.1f}" font-size="10" '
+        f'fill="#ffffff" text-anchor="middle" dominant-baseline="middle" '
+        f'transform="rotate(-90 {center_x:.1f} {center_y:.1f})">{value}</text>'
+    )
+
+
 def difficulty_svg(rows: list[DifficultyRow]) -> str:
-    """Savollar qiyinligi diagrammasi (SVG matni)."""
+    """
+    Savollar qiyinligi diagrammasi (SVG matni).
+
+    Har bir savol bitta ustun: pastdagi ko'k qism — savolni topganlar,
+    ustidagi qizil qism — topa olmaganlar. Ustunning to'liq balandligi
+    qatnashchilar soniga teng, shuning uchun savollar bir-biri bilan
+    bemalol solishtiriladi.
+    """
     if not rows:
         return ""
 
-    y_labels = ["0", "20", "40", "60", "80", "100"]
-    width, height, parts = _svg_frame(len(rows), y_labels)
+    people = max((row.total_count for row in rows), default=0)
+    if people <= 0:
+        return ""
 
-    # Har bir yorliq sig'masa, har ikkinchisi ko'rsatiladi.
-    step = 1 if (_BAR_WIDTH + _BAR_GAP) >= 17 else 2
+    axis_top, tick = _nice_top(people)
+    y_labels = [str(value) for value in range(0, axis_top + 1, tick)]
+    width, height, parts = _svg_frame(len(rows), y_labels)
 
     for index, row in enumerate(rows):
         x = _PAD_LEFT + index * (_BAR_WIDTH + _BAR_GAP)
-        bar_height = max(1.0, _PLOT_HEIGHT * row.percent / 100.0)
-        y = _PAD_TOP + _PLOT_HEIGHT - bar_height
+        correct_height = _PLOT_HEIGHT * row.correct_count / axis_top
+        wrong_height = _PLOT_HEIGHT * row.wrong_count / axis_top
+        base = _PAD_TOP + _PLOT_HEIGHT
+        correct_top = base - correct_height
+        wrong_top = correct_top - wrong_height
+
         title = (
-            f"{row.label}-savol · {row.level} · {row.percent:g}% "
-            f"noto'g'ri · b = {row.difficulty:.2f}"
+            f"{row.label}-savol · topgan {row.correct_count} ta · "
+            f"topmagan {row.wrong_count} ta ({row.percent:g}% noto‘g‘ri) · "
+            f"b = {row.difficulty:.2f}"
         )
         parts.append(
-            f'<rect x="{x}" y="{y:.1f}" width="{_BAR_WIDTH}" '
-            f'height="{bar_height:.1f}" rx="2" fill="{row.color}">'
-            f"<title>{_escape(title)}</title></rect>"
+            f'<g><title>{_escape(title)}</title>'
+            f'<rect x="{x}" y="{correct_top:.1f}" width="{_BAR_WIDTH}" '
+            f'height="{max(0.0, correct_height):.1f}" fill="{CORRECT_COLOR}"/>'
+            f'<rect x="{x}" y="{wrong_top:.1f}" width="{_BAR_WIDTH}" '
+            f'height="{max(0.0, wrong_height):.1f}" fill="{WRONG_COLOR}"/>'
+            f"</g>"
         )
-        if index % step == 0:
-            label_x = x + _BAR_WIDTH / 2
-            label_y = _PAD_TOP + _PLOT_HEIGHT + 10
-            parts.append(
-                f'<text x="{label_x:.1f}" y="{label_y}" font-size="9" '
-                f'fill="{MUTED}" text-anchor="end" '
-                f'transform="rotate(-60 {label_x:.1f} {label_y})">'
-                f"{_escape(row.label)}</text>"
-            )
+        parts.append(_inner_value(x, correct_top, correct_height, row.correct_count))
+        parts.append(_inner_value(x, wrong_top, wrong_height, row.wrong_count))
+
+        label_x = x + _BAR_WIDTH / 2
+        label_y = _PAD_TOP + _PLOT_HEIGHT + 10
+        parts.append(
+            f'<text x="{label_x:.1f}" y="{label_y}" font-size="9" '
+            f'fill="{MUTED}" text-anchor="end" '
+            f'transform="rotate(-60 {label_x:.1f} {label_y})">'
+            f"{_escape(row.label)}</text>"
+        )
 
     parts.append(
         f'<text x="{_PAD_LEFT}" y="{height - 6}" font-size="9.5" fill="{MUTED}">'
-        "Ustun balandligi — savolga noto‘g‘ri javob bergan "
-        "ishtirokchilar ulushi (%)</text>"
+        "Ko‘k — savolni topganlar, qizil — topa olmaganlar "
+        f"(jami {people} ta ishtirokchi)</text>"
     )
     return _wrap_svg(width, height, parts)
 
@@ -392,15 +493,46 @@ def _png_fonts(ImageFont):
         return default, default, default
 
 
+def _png_vertical_number(
+    Image, ImageDraw, canvas, font, center_x, center_y, segment_height, value
+) -> None:
+    """
+    Ustun qismining o'rtasiga oq rangda tik son yozadi.
+
+    Ustunlar ingichka bo'lgani uchun son 90 gradusga buriladi. Qism
+    balandligi yetmasa, son butunlay yozilmaydi.
+    """
+    text = str(value)
+    box = ImageDraw.Draw(canvas).textbbox((0, 0), text, font=font)
+    width, height = box[2] - box[0], box[3] - box[1]
+    if width + 6 > segment_height:
+        return
+    patch = Image.new("RGBA", (width + 4, height + 4), (0, 0, 0, 0))
+    ImageDraw.Draw(patch).text((2 - box[0], 2 - box[1]), text, font=font, fill="#ffffff")
+    patch = patch.rotate(90, expand=True)
+    canvas.paste(
+        patch,
+        (int(center_x - patch.width / 2), int(center_y - patch.height / 2)),
+        patch,
+    )
+
+
 def difficulty_png(exam, rows: list[DifficultyRow] | None = None) -> bytes:
     """
     Savollar qiyinligi diagrammasini PNG ko'rinishida qaytaradi.
+
+    Ko'rinishi panel bilan bir xil: ustunning ko'k qismi — savolni
+    topganlar, qizil qismi — topa olmaganlar soni.
 
     Diagramma yaratib bo'lmasa (Pillow yo'q yoki ma'lumot yetarli emas)
     bo'sh `bytes` qaytadi — chaqiruvchi uni jimgina o'tkazib yuboradi.
     """
     rows = difficulty_rows(exam) if rows is None else rows
     if not rows:
+        return b""
+
+    people = max((row.total_count for row in rows), default=0)
+    if people <= 0:
         return b""
 
     modules = _pillow()
@@ -426,20 +558,44 @@ def difficulty_png(exam, rows: list[DifficultyRow] | None = None) -> bytes:
         fill=MUTED,
     )
 
-    # --- To'r va o'q ---
-    for value in range(0, 101, 20):
-        y = _PNG_TOP + _PNG_PLOT - _PNG_PLOT * value / 100
+    # --- To'r va o'q (odamlar soni bo'yicha) ---
+    axis_top, tick = _nice_top(people)
+    for value in range(0, axis_top + 1, tick):
+        y = _PNG_TOP + _PNG_PLOT - _PNG_PLOT * value / axis_top
         draw.line([(_PNG_LEFT, y), (width - 24, y)], fill=GRID, width=1)
-        draw.text((_PNG_LEFT - 34, y - 8), f"{value}", font=small, fill=MUTED)
+        draw.text((_PNG_LEFT - 40, y - 8), f"{value}", font=small, fill=MUTED)
 
-    # --- Ustunlar ---
+    # --- Ustunlar: ko'k (topgan) + qizil (topmagan) ---
+    base = _PNG_TOP + _PNG_PLOT
+    labels: list[tuple[float, float, float, int]] = []
     for index, row in enumerate(rows):
         x = _PNG_LEFT + index * (bar_width + bar_gap)
-        bar_height = max(2.0, _PNG_PLOT * row.percent / 100.0)
-        top = _PNG_TOP + _PNG_PLOT - bar_height
-        draw.rectangle(
-            [(x, top), (x + bar_width, _PNG_TOP + _PNG_PLOT)], fill=row.color
-        )
+        correct_height = _PNG_PLOT * row.correct_count / axis_top
+        wrong_height = _PNG_PLOT * row.wrong_count / axis_top
+        correct_top = base - correct_height
+        wrong_top = correct_top - wrong_height
+        if correct_height > 0:
+            draw.rectangle(
+                [(x, correct_top), (x + bar_width, base)], fill=CORRECT_COLOR
+            )
+            labels.append(
+                (x, correct_top + correct_height / 2, correct_height, row.correct_count)
+            )
+        if wrong_height > 0:
+            draw.rectangle(
+                [(x, wrong_top), (x + bar_width, correct_top)], fill=WRONG_COLOR
+            )
+            labels.append(
+                (x, wrong_top + wrong_height / 2, wrong_height, row.wrong_count)
+            )
+
+    # Sonlar ustun ichiga tik yoziladi — ustunlar ingichka bo'lgani uchun.
+    if bar_width >= 10:
+        for x, center_y, segment_height, value in labels:
+            _png_vertical_number(
+                Image, ImageDraw, image, small,
+                x + bar_width / 2, center_y, segment_height, value,
+            )
 
     # --- Yorliqlar (sig'gani qadar) ---
     step = max(1, math.ceil(26 / (bar_width + bar_gap)))
@@ -454,17 +610,19 @@ def difficulty_png(exam, rows: list[DifficultyRow] | None = None) -> bytes:
     # --- Izoh ---
     legend_y = _PNG_TOP + _PNG_PLOT + _PNG_BOTTOM_LABELS
     x = _PNG_LEFT
-    counter = Counter(row.level for row in rows)
-    for _, name, color in DIFFICULTY_LEVELS:
+    for name, color, count in (
+        ("Topganlar", CORRECT_COLOR, sum(row.correct_count for row in rows)),
+        ("Topa olmaganlar", WRONG_COLOR, sum(row.wrong_count for row in rows)),
+    ):
         draw.rectangle([(x, legend_y), (x + 16, legend_y + 16)], fill=color)
-        text = f"{name} — {counter.get(name, 0)} ta"
+        text = f"{name} — {count} ta javob"
         draw.text((x + 22, legend_y), text, font=regular, fill=NAVY)
         x += 26 + int(draw.textlength(text, font=regular))
 
     draw.text(
         (_PNG_LEFT, legend_y + 34),
-        "Ustun balandligi — savolga noto‘g‘ri javob bergan "
-        "ishtirokchilar ulushi (%).",
+        f"Ustun balandligi — {people} ta ishtirokchi. Ko‘k qism savolni "
+        "topganlar, qizil qism topa olmaganlar soni.",
         font=small,
         fill=MUTED,
     )
@@ -542,6 +700,8 @@ def distribution_png(exam, bins: list[DistributionBin] | None = None) -> bytes:
 
 __all__ = [
     "DIFFICULTY_LEVELS",
+    "CORRECT_COLOR",
+    "WRONG_COLOR",
     "DifficultyRow",
     "DistributionBin",
     "DifficultySummary",

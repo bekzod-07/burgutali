@@ -89,32 +89,19 @@ EXAM_MANAGE = (
     "\nQuyidagi amallardan birini tanlang."
 )
 
-BTN_ACTIVATE = "Faollashtirish"
-BTN_CLOSE = "Testni yopish"
-BTN_CALCULATE = "Natijalarni hisoblash"
-BTN_PUBLISH = "Natijalarni e’lon qilish"
+#: Yagona yakunlovchi amal — yopish, hisoblash va e’lon qilish bir tugmada.
+BTN_FINISH = "Testni tugatish"
 BTN_RATING = "Reyting"
 BTN_EXPORT_RESULTS = "Natijalar (Excel)"
 BTN_EXPORT_PDF = "Natijalar (PDF)"
 BTN_MAKE_CODES = "ID kodlar yaratish"
 BTN_CERTIFICATES = "Sertifikatlarni yaratish"
-BTN_DUPLICATE = "Nusxa yaratish"
-BTN_ARCHIVE = "Arxivlash"
 BTN_DELETE = "Testni o‘chirish"
 
-CALCULATING = "Rasch modeli bo‘yicha hisoblanmoqda..."
-
-CALCULATED = (
-    "<b>Natijalar hisoblandi</b>\n\n"
-    "Qatnashchilar: <b>{participants}</b>\n"
-    "Kalibrlash: {calibrated}\n"
-    "Iteratsiyalar: {iterations}\n"
-    "Ishonchlilik: <b>{reliability}</b>\n\n"
-    "Endi natijalarni e’lon qilishingiz mumkin."
-)
+CALCULATING = "Test tugatilmoqda: natijalar hisoblanib e’lon qilinmoqda..."
 
 PUBLISHED = (
-    "<b>Natijalar e’lon qilindi</b>\n\n"
+    "<b>Test tugatildi — natijalar e’lon qilindi</b>\n\n"
     "Barcha qatnashchilarga xabar yuborilmoqda...\n"
     "{certificates}"
 )
@@ -152,14 +139,6 @@ BTN_CONFIRM_DELETE = "Ha, butunlay o‘chirilsin"
 BTN_CANCEL_DELETE = "Yo‘q, bekor qilish"
 
 DELETED = "{message}"
-
-DUPLICATED = (
-    "<b>Test nusxalandi</b>\n\n"
-    "Yangi test: <b>{title}</b>\n"
-    "Kod: <code>{code}</code>\n\n"
-    "Nusxa qoralama holatida — sozlab, faollashtiring."
-)
-
 
 # ==========================================================================
 #  Avtomatik natijalar hisoboti

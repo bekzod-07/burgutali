@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import logging
 import secrets
+from datetime import timedelta
 
 from django.db import models, transaction
 from django.db.models import Count, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from core import constants as C
@@ -396,6 +398,52 @@ def publish_results(exam: Exam) -> tuple[bool, str]:
     return True, "Natijalar e'lon qilindi."
 
 
+def finish_exam(exam: Exam) -> tuple[bool, str]:
+    """
+    Testni tugatadi — yagona yakunlovchi amal.
+
+    Bir bosishda uchta ish bajariladi: javob qabul qilish to'xtaydi,
+    natijalar Rasch modeli bo'yicha hisoblanadi va darhol e'lon qilinadi.
+    Panel, bot va web ilovada alohida «yopish / hisoblash / e'lon qilish»
+    tugmalari yo'q — hammasi shu funksiya orqali o'tadi.
+    """
+    from apps.rasch.services import calculate_exam
+
+    _reload(exam)
+    if exam.status == Exam.Status.PUBLISHED:
+        return False, "Test allaqachon tugatilgan."
+    if exam.status == Exam.Status.ARCHIVED:
+        return False, "Arxivlangan testni tugatib bo'lmaydi."
+
+    # --- 1. Javob qabul qilishni to'xtatamiz ---
+    if exam.status in {Exam.Status.ACTIVE, Exam.Status.DRAFT}:
+        close_exam(exam)
+        _reload(exam)
+
+    # --- 2. Natijalarni hisoblaymiz ---
+    try:
+        report = calculate_exam(exam)
+    except Exception:  # pragma: no cover - hisoblash xatosi testni yo'qotmasin
+        logger.exception("Testni tugatishda hisoblash xatosi: exam_id=%s", exam.id)
+        return False, "Natijalarni hisoblashda xato yuz berdi."
+
+    # --- 3. Natijalarni e'lon qilamiz ---
+    _reload(exam)
+    if exam.status not in {Exam.Status.CALCULATED, Exam.Status.PUBLISHED}:
+        # Savolsiz yoki qatnashchisiz testda hisoblash holatni o'zgartirmaydi
+        # — test baribir tugatilishi kerak.
+        exam.status = Exam.Status.CALCULATED
+        exam.save(update_fields=["status", "updated_at"])
+    ok, message = publish_results(exam)
+    if not ok:
+        return False, message
+
+    return True, (
+        f"Test tugatildi: {report.participants} ta qatnashchi, "
+        f"natijalar hisoblanib e'lon qilindi."
+    )
+
+
 def archive_exam(exam: Exam) -> tuple[bool, str]:
     """Testni arxivlaydi (kodi bo'shaydi)."""
     _reload(exam)
@@ -403,68 +451,6 @@ def archive_exam(exam: Exam) -> tuple[bool, str]:
     exam.save(update_fields=["status", "updated_at"])
     release_code(exam.code)
     return True, "Test arxivlandi."
-
-
-@transaction.atomic
-def duplicate_exam(exam: Exam, owner=None) -> Exam:
-    """
-    Testning to'liq nusxasini yaratadi (savollar va kalitlar bilan).
-
-    Natijalar, ID kodlar va sertifikatlar ko'chirilmaydi — yangi test
-    qoralama holatida ochiladi.
-    """
-    _reload(exam)
-    copy = Exam.objects.create(
-        title=shorten(f"{exam.title} (nusxa)", 150),
-        code=generate_exam_code(f"{exam.title} (nusxa)"),
-        exam_type=exam.exam_type,
-        status=Exam.Status.DRAFT,
-        owner=owner or exam.owner,
-        description=exam.description,
-        question_count=exam.question_count,
-        is_national_template=exam.is_national_template,
-        duration_minutes=exam.duration_minutes,
-        is_public=exam.is_public,
-        show_results_to_participants=exam.show_results_to_participants,
-        show_correct_answers=exam.show_correct_answers,
-        show_rating_to_participants=exam.show_rating_to_participants,
-        max_ball=exam.max_ball,
-        theta_min=exam.theta_min,
-        theta_max=exam.theta_max,
-        auto_calibrate=exam.auto_calibrate,
-        certificate_enabled=exam.certificate_enabled,
-        certificate_scope=exam.certificate_scope,
-        certificate_min_percent=exam.certificate_min_percent,
-        certificate_min_ball=exam.certificate_min_ball,
-        certificate_min_grade=exam.certificate_min_grade,
-        organizer_name=exam.organizer_name,
-    )
-
-    Question.objects.bulk_create(
-        [
-            Question(
-                exam=copy,
-                order=question.order,
-                kind=question.kind,
-                text=question.text,
-                section=question.section,
-                choices_count=question.choices_count,
-                correct_key=question.correct_key,
-                answer_a=question.answer_a,
-                answer_b=question.answer_b,
-                numeric_tolerance=question.numeric_tolerance,
-                parts=question.parts,
-                difficulty=question.difficulty,
-                difficulty_b=question.difficulty_b,
-                difficulty_locked=question.difficulty_locked,
-                is_active=question.is_active,
-            )
-            for question in exam.questions.order_by("order")
-        ],
-        batch_size=200,
-    )
-    logger.info("Test nusxalandi: %s -> %s", exam.code, copy.code)
-    return copy
 
 
 def deletion_summary(exam: Exam) -> dict:
@@ -552,10 +538,11 @@ def can_manage(exam: Exam, user, *, is_admin: bool = False) -> bool:
 
 def auto_close_expired() -> int:
     """
-    Tugash vaqti o'tgan faol testlarni avtomatik yopadi.
+    Tugash vaqti o'tgan faol testlarni avtomatik tugatadi.
 
     Bot fon vazifasi (`bot/tasks/scheduler.py`) tomonidan chaqiriladi.
-    Yopilgan testning kodi bo'shaydi va yangi testga berilishi mumkin.
+    Test yopiladi, natijalari hisoblanib e'lon qilinadi va kodi bo'shaydi —
+    ya'ni qo'lda «Testni tugatish» bosilgandagi bilan bir xil natija.
     """
     now = timezone.now()
     expired = Exam.objects.filter(
@@ -563,12 +550,53 @@ def auto_close_expired() -> int:
     )
     count = 0
     for exam in expired:
-        exam.status = Exam.Status.CLOSED
-        exam.closed_at = now
-        exam.save(update_fields=["status", "closed_at", "updated_at"])
-        release_code(exam.code)
-        count += 1
+        ok, _ = finish_exam(exam)
+        if ok:
+            count += 1
     return count
+
+
+#: Faol bo'lmagan test bazada shuncha soat turadi, so'ng o'z-o'zidan o'chadi.
+PURGE_AFTER_HOURS: int = 24
+
+
+def auto_purge_finished(hours: int = PURGE_AFTER_HOURS) -> int:
+    """
+    Faol bo'lmagan testlarni bazadan butunlay o'chiradi.
+
+    Talab: qoralama, yopilgan, hisoblangan, e'lon qilingan va arxivlangan
+    testlar 24 soatdan keyin o'z-o'zidan yo'qoladi — ro'yxatda faqat faol
+    testlar qoladi. Test bilan birga uning savollari, urinishlari, ID
+    kodlari va sertifikatlari ham o'chadi, kodi esa bo'shaydi.
+
+    Vaqt sanog'i testning oxirgi yakuniy nuqtasidan boshlanadi: e'lon
+    qilingan, hisoblangan yoki yopilgan vaqtdan; qoralama uchun esa
+    yaratilgan vaqtdan.
+    """
+    deadline = timezone.now() - timedelta(hours=max(1, int(hours)))
+    stale = (
+        Exam.objects.exclude(status=Exam.Status.ACTIVE)
+        .annotate(
+            finished_at=Coalesce(
+                "published_at", "calculated_at", "closed_at", "created_at"
+            )
+        )
+        .filter(finished_at__lte=deadline)
+        .order_by("id")
+    )
+
+    removed = 0
+    for exam in list(stale[:200]):
+        try:
+            ok, _, _ = delete_exam(exam, force=True)
+        except Exception:  # pragma: no cover - bitta test butun tozalashni to'xtatmasin
+            logger.exception("Eskirgan testni o'chirishda xato: exam_id=%s", exam.id)
+            continue
+        if ok:
+            removed += 1
+    if removed:
+        logger.info("%s ta yakunlangan test avtomatik o'chirildi.", removed)
+    return removed
 
 
 # --------------------------------------------------------------------------
@@ -592,9 +620,12 @@ def exams_awaiting_report(limit: int = 20) -> list[tuple[int, str]]:
     """
     pending: list[tuple[int, str]] = []
 
+    # Test bir amalda tugatilgani uchun e'lon qilingan test faqat
+    # «published» hisobotini oladi — aks holda admin bir xil PDF ni ikki
+    # marta olardi.
     closed = Exam.objects.filter(
         exam_type__in=REPORT_EXAM_TYPES,
-        status__in=[Exam.Status.CLOSED, Exam.Status.CALCULATED, Exam.Status.PUBLISHED],
+        status__in=[Exam.Status.CLOSED, Exam.Status.CALCULATED],
         closed_report_sent_at__isnull=True,
     ).order_by("id")[:limit]
     pending.extend((exam.id, "closed") for exam in closed)
@@ -610,10 +641,24 @@ def exams_awaiting_report(limit: int = 20) -> list[tuple[int, str]]:
 
 
 def mark_report_sent(exam: Exam, reason: str) -> None:
-    """Hisobot yuborilganini belgilaydi (qayta yuborilmasligi uchun)."""
-    field = "closed_report_sent_at" if reason == "closed" else "published_report_sent_at"
-    setattr(exam, field, timezone.now())
-    exam.save(update_fields=[field, "updated_at"])
+    """
+    Hisobot yuborilganini belgilaydi (qayta yuborilmasligi uchun).
+
+    E'lon hisoboti yuborilgan bo'lsa, yopilish hisoboti ham yuborilgan
+    hisoblanadi: test bir amalda tugatiladi va ikkalasi bitta xabar.
+    """
+    now = timezone.now()
+    fields = ["updated_at"]
+    if reason == "closed":
+        exam.closed_report_sent_at = now
+        fields.append("closed_report_sent_at")
+    else:
+        exam.published_report_sent_at = now
+        fields.append("published_report_sent_at")
+        if exam.closed_report_sent_at is None:
+            exam.closed_report_sent_at = now
+            fields.append("closed_report_sent_at")
+    exam.save(update_fields=fields)
 
 
 def report_recipients(exam: Exam) -> list[int]:
@@ -750,12 +795,14 @@ __all__ = [
     "activate_exam",
     "close_exam",
     "publish_results",
+    "finish_exam",
     "archive_exam",
-    "duplicate_exam",
     "deletion_summary",
     "delete_exam",
     "can_manage",
     "auto_close_expired",
+    "auto_purge_finished",
+    "PURGE_AFTER_HOURS",
     "REPORT_EXAM_TYPES",
     "exams_awaiting_report",
     "mark_report_sent",

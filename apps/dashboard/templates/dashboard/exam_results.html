@@ -11,6 +11,9 @@
   <a class="btn btn-outline" href="{% url 'dashboard:export_results_excel' exam.pk %}"><svg class="icon"><use href="#i-sheet"></use></svg> Excel</a>
   <a class="btn btn-outline" href="{% url 'dashboard:export_results_pdf' exam.pk %}"><svg class="icon"><use href="#i-file"></use></svg> PDF</a>
   <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">Qayta hisoblash</a>
+  {% if exam.status == 'active' %}
+    <a class="btn btn-gold" href="{% url 'dashboard:exam_action' exam.pk 'tugatish' %}">Testni tugatish</a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -52,10 +55,10 @@
   {% endif %}
 {% endif %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
    Savollarning qiyinchilik darajasi. Bu bo'lim faqat boshqaruv panelida
    (ya'ni faqat adminlarda) ko'rinadi — ishtirokchilar uni ko'rmaydi.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 {% if charts.has_data %}
   <section class="card mb">
     <div class="card-head">
@@ -63,14 +66,23 @@
       <span class="sub">Faqat admin uchun</span>
     </div>
     <div class="card-body">
+      {# Ko'k — savolni topganlar, qizil — topa olmaganlar. #}
       <div class="chart-legend">
-        {% for name, color, count in charts.level_counts %}
+        {% for name, color, count in charts.answer_counts %}
           <span class="chart-legend-item">
-            <i style="background:{{ color }}"></i>{{ name }} — {{ count }} ta
+            <i style="background:{{ color }}"></i>{{ name }} — {{ count }} ta javob
           </span>
         {% endfor %}
       </div>
       <div class="chart-scroll">{{ difficulty_svg }}</div>
+
+      <div class="chart-legend mt">
+        {% for name, color, count in charts.level_counts %}
+          <span class="chart-legend-item">
+            <i style="background:{{ color }}"></i>{{ name }} — {{ count }} ta savol
+          </span>
+        {% endfor %}
+      </div>
 
       <div class="grid grid-2 chart-tops">
         <div>
@@ -137,7 +149,7 @@
       <table class="data">
         <thead>
           <tr>
-            <th class="num">O‘rin</th>
+            <th class="num" title="Ballari teng bo‘lsa, oldinroq topshirgan yuqorida">O‘rin</th>
             <th>Ishtirokchi</th>
             <th>Telefon</th>
             <th class="num">To‘g‘ri</th>

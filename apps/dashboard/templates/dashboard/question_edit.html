@@ -62,11 +62,11 @@
     <div class="card-body">
 
       {% if question.kind == 'open' %}
-        {#
+        {% comment %}
            Ochiq savol — javoblar varaqasidagi maydonlarning aynan o‘zi
            (`static/keysheet/`): maydonga bosilganda matematik klaviatura
            ochiladi va ifoda darhol tekshiriladi.
-        #}
+        {% endcomment %}
         <div class="answer-fields">
           <div class="answer-field">
             <label for="{{ form.answer_a.id_for_label }}">a) to‘g‘ri javob</label>

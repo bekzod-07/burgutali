@@ -13,6 +13,7 @@ Imkoniyatlar:
 from __future__ import annotations
 
 import json
+import logging
 from datetime import timedelta
 
 from django.contrib import messages
@@ -58,6 +59,8 @@ from .forms import (
     KeyImportForm,
     QuestionForm,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ==========================================================================
@@ -162,9 +165,34 @@ def index(request):
 # ==========================================================================
 
 
+#: Eskirgan testlarni tozalash shu oraliqda bir marta ishlaydi (sekund).
+_PURGE_THROTTLE_SECONDS = 300
+
+
+def _purge_stale_exams() -> None:
+    """
+    Faol bo'lmagan eskirgan testlarni tozalaydi.
+
+    Asosiy tozalash bot fon vazifasida ketadi (`bot/tasks/scheduler.py`),
+    lekin bot o'chirilgan bo'lsa ham panel ro'yxati toza qolishi kerak.
+    Shuning uchun ro'yxat ochilganda ham tekshiriladi — ortiqcha yuk
+    bo'lmasligi uchun besh daqiqada bir marta.
+    """
+    from django.core.cache import cache
+
+    if not cache.add("dashboard-exam-purge", "1", _PURGE_THROTTLE_SECONDS):
+        return
+    try:
+        exam_services.auto_purge_finished()
+    except Exception:  # pragma: no cover - tozalash sahifani buzmasin
+        logger.exception("Eskirgan testlarni tozalashda xato")
+
+
 @staff_required
 def exam_list(request):
     """Testlar ro'yxati."""
+    _purge_stale_exams()
+
     queryset = (
         Exam.objects.select_related("owner")
         .annotate(
@@ -181,8 +209,13 @@ def exam_list(request):
 
     if exam_type:
         queryset = queryset.filter(exam_type=exam_type)
-    if status:
-        queryset = queryset.filter(status=status)
+    # Holat ikkitagina: faol test va tugatilgan test. Eski bazadagi
+    # «yopilgan», «hisoblangan» va «arxivlangan» yozuvlar ham tugatilgan
+    # hisoblanadi — ular baribir 24 soat ichida o'chib ketadi.
+    if status == Exam.Status.ACTIVE:
+        queryset = queryset.filter(status=Exam.Status.ACTIVE)
+    elif status:
+        queryset = queryset.exclude(status=Exam.Status.ACTIVE)
     if search:
         queryset = queryset.filter(Q(title__icontains=search) | Q(code__icontains=search))
 
@@ -190,7 +223,12 @@ def exam_list(request):
         "section": "exams",
         "exams": queryset[:200],
         "type_choices": Exam.Type.choices,
-        "status_choices": Exam.Status.choices,
+        # Test yaratilishi bilan faollashadi, tugatilgach esa 24 soatdan
+        # keyin o'chadi — shuning uchun ro'yxatda ikki holatgina uchraydi.
+        "status_choices": [
+            (Exam.Status.ACTIVE, "Faol"),
+            (Exam.Status.PUBLISHED, "Tugatilgan"),
+        ],
         "selected_type": exam_type,
         "selected_status": status,
         "search": search,
@@ -237,9 +275,9 @@ def exam_create(request):
 
             messages.success(request, f"«{exam.title}» testi yaratildi (kod: {exam.code}).")
 
-            if data.get("activate"):
-                ok, message = exam_services.activate_exam(exam)
-                messages.success(request, message) if ok else messages.warning(request, message)
+            # Test yaratilishi bilan faollashadi — qo'lda faollashtirish yo'q.
+            ok, message = exam_services.activate_exam(exam)
+            messages.success(request, message) if ok else messages.warning(request, message)
 
             return redirect("dashboard:exam_detail", pk=exam.pk)
         messages.error(request, "Formada xatolar bor — quyida ko'rsatilgan.")
@@ -331,15 +369,6 @@ def exam_delete(request, pk: int):
         "dashboard/exam_delete.html",
         {"section": "exams", "exam": exam, "summary": summary, "form": form},
     )
-
-
-@staff_required
-def exam_duplicate(request, pk: int):
-    """Testning nusxasini yaratadi."""
-    exam = get_object_or_404(Exam, pk=pk)
-    copy = exam_services.duplicate_exam(exam, exam.owner)
-    messages.success(request, f"Nusxa yaratildi: {copy.title} ({copy.code}).")
-    return redirect("dashboard:exam_detail", pk=copy.pk)
 
 
 @staff_required
@@ -535,40 +564,42 @@ def exam_codes(request, pk: int):
 
 @staff_required
 def exam_action(request, pk: int, action: str):
-    """Test ustidagi amallar: faollashtirish, yopish, hisoblash, e'lon qilish."""
+    """
+    Test ustidagi amallar.
+
+    Asosiysi — «tugatish»: test yopiladi, natijalar hisoblanadi va darhol
+    e'lon qilinadi. Alohida «yopish / hisoblash / e'lon qilish» bosqichlari
+    yo'q, chunki test yaratilishi bilan faol bo'ladi va bir bosishda
+    yakunlanadi.
+    """
     exam = get_object_or_404(Exam, pk=pk)
 
-    if action == "faollashtirish":
-        ok, message = exam_services.activate_exam(exam)
-    elif action == "yopish":
-        ok, message = exam_services.close_exam(exam)
+    if action == "tugatish":
+        ok, message = exam_services.finish_exam(exam)
+        if ok and exam.can_issue_certificate:
+            exam.refresh_from_db()
+            result = issue_for_exam(exam)
+            message += (
+                f" Sertifikatlar: {result['created']} ta yaratildi, "
+                f"{result['skipped']} ta o'tkazib yuborildi."
+            )
     elif action == "hisoblash":
         report = calculate_exam(exam)
         ok, message = True, (
             f"Hisoblandi: {report.participants} ta qatnashchi, "
             f"ishonchlilik {report.reliability:.3f}."
         )
-    elif action == "elon":
-        ok, message = exam_services.publish_results(exam)
-        if ok and exam.can_issue_certificate:
-            result = issue_for_exam(exam)
-            message += (
-                f" Sertifikatlar: {result['created']} ta yaratildi, "
-                f"{result['skipped']} ta o'tkazib yuborildi."
-            )
     elif action == "sertifikatlar":
         if not exam.can_issue_certificate:
             ok, message = False, "Bu testda sertifikat berish yoqilmagan."
         elif exam.status != Exam.Status.PUBLISHED:
-            ok, message = False, "Avval natijalarni e'lon qiling."
+            ok, message = False, "Avval testni tugating."
         else:
             result = issue_for_exam(exam)
             ok, message = True, (
                 f"{result['created']} ta sertifikat yaratildi, "
                 f"{result['skipped']} ta o'tkazib yuborildi."
             )
-    elif action == "arxiv":
-        ok, message = exam_services.archive_exam(exam)
     else:
         ok, message = False, "Noma'lum amal."
 

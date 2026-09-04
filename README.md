@@ -44,8 +44,9 @@ yuklab olish — barchasi **web ilovada**, tugmalar orqali:
 * **Natija** — RASH balli, daraja, reyting, har bir savol bo‘yicha
   to‘g‘ri/xato tahlili;
 * **Sertifikatlar** — bitta tugma bilan PDF yuklab olish va QR tekshiruvi;
-* **Testlarim** — test **yaratish**, boshqarish (faollashtirish, yopish,
-  hisoblash, e’lon qilish), ID kodlar, nusxalash va **o‘chirish**.
+* **Testlarim** — test **yaratish** (saqlangan zahoti o‘zi faollashadi),
+  **«Testni tugatish»** (yopish + hisoblash + e’lon qilish bir amalda),
+  ID kodlar va **o‘chirish**.
 
 Ilova botning menyu tugmasidan, asosiy menyudagi «Ilovani ochish» tugmasidan
 yoki `/ilova` buyrug‘idan ochiladi. Barcha so‘rovlar Telegram `initData`
@@ -177,6 +178,11 @@ shuning uchun jadval oq-qora printerda ham o‘qiladi. Bu barcha PDF
 hisobotlarga tegishli: umumiy natijalar, to‘liq hisobot va sertifikatlar
 ro‘yxati.
 
+**O‘rinlar ketma-ket raqamlanadi** — 1, 2, 3, … — bir xil o‘rin ikki
+marta yozilmaydi. Ballari teng chiqqanda testni **oldinroq** topshirgan
+yuqoriroq o‘rinni oladi, kechroq topshirgani esa keyingi o‘ringa tushadi
+(masalan 10 va 11).
+
 Nom test turiga qarab tanlanadi:
 
 | Tur | Umumiy natijalarda | Sertifikatda |
@@ -188,9 +194,15 @@ Nom test turiga qarab tanlanadi:
 ### Savollar qiyinchiligi diagrammasi — faqat adminga
 
 RASH testlarida har bir savol (ochiq savollarda — har bir **a)** va **b)**
-qism) uchun qiyinchilik darajasi ustunli diagrammada ko‘rsatiladi. Ustun
-balandligi — savolga **noto‘g‘ri javob bergan** ishtirokchilar ulushi;
-rangi darajani bildiradi:
+qism) uchun bitta ustun chiziladi. Ustunning to‘liq balandligi —
+qatnashchilar soni, ustun esa ikkiga bo‘linadi:
+
+* pastki **ko‘k** qism — savolni **topgan** ishtirokchilar soni;
+* yuqoridagi **qizil** qism — **topa olmaganlar** soni.
+
+Har bir qismning ichiga odamlar soni yoziladi, shuning uchun savollarni
+bir qarashda solishtirish mumkin. Diagramma ostidagi jadvalda qiyinlik
+foizi (noto‘g‘ri javob berganlar ulushi) bo‘yicha daraja ham beriladi:
 
 | Ulush | Daraja | Rang |
 |-------|--------|------|
@@ -415,8 +427,13 @@ O‘chirish — himoyalangan amal:
 * sertifikat va Excel fayllari diskdan ham tozalanadi;
 * o‘chirishdan oldin natijalarni Excel/PDF ko‘rinishida saqlash taklif etiladi.
 
-Shuningdek testning to‘liq **nusxasini** yaratish mumkin — savollar va javob
-kalitlari ko‘chiriladi, natijalar esa ko‘chirilmaydi.
+Test **holati ikkitagina**: yaratilishi bilan *faol* bo‘ladi, «Testni
+tugatish» esa uni *tugatilgan* holatiga o‘tkazadi — shu bir amalda javob
+qabul qilish to‘xtaydi, natijalar hisoblanadi va darhol e’lon qilinadi.
+Faol bo‘lmagan test **24 soatdan keyin bazadan o‘z-o‘zidan o‘chadi**
+(`auto_purge_finished`), shuning uchun ro‘yxatda faqat faol testlar
+to‘planib qoladi — kerakli natijalarni oldindan Excel/PDF ko‘rinishida
+yuklab olish kerak.
 
 ### Boshqaruv paneli (Django + o‘z CSS dizayni)
 
@@ -433,7 +450,7 @@ Panelga **ikki xil** kirish mumkin:
 Imkoniyatlari:
 
 * test **yaratish** (tur, tuzilma, kalitlar, sozlamalar bir sahifada);
-* testlarni faollashtirish, yopish, hisoblash, e'lon qilish, nusxalash va
+* testni **tugatish** (yopish, hisoblash va e’lon qilish bitta tugmada) va
   **o‘chirish** (tasdiqlash bilan);
 * savollarni **to‘liq tahrirlash**: matn, turi, variantlar, kalit, ochiq
   javoblar, Rasch qiyinligi va «qulflash»;
@@ -677,14 +694,14 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 820 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
-python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
+python selftest.py      # 839 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```
 
 Tekshiruvlar orasida: SymPy parseriga qarshi 11 ta hujum urinishi, Mini App
-API ning autentifikatsiya va huquq chegaralari, test o‘chirish/nusxalash
-xavfsizligi, ikonkalar butunligi va **emoji ishlatilmaganligi**.
+API ning autentifikatsiya va huquq chegaralari, testni tugatish va
+o‘chirish xavfsizligi, ikonkalar butunligi va **emoji ishlatilmaganligi**.
 
 Ikkala skript ham **alohida vaqtinchalik bazada** ishlaydi — ishchi
 ma'lumotlarga tegmaydi.

@@ -1,10 +1,12 @@
 """
 «Testlarim» — yaratilgan testlarni boshqarish.
 
+Test yaratilishi bilan faollashadi, shuning uchun boshqaruvda yagona
+yakunlovchi amal bor — «Testni tugatish»: u testni yopadi, natijalarni
+Rasch modeli bo'yicha hisoblaydi va darhol e'lon qiladi.
+
 Imkoniyatlar (TZ 9-bo'lim):
-  * testni faollashtirish va yopish;
-  * natijalarni Rasch modeli bo'yicha hisoblash;
-  * natijalarni e'lon qilish (va qatnashchilarga xabar berish);
+  * testni tugatish (yopish + hisoblash + e'lon qilish bir amalda);
   * reyting va statistikani ko'rish;
   * natijalarni Excel/PDF ko'rinishida eksport qilish;
   * pullik testda ID kodlarni boshqarish va sertifikatlarni yaratish.
@@ -98,45 +100,17 @@ async def _send_manage_card(message: Message, exam) -> None:
 # ==========================================================================
 
 
-@router.callback_query(ExamCB.filter(F.action == "activate"))
-async def activate(
-    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool
+@router.callback_query(ExamCB.filter(F.action == "finish"))
+async def finish(
+    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool, bot: Bot
 ) -> None:
-    """Testni faollashtirish."""
-    await callback.answer()
-    exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
-    if exam is None:
-        return
+    """
+    Testni tugatish — yagona yakunlovchi amal.
 
-    ok, message_text = await exam_service.activate_exam(exam)
-    await callback.message.answer(esc(message_text))
-    if ok:
-        exam = await exam_service.get_exam(exam.id)
-        await _send_manage_card(callback.message, exam)
-
-
-@router.callback_query(ExamCB.filter(F.action == "close"))
-async def close(
-    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool
-) -> None:
-    """Testni yopish."""
-    await callback.answer()
-    exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
-    if exam is None:
-        return
-
-    ok, message_text = await exam_service.close_exam(exam)
-    await callback.message.answer(esc(message_text))
-    if ok:
-        exam = await exam_service.get_exam(exam.id)
-        await _send_manage_card(callback.message, exam)
-
-
-@router.callback_query(ExamCB.filter(F.action == "calc"))
-async def calculate(
-    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool
-) -> None:
-    """Natijalarni hisoblash."""
+    Javob qabul qilish to'xtaydi, natijalar Rasch modeli bo'yicha
+    hisoblanadi va darhol e'lon qilinadi; sertifikat yoqilgan bo'lsa
+    sertifikatlar ham shu yerda yaratiladi.
+    """
     await callback.answer()
     exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
     if exam is None:
@@ -144,38 +118,17 @@ async def calculate(
 
     await callback.message.answer(TA.CALCULATING)
     try:
-        report = await exam_service.calculate(exam)
+        ok, message_text = await exam_service.finish_exam(exam)
     except Exception:
-        logger.exception("Natijalarni hisoblashda xato: exam_id=%s", exam.id)
+        logger.exception("Testni tugatishda xato: exam_id=%s", exam.id)
         await callback.message.answer(TC.ERROR_GENERIC)
         return
 
-    await callback.message.answer(
-        TA.CALCULATED.format(
-            participants=report.participants,
-            calibrated="ha" if report.calibrated else "yo‘q",
-            iterations=report.iterations,
-            reliability=f"{report.reliability:.3f}",
-        )
-    )
-    exam = await exam_service.get_exam(exam.id)
-    await _send_manage_card(callback.message, exam)
-
-
-@router.callback_query(ExamCB.filter(F.action == "publish"))
-async def publish(
-    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool, bot: Bot
-) -> None:
-    """Natijalarni e'lon qilish va qatnashchilarga xabar berish."""
-    await callback.answer()
-    exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
-    if exam is None:
-        return
-
-    ok, message_text = await exam_service.publish_results(exam)
     if not ok:
         await callback.message.answer(esc(message_text))
         return
+
+    exam = await exam_service.get_exam(exam.id)
 
     certificates_note = ""
     if exam.can_issue_certificate:
@@ -185,10 +138,9 @@ async def publish(
             f"{result['skipped']} ta o‘tkazib yuborildi."
         )
 
-    await callback.message.answer(
-        TA.PUBLISHED.format(certificates=certificates_note)
-    )
+    await callback.message.answer(TA.PUBLISHED.format(certificates=certificates_note))
     asyncio.create_task(_notify_participants(bot, exam.id))
+    await _send_manage_card(callback.message, exam)
 
 
 async def _notify_participants(bot: Bot, exam_id: int) -> None:
@@ -421,47 +373,6 @@ async def make_certificates(
         f"⏭ O‘tkazib yuborildi: <b>{result['skipped']}</b>\n"
         f"Xatolar: <b>{result['errors']}</b>"
     )
-
-
-@router.callback_query(ExamCB.filter(F.action == "archive"))
-async def archive(
-    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool
-) -> None:
-    """Testni arxivlash."""
-    await callback.answer()
-    exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
-    if exam is None:
-        return
-    ok, message_text = await exam_service.archive_exam(exam)
-    await callback.message.answer(esc(message_text))
-
-
-# ==========================================================================
-#  Nusxalash
-# ==========================================================================
-
-
-@router.callback_query(ExamCB.filter(F.action == "copy"))
-async def duplicate(
-    callback: CallbackQuery, callback_data: ExamCB, user, is_admin: bool
-) -> None:
-    """Testning to'liq nusxasini yaratadi."""
-    await callback.answer("Nusxa yaratilmoqda...")
-    exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
-    if exam is None:
-        return
-
-    try:
-        copy = await exam_service.duplicate_exam(exam, user)
-    except Exception:
-        logger.exception("Testni nusxalashda xato: exam_id=%s", exam.id)
-        await callback.message.answer(TC.ERROR_GENERIC)
-        return
-
-    await callback.message.answer(
-        TA.DUPLICATED.format(title=esc(copy.title), code=copy.code)
-    )
-    await _send_manage_card(callback.message, copy)
 
 
 # ==========================================================================
