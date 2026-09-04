@@ -113,17 +113,21 @@ def certificate_percent(ball: float | Decimal | None, grade: str | None = None) 
     return round(min(100.0, float(ball) * 100.0 / CERT_PERCENT_BASE), 2)
 
 
-#: Qabul imtihonidagi fanlar va ularning maksimal ballari. Qatnashchining
-#: sertifikat foizi (`certificate_percent`) shu ballarga ko'chiriladi:
-#: 100% -> 93 + 63 + 11 ball.
-SUBJECT_SCORES: Final[tuple[tuple[str, float], ...]] = (
-    ("Asosiy 1-fan", 93.0),
-    ("Asosiy 2-fan", 63.0),
-    ("Majburiy fan", 11.0),
+#: Qabul imtihonidagi fanlar: `(nomi, maksimal ball, foizga bog'liqmi)`.
+#:
+#: Asosiy fanlar sertifikat foiziga (`certificate_percent`) proporsional,
+#: majburiy fan esa **sertifikat olgan har bir qatnashchiga to'liq**
+#: beriladi — daraja «C» bo'lsa ham 11 ball.
+SUBJECT_SCORES: Final[tuple[tuple[str, float, bool], ...]] = (
+    ("Asosiy 1-fan", 93.0, True),
+    ("Asosiy 2-fan", 63.0, True),
+    ("Majburiy fan", 11.0, False),
 )
 
 #: Fan ballari yig'indisi (100% olgan qatnashchi uchun).
-SUBJECT_TOTAL: Final[float] = sum(maximum for _name, maximum in SUBJECT_SCORES)
+SUBJECT_TOTAL: Final[float] = sum(
+    maximum for _name, maximum, _scaled in SUBJECT_SCORES
+)
 
 #: Ball va foiz nechta o'nlik xonagacha yaxlitlanadi.
 SCORE_DECIMALS: Final[int] = 2
@@ -133,25 +137,28 @@ def subject_scores(ball: float | Decimal | None, grade: str | None = None) -> li
     """
     Fanlar bo'yicha ballar: `[Asosiy 1-fan, Asosiy 2-fan, Majburiy fan]`.
 
-    Har bir fan balli sertifikat foiziga proporsional:
+    Asosiy fanlar sertifikat foiziga proporsional, majburiy fan esa
+    sertifikat olganlarning hammasiga to'liq beriladi:
 
       * 100%    -> 93.00, 63.00, 11.00;
-      * 92.77%  -> 86.28, 58.45, 10.20.
+      * 92.77%  -> 86.28, 58.45, 11.00;
+      * 70.77%  -> 65.82, 44.59, 11.00  («C» darajasining boshi).
 
     Daraja olinmagan bo'lsa (ball 46 dan past) fanlar bo'yicha ball ham
     berilmaydi — hammasi 0.
     """
     if not grade or grade == NO_GRADE:
-        return [0.0 for _name, _maximum in SUBJECT_SCORES]
+        return [0.0 for _entry in SUBJECT_SCORES]
     share = certificate_percent(ball, grade) / 100.0
     return [
-        round(maximum * share, SCORE_DECIMALS) for _name, maximum in SUBJECT_SCORES
+        round(maximum * share if scaled else maximum, SCORE_DECIMALS)
+        for _name, maximum, scaled in SUBJECT_SCORES
     ]
 
 
 def subject_names() -> list[str]:
     """Fan ustunlarining sarlavhalari."""
-    return [name for name, _maximum in SUBJECT_SCORES]
+    return [name for name, _maximum, _scaled in SUBJECT_SCORES]
 
 
 # ==========================================================================

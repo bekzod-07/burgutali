@@ -909,7 +909,8 @@
         kv("Topshirgan vaqt", esc(attempt.submitted_at_human)) +
         "</div></div>";
 
-      /* Fan ballari — sertifikat foiziga proporsional: 100% → 93 + 63 + 11. */
+      /* Fan ballari: asosiy fanlar foizga proporsional (100% → 93 va 63),
+         majburiy fan esa sertifikat olganlarning hammasiga to'liq (11 ball). */
       if (attempt.uses_rasch && attempt.subjects && attempt.subjects.length) {
         var earned = attempt.subjects.filter(function (item) { return item.value > 0; });
         if (earned.length) {

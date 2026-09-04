@@ -425,7 +425,8 @@ def overall_results_report(exam: Exam) -> bytes:
     header = ["№", participant_column(exam), "BALL", "FOIZ", "DARAJA"]
     widths = [9 * mm, 45 * mm, 20 * mm, 22 * mm, 24 * mm]
     if exam.uses_rasch:
-        # Sertifikat foizi fan ballariga ko'chiriladi: 100% -> 93 + 63 + 11.
+        # Sertifikat foizi asosiy fanlarga ko'chiriladi (100% -> 93 va 63),
+        # majburiy fan esa sertifikat olganlarning hammasiga to'liq: 11 ball.
         # Sarlavha ikki qatorga bo'linadi, aks holda ustunga sig'maydi.
         header += [
             name.upper().replace(" ", "\n", 1) for name in C.subject_names()

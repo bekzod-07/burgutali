@@ -203,8 +203,14 @@ def test_constants() -> None:
     R.equal("Fan ballari yig'indisi", C.SUBJECT_TOTAL, 167.0)
     R.equal("100% -> 93/63/11", C.subject_scores(C.MAX_BALL, "A+"), [93.0, 63.0, 11.0])
     R.equal("A darajasi ham 100%", C.subject_scores(65.0, "A"), [93.0, 63.0, 11.0])
-    R.equal("92.77% -> 86.28/58.45/10.20",
-            C.subject_scores(60.3, "B+"), [86.28, 58.45, 10.2])
+    R.equal("92.77% -> 86.28/58.45/11.00",
+            C.subject_scores(60.3, "B+"), [86.28, 58.45, 11.0])
+    # Majburiy fan sertifikat olganlarning hammasiga to'liq beriladi —
+    # daraja «C» bo'lsa ham 11 ball.
+    R.equal("C darajasida ham majburiy fan 11 ball",
+            C.subject_scores(46.0, "C")[2], 11.0)
+    R.check("C darajasida asosiy fanlar to'liq emas",
+            C.subject_scores(46.0, "C")[0] < 93.0)
     R.equal("Darajasiz natijada fan balli yo'q",
             C.subject_scores(44.0, C.NO_GRADE), [0.0, 0.0, 0.0])
     R.equal("Ball yo'q bo'lsa ham nol", C.subject_scores(None, ""), [0.0, 0.0, 0.0])

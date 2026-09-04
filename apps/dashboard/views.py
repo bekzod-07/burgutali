@@ -512,7 +512,8 @@ def exam_results(request, pk: int):
     summary = charts.build_summary(exam)
 
     # Reyting qatorlariga sertifikat foizi va fan ballari qo'shiladi:
-    # 100% -> 93 + 63 + 11 (`core.constants.subject_scores`).
+    # Asosiy fanlar foizga proporsional, majburiy fan esa sertifikat
+    # olganlarning hammasiga to'liq: 11 ball (`core.constants.subject_scores`).
     rows = []
     for index, attempt in enumerate(attempt_services.ranked_attempts(exam), start=1):
         rows.append({

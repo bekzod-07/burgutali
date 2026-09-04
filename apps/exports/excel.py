@@ -160,8 +160,9 @@ def results_workbook(exam: Exam) -> bytes:
         headers.append("ID raqami")
     headers += ["To‘g‘ri", "Xato", "Bo‘sh", "Foiz"]
     if uses_rasch:
-        # «Sert. foizi» — `ball * 100 / 65`, fan ballari esa shu foizga
-        # proporsional: 100% -> 93 + 63 + 11 (`core.constants.subject_scores`).
+        # «Sert. foizi» — `ball * 100 / 65`. Asosiy fanlar shu foizga
+        # proporsional, majburiy fan esa sertifikat olganlarning hammasiga
+        # to'liq beriladi: 11 ball (`core.constants.subject_scores`).
         headers += ["theta", "Ball", "Daraja", "Sert. foizi"]
         headers += C.subject_names()
     headers += ["Topshirgan vaqt", "Sarflangan vaqt"]

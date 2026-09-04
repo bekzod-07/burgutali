@@ -195,7 +195,7 @@
                   {% else %}<span class="badge badge-gray">—</span>{% endif %}
                 </td>
                 <td class="num">{{ row.award_percent|floatformat:2 }}%</td>
-                {# Sertifikat foizi fan ballariga ko'chiriladi: 100% → 93 + 63 + 11. #}
+                {# Asosiy fanlar foizga proporsional, majburiy fan doim 11 ball. #}
                 {% for value in row.subjects %}
                   <td class="num"><b>{{ value|floatformat:2 }}</b></td>
                 {% endfor %}

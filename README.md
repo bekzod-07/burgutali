@@ -173,13 +173,15 @@ Qatnashchining o‘z natijasida ham (botda va web ilovada) RASH testlari
 uchun faqat ball, foiz, daraja va fanlar bo‘yicha ball ko‘rinadi.
 
 **Fanlar bo‘yicha ball.** Sertifikat foizi qabul imtihoni shkalasiga
-ko‘chiriladi — 100% olgan qatnashchi **93 + 63 + 11** ball oladi:
+ko‘chiriladi — 100% olgan qatnashchi **93 + 63 + 11** ball oladi. Asosiy
+fanlar foizga proporsional, **majburiy fan esa sertifikat olganlarning
+hammasiga to‘liq** beriladi — daraja «C» bo‘lsa ham 11 ball:
 
-| Ustun | Maksimal ball | 92.77% da |
-|-------|---------------|-----------|
-| Asosiy 1-fan | 93.00 | 86.28 |
-| Asosiy 2-fan | 63.00 | 58.45 |
-| Majburiy fan | 11.00 | 10.20 |
+| Ustun | Maksimal ball | 92.77% da | «C» (70.77%) da |
+|-------|---------------|-----------|------------------|
+| Asosiy 1-fan | 93.00 | 86.28 | 65.82 |
+| Asosiy 2-fan | 63.00 | 58.45 | 44.59 |
+| Majburiy fan | 11.00 | 11.00 | 11.00 |
 
 Daraja olinmagan natijada (46 balldan past) uchala ustun ham **0** bo‘ladi.
 Barcha ball va foizlar **yuzdan birlar xonasigacha** yaxlitlanadi.
@@ -707,7 +709,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 850 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 852 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```
