@@ -661,19 +661,42 @@ def mark_report_sent(exam: Exam, reason: str) -> None:
     exam.save(update_fields=fields)
 
 
-def report_recipients(exam: Exam) -> list[int]:
+def main_admin_ids() -> list[int]:
     """
-    Hisobotni kim olishi kerak: test egasi va `.env` dagi asosiy adminlar.
+    `.env` dagi asosiy adminlar (`ADMIN_IDS`).
 
-    Bir xil odam ikki marta olmasligi uchun ro'yxat takrorlanmaydi.
+    Qatnashchi nechta savolni to'g'ri topgani **faqat shu odamlarga**
+    ko'rsatiladi: to'liq hisobot, Excel jadvali va savollar qiyinchiligi
+    diagrammasi shular uchun. Testni yaratgan oddiy foydalanuvchi bu
+    ma'lumotni ko'rmaydi.
     """
     from bot.config import get_config
 
+    return [int(admin_id) for admin_id in sorted(get_config().admin_ids)]
+
+
+def is_main_admin(user) -> bool:
+    """Foydalanuvchi `.env` dagi asosiy adminmi."""
+    telegram_id = getattr(user, "telegram_id", None)
+    if telegram_id is None:
+        return False
+    return int(telegram_id) in set(main_admin_ids())
+
+
+def report_recipients(exam: Exam) -> list[int]:
+    """
+    Umumiy natijalarni kim oladi: test egasi va asosiy adminlar.
+
+    Bu ro'yxatga **faqat e'lon uchun** mo'ljallangan hisobot yuboriladi —
+    unda nechta savolni to'g'ri topgani ko'rsatilmaydi. To'liq hisobot
+    `main_admin_ids()` ro'yxatiga ketadi.
+    """
+    admins = main_admin_ids()
     recipients: list[int] = []
     owner_id = getattr(exam.owner, "telegram_id", None) if exam.owner_id else None
     if owner_id:
         recipients.append(int(owner_id))
-    for admin_id in sorted(get_config().admin_ids):
+    for admin_id in admins:
         if admin_id not in recipients:
             recipients.append(int(admin_id))
     return recipients
@@ -807,6 +830,8 @@ __all__ = [
     "exams_awaiting_report",
     "mark_report_sent",
     "report_recipients",
+    "main_admin_ids",
+    "is_main_admin",
     "get_exam_by_code",
     "list_available_exams",
     "list_owned_exams",

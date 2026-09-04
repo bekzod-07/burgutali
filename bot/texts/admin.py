@@ -196,9 +196,15 @@ OVERALL_RESULTS_CAPTION = (
     "<b>{title}</b> — umumiy natijalar"
 )
 
+#: Diagramma nechta odam savolni topganini ko'rsatadi — u faqat
+#: `.env` dagi asosiy adminlarga ochiq.
+CHARTS_ADMIN_ONLY = (
+    "Savollar qiyinchiligi diagrammasi faqat asosiy adminlar uchun."
+)
+
 CHARTS_EMPTY = (
     "Diagramma uchun ma’lumot yo‘q.\n\n"
-    "Avval «Natijalarni hisoblash» tugmasini bosing."
+    "Avval «Testni tugatish» tugmasini bosing."
 )
 
 

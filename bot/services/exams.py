@@ -112,18 +112,46 @@ def calculate(exam: Exam):
 
 @sync_to_async(thread_sensitive=True)
 def export_results_excel(exam: Exam) -> bytes:
-    """Natijalarni Excel ko'rinishida qaytaradi."""
+    """
+    To'liq Excel jadvali — to'g'ri javoblar soni va javoblar matritsasi bilan.
+
+    **Faqat asosiy adminlar uchun** (`main_admin_ids`).
+    """
     from apps.exports.excel import results_workbook
 
     return results_workbook(exam)
 
 
 @sync_to_async(thread_sensitive=True)
+def export_overall_excel(exam: Exam) -> bytes:
+    """
+    E'lon uchun Excel jadvali — nechta topgani ko'rinmaydi.
+
+    Testni yaratgan oddiy foydalanuvchi aynan shu faylni oladi.
+    """
+    from apps.exports.excel import overall_results_workbook
+
+    return overall_results_workbook(exam)
+
+
+@sync_to_async(thread_sensitive=True)
 def export_results_pdf(exam: Exam) -> bytes:
-    """Natijalarni PDF hisobot ko'rinishida qaytaradi."""
+    """
+    To'liq PDF hisobot — to'g'ri javoblar soni va statistika bilan.
+
+    **Faqat asosiy adminlar uchun** (`main_admin_ids`).
+    """
     from apps.exports.pdf_report import results_report
 
     return results_report(exam)
+
+
+@sync_to_async(thread_sensitive=True)
+def export_overall_pdf(exam: Exam) -> bytes:
+    """E'lon uchun PDF — nechta topgani ko'rinmaydi."""
+    from apps.exports.pdf_report import overall_results_report
+
+    return overall_results_report(exam)
 
 
 @sync_to_async(thread_sensitive=True)

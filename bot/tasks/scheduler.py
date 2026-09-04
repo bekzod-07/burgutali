@@ -130,19 +130,22 @@ async def _send_report(bot: Bot, exam_id: int, reason: str) -> None:
     filename = timestamped_name("umumiy-natijalar", "pdf", payload["code"])
     await _broadcast(bot, recipients, caption, payload["pdf"], filename)
 
-    # 2-fayl — faqat adminlar uchun: to'g'ri javoblar soni bilan to'liq
-    # hisobot. Kanalga qo'yiladigan faylda bu ma'lumot bo'lmasligi kerak.
-    if payload.get("admin_pdf"):
+    # 2-fayl — faqat `.env` dagi asosiy adminlar uchun: to'g'ri javoblar
+    # soni bilan to'liq hisobot. Testni yaratgan oddiy foydalanuvchi bu
+    # faylni olmaydi — unga yuqoridagi e'lon fayli yetarli.
+    admins = payload.get("admin_recipients") or []
+    if payload.get("admin_pdf") and admins:
         admin_caption = TA.REPORT_ADMIN_COPY.format(
             title=esc(payload["title"]), code=esc(payload["code"])
         )
         admin_name = timestamped_name("admin-hisobot", "pdf", payload["code"])
         await _broadcast(
-            bot, recipients, admin_caption, payload["admin_pdf"], admin_name
+            bot, admins, admin_caption, payload["admin_pdf"], admin_name
         )
 
-    # Savollar qiyinchiligi va ballar taqsimoti — faqat adminlarga.
-    await _broadcast_charts(bot, recipients, payload)
+    # Savollar qiyinchiligi va ballar taqsimoti — ular ham nechta odam
+    # topganini ko'rsatadi, shuning uchun faqat asosiy adminlarga.
+    await _broadcast_charts(bot, admins, payload)
 
     await report_service.mark_report_sent_by_id(exam_id, reason)
     logger.info(
@@ -158,7 +161,9 @@ async def _broadcast_charts(bot: Bot, recipients: list[int], payload: dict) -> N
     Diagrammalarni adminlarga rasm ko'rinishida yuboradi.
 
     Talab: savollarning qiyinchilik darajasi RASH testlarida ustunli
-    diagramma ko'rinishida va **faqat adminga** ko'rsatiladi.
+    diagramma ko'rinishida va **faqat `.env` dagi asosiy adminlarga**
+    ko'rsatiladi — diagramma har bir savolni nechta odam topganini
+    ochib beradi.
     """
     images = payload.get("images") or []
     if not images:

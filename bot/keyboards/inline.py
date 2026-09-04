@@ -280,8 +280,15 @@ def exam_entry(exam) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def exam_manage(exam, *, is_owner: bool = True) -> InlineKeyboardMarkup:
-    """Test boshqaruvi tugmalari."""
+def exam_manage(exam, *, is_owner: bool = True, is_admin: bool = False) -> InlineKeyboardMarkup:
+    """
+    Test boshqaruvi tugmalari.
+
+    `is_admin` — `.env` dagi asosiy admin. Savollar qiyinchiligi
+    diagrammasi har bir savolni nechta odam topganini ko'rsatadi, shuning
+    uchun u faqat asosiy adminlarga beriladi; testni yaratgan oddiy
+    foydalanuvchi uni ko'rmaydi.
+    """
     builder = InlineKeyboardBuilder()
     status = exam.status
 
@@ -295,8 +302,9 @@ def exam_manage(exam, *, is_owner: bool = True) -> InlineKeyboardMarkup:
     builder.button(text=TA.BTN_RATING, callback_data=ExamCB(action="rating", exam_id=exam.id))
     builder.button(text=TA.BTN_EXPORT_RESULTS, callback_data=ExamCB(action="xlsx", exam_id=exam.id))
     builder.button(text=TA.BTN_EXPORT_PDF, callback_data=ExamCB(action="pdf", exam_id=exam.id))
-    # Savollar qiyinchiligi diagrammasi — faqat test egasi va adminlar uchun.
-    builder.button(text=TA.BTN_CHARTS, callback_data=ExamCB(action="charts", exam_id=exam.id))
+    if is_admin:
+        # Diagramma nechta odam topganini ochib beradi — faqat asosiy admin.
+        builder.button(text=TA.BTN_CHARTS, callback_data=ExamCB(action="charts", exam_id=exam.id))
 
     if exam.exam_type == "rasch_paid":
         builder.button(text=TA.BTN_MAKE_CODES, callback_data=ExamCB(action="codes", exam_id=exam.id))

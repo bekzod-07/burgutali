@@ -27,12 +27,13 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
 
     Ikkita PDF yasaladi:
 
-      * `pdf` — **e'lon uchun**: `№ · F.I.SH · Ball · Foiz · Daraja`.
-        Nechta savolni to'g'ri topgani ko'rinmaydi, shuning uchun uni
-        kanalga qo'yish mumkin.
-      * `admin_pdf` — **faqat admin uchun**: yuqoridagilarga qo'shimcha
-        to'g'ri javoblar soni, ularning foizi, umumiy statistika va
-        savollar qiyinchiligi.
+      * `pdf` — **e'lon uchun**: `№ · F.I.SH · Ball · Foiz · Daraja` va
+        fan ballari. Nechta savolni to'g'ri topgani ko'rinmaydi, shuning
+        uchun uni kanalga qo'yish mumkin — testni yaratgan foydalanuvchi
+        aynan shu faylni oladi.
+      * `admin_pdf` — **faqat `.env` dagi asosiy adminlar uchun**:
+        yuqoridagilarga qo'shimcha to'g'ri javoblar soni, ularning foizi,
+        umumiy statistika va savollar qiyinchiligi.
 
     Qaytaradi: `{"exam", "title", "code", "type", "participants", "pdf",
     "admin_pdf", "recipients"}` yoki test topilmasa `None`.
@@ -82,7 +83,10 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
         "pdf": pdf,
         "admin_pdf": admin_pdf,
         "images": images,
+        # Umumiy natijalar (nechta topgani ko'rinmaydi) — egasi va adminlarga.
         "recipients": exam_services.report_recipients(exam),
+        # To'liq hisobot, Excel va diagrammalar — faqat asosiy adminlarga.
+        "admin_recipients": exam_services.main_admin_ids(),
     }
 
 

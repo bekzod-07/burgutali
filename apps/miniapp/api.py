@@ -471,7 +471,11 @@ def exam_rating(request, user, code: str):
     return {
         "exam": S.exam_dict(exam),
         "rows": S.rating_dict(
-            attempts, uses_rasch=exam.uses_rasch, me_id=my_attempt.id if my_attempt else None
+            attempts,
+            uses_rasch=exam.uses_rasch,
+            me_id=my_attempt.id if my_attempt else None,
+            # Nechta topgani faqat asosiy adminlarga ko'rinadi.
+            show_raw=exam_services.is_main_admin(user),
         ),
         "my_place": my_attempt.rank if my_attempt else None,
         "total": attempt_services.participants_count(exam),
@@ -709,7 +713,10 @@ def exam_manage(request, user, code: str):
 
     return {
         "exam": S.exam_dict(exam, participants=participants, detailed=True),
-        "statistics": S.statistics_dict(statistics),
+        # O'rtacha to'g'ri javoblar soni — faqat asosiy adminlarga.
+        "statistics": S.statistics_dict(
+            statistics, show_raw=exam_services.is_main_admin(user)
+        ),
         "codes": codes,
         "missing_keys": exam_services.missing_keys(exam)[:30],
         "certificates": Certificate.objects.filter(exam=exam).count(),

@@ -1487,7 +1487,11 @@
           kv("O‘rtacha ball", st.avg_ball) +
           kv("Eng yuqori", st.max_ball) +
           kv("Eng past", st.min_ball) +
-          kv("O‘rtacha foiz", st.avg_percent + "%") +
+          /* O‘rtacha to‘g‘ri javob foizi faqat asosiy adminga qaytariladi. */
+          (st.avg_percent === null || st.avg_percent === undefined
+            ? "" : kv("O‘rtacha foiz", st.avg_percent + "%")) +
+          (st.avg_raw_score === null || st.avg_raw_score === undefined
+            ? "" : kv("O‘rtacha to‘g‘ri javob", st.avg_raw_score)) +
           kv("Ishonchlilik (KR-20)", st.reliability) +
           "</div>";
         if (st.grades && st.grades.length) {

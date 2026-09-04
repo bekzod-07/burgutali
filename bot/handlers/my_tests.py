@@ -66,10 +66,22 @@ async def manage_exam(
     exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
     if exam is None:
         return
-    await _send_manage_card(callback.message, exam)
+    await _send_manage_card(callback.message, exam, is_main_admin(user))
 
 
-async def _send_manage_card(message: Message, exam) -> None:
+def is_main_admin(user) -> bool:
+    """
+    Foydalanuvchi `.env` dagi asosiy adminmi.
+
+    Qatnashchi nechta savolni to'g'ri topgani faqat shu odamlarga
+    ko'rsatiladi — testni yaratgan oddiy foydalanuvchiga emas.
+    """
+    from bot.config import get_config
+
+    return bool(user is not None and get_config().is_admin(user.telegram_id))
+
+
+async def _send_manage_card(message: Message, exam, is_admin: bool = False) -> None:
     """Boshqaruv kartochkasini yuboradi."""
     participants = await attempt_service.participants_count(exam)
 
@@ -91,7 +103,7 @@ async def _send_manage_card(message: Message, exam) -> None:
             participants=participants,
             codes_info=codes_info,
         ),
-        reply_markup=inline.exam_manage(exam),
+        reply_markup=inline.exam_manage(exam, is_admin=is_admin),
     )
 
 
@@ -140,7 +152,7 @@ async def finish(
 
     await callback.message.answer(TA.PUBLISHED.format(certificates=certificates_note))
     asyncio.create_task(_notify_participants(bot, exam.id))
-    await _send_manage_card(callback.message, exam)
+    await _send_manage_card(callback.message, exam, is_main_admin(user))
 
 
 async def _notify_participants(bot: Bot, exam_id: int) -> None:
@@ -255,8 +267,14 @@ async def export_excel(
     if exam is None:
         return
 
+    # Nechta savolni to'g'ri topgani faqat asosiy adminlarga ko'rinadi;
+    # testni yaratgan foydalanuvchi e'lon uchun mo'ljallangan jadvalni oladi.
+    full = is_main_admin(user)
     try:
-        payload = await exam_service.export_results_excel(exam)
+        if full:
+            payload = await exam_service.export_results_excel(exam)
+        else:
+            payload = await exam_service.export_overall_excel(exam)
     except Exception:
         logger.exception("Excel eksportida xato: exam_id=%s", exam.id)
         await callback.message.answer(TC.ERROR_GENERIC)
@@ -278,8 +296,12 @@ async def export_pdf(
     if exam is None:
         return
 
+    full = is_main_admin(user)
     try:
-        payload = await exam_service.export_results_pdf(exam)
+        if full:
+            payload = await exam_service.export_results_pdf(exam)
+        else:
+            payload = await exam_service.export_overall_pdf(exam)
     except Exception:
         logger.exception("PDF eksportida xato: exam_id=%s", exam.id)
         await callback.message.answer(TC.ERROR_GENERIC)
@@ -287,7 +309,7 @@ async def export_pdf(
 
     await callback.message.answer_document(
         document(payload, timestamped_name("natijalar", "pdf", exam.code)),
-        caption=f"<b>{esc(exam.title)}</b> — hisobot",
+        caption=f"<b>{esc(exam.title)}</b> — {'hisobot' if full else 'natijalar'}",
     )
 
 
@@ -298,9 +320,14 @@ async def export_charts(
     """
     Savollar qiyinchiligi va ballar taqsimoti diagrammalarini yuboradi.
 
-    Diagramma faqat test egasi va adminlar uchun — `_get_owned_exam`
-    huquqni tekshiradi, ishtirokchilar bu tugmani umuman ko'rmaydi.
+    Diagramma har bir savolni nechta odam topganini ochib beradi, shuning
+    uchun u **faqat `.env` dagi asosiy adminlar** uchun. Testni yaratgan
+    oddiy foydalanuvchi bu tugmani umuman ko'rmaydi.
     """
+    if not is_main_admin(user):
+        await callback.answer(TA.CHARTS_ADMIN_ONLY, show_alert=True)
+        return
+
     await callback.answer("⏳ Diagramma tayyorlanmoqda...")
     exam = await _get_owned_exam(callback, callback_data.exam_id, user, is_admin)
     if exam is None:

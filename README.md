@@ -156,18 +156,36 @@ bo'ladi (2- va 3-tur testlar uchun).
 
 ### Umumiy natijalar va ularda ko‘rsatiladigan nom
 
-Test yakunlangach (yopilganda va natijalar e’lon qilinganda) test egasiga
-va adminlarga **ikkita PDF** avtomatik yuboriladi:
+Test yakunlangach hisobotlar avtomatik yuboriladi, lekin **kimga nima
+ketishi qat’iy ajratilgan**:
 
 | Fayl | Kimga | Ustunlar |
 |------|-------|----------|
-| `umumiy-natijalar-…pdf` | **kanalga qo‘yish uchun** | `№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA · ASOSIY 1-FAN · ASOSIY 2-FAN · MAJBURIY FAN` |
-| `admin-hisobot-…pdf` | **faqat admin** | yuqoridagilarga qo‘shimcha `TO‘G‘RI · FOIZ (to‘g‘ri javob) · SERT. % · SANA`, umumiy statistika va savollar qiyinchiligi |
+| `umumiy-natijalar-…pdf` | **test egasi va adminlar** | `№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA · ASOSIY 1-FAN · ASOSIY 2-FAN · MAJBURIY FAN` |
+| `admin-hisobot-…pdf` | **faqat `.env` dagi asosiy adminlar** | yuqoridagilarga qo‘shimcha `TO‘G‘RI · FOIZ (to‘g‘ri javob) · SERT. % · SANA`, umumiy statistika va savollar qiyinchiligi |
+| Diagrammalar (PNG) | **faqat asosiy adminlar** | savollar qiyinchiligi va ballar taqsimoti |
 
-Birinchi faylda **nechta savolni to‘g‘ri topgani ko‘rsatilmaydi** — shu
-sababli uni kanalga qo‘yish mumkin va qaysi ball qanday darajaga to‘g‘ri
-kelishini tashqaridan hisoblab bo‘lmaydi. Ikkinchi fayl faqat adminlar
-uchun, unda hamma narsa bor.
+### Nechta topgani — faqat asosiy adminga
+
+Botdan test yaratgan oddiy foydalanuvchi **qatnashchi nechta savolni
+to‘g‘ri topganini ko‘rmaydi**. Unga faqat e’lon uchun mo‘ljallangan
+ma’lumot beriladi: ball, foiz, daraja va fan ballari. Chegara
+`ADMIN_IDS` (`.env`) bo‘yicha aniqlanadi
+(`apps.exams.services.is_main_admin`):
+
+| Nima | Test egasi | Asosiy admin |
+|------|-----------|--------------|
+| Avtomatik `umumiy-natijalar.pdf` | ha | ha |
+| Avtomatik `admin-hisobot.pdf` | **yo‘q** | ha |
+| Avtomatik diagrammalar | **yo‘q** | ha |
+| «Natijalar (PDF)» tugmasi | e’lon fayli | to‘liq hisobot |
+| «Natijalar (Excel)» tugmasi | e’lon jadvali (bitta varaq) | to‘liq jadval + javoblar matritsasi |
+| «Savollar qiyinchiligi» tugmasi | **ko‘rinmaydi** | bor |
+| Mini App reytingida xom ball | **yo‘q** | bor |
+| Panel (`/panel/`) | kirish yo‘q | hammasi |
+
+Kanalga qo‘yiladigan faylda nechta topgani bo‘lmagani uchun qaysi ball
+qanday darajaga to‘g‘ri kelishini tashqaridan hisoblab ham bo‘lmaydi.
 
 Qatnashchining o‘z natijasida ham (botda va web ilovada) RASH testlari
 uchun faqat ball, foiz, daraja va fanlar bo‘yicha ball ko‘rinadi.
@@ -709,7 +727,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 852 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 868 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

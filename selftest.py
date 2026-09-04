@@ -1296,6 +1296,78 @@ def test_exports() -> None:
             'payload["pdf"]' in sched_py and 'payload["admin_pdf"]' in sched_py)
     R.check("Admin fayli alohida nom bilan",
             '"admin-hisobot"' in sched_py and '"umumiy-natijalar"' in sched_py)
+
+    # --- «Nechta topgani» faqat asosiy adminlarga ---
+    from bot.config import get_config as _config
+    from apps.exams.services import (
+        is_main_admin as _is_main_admin,
+        main_admin_ids as _main_admins,
+        report_recipients as _recipients,
+    )
+    from apps.exports.excel import overall_results_workbook as _overall_xlsx
+
+    admin_ids = _main_admins()
+    R.equal("Asosiy adminlar .env dan olinadi",
+            set(admin_ids), {int(i) for i in _config().admin_ids})
+
+    owner = exam.owner
+    R.check("Umumiy natijalar egasiga ham boradi",
+            int(owner.telegram_id) in _recipients(exam))
+    R.check("To'liq hisobot ro'yxatida test egasi yo'q",
+            int(owner.telegram_id) not in admin_ids or _is_main_admin(owner))
+    R.check("Test egasi asosiy admin emas (bu testda)",
+            _is_main_admin(owner) == (int(owner.telegram_id) in admin_ids))
+
+    R.check("To'liq hisobot faqat admin ro'yxatiga yuboriladi",
+            'payload.get("admin_recipients")' in sched_py
+            and "bot, admins, admin_caption" in sched_py)
+    R.check("Diagrammalar ham faqat adminlarga",
+            "_broadcast_charts(bot, admins, payload)" in sched_py)
+    R.check("Hisobot ma'lumotida admin ro'yxati bor",
+            '"admin_recipients"' in reports_py)
+
+    # E'lon uchun Excel: nechta topgani yo'q.
+    from openpyxl import load_workbook as _load
+    import io as _io
+
+    book = _load(_io.BytesIO(_overall_xlsx(exam)))
+    R.equal("E'lon Excelida bitta varaq", book.sheetnames, ["Natijalar"])
+    public_headers = [cell.value for cell in book["Natijalar"][4]]
+    R.check("E'lon Excelida «To'g'ri» ustuni yo'q",
+            not any("g‘ri" in str(h) for h in public_headers), str(public_headers))
+    R.check("E'lon Excelida fan ballari bor",
+            all(name in public_headers for name in C.subject_names()))
+
+    # Mini App: RASH reytingida xom ball ko'rinmaydi.
+    from apps.miniapp import serializers as _S
+    from apps.attempts.services import ranked_attempts as _ranked_for_rating
+
+    sample = list(_ranked_for_rating(exam)[:3])
+    hidden = _S.rating_dict(sample, uses_rasch=True, show_raw=False)
+    shown = _S.rating_dict(sample, uses_rasch=True, show_raw=True)
+    R.check("Reytingda xom ball yashiriladi",
+            all("raw_score" not in row for row in hidden))
+    R.check("Adminga xom ball ko'rinadi",
+            all("raw_score" in row for row in shown))
+
+    stats = getattr(exam, "statistics", None)
+    if stats is not None:
+        R.check("Statistikada o'rtacha xom ball yashiriladi",
+                _S.statistics_dict(stats, show_raw=False)["avg_raw_score"] is None)
+        R.check("Adminga o'rtacha xom ball ko'rinadi",
+                _S.statistics_dict(stats, show_raw=True)["avg_raw_score"] is not None)
+
+    # Botdagi diagramma tugmasi faqat adminda.
+    from bot.keyboards import inline as _inline
+
+    def _buttons(markup):
+        return [b.callback_data or "" for row in markup.inline_keyboard for b in row]
+
+    R.check("Oddiy egaga diagramma tugmasi yo'q",
+            not any("charts" in cb for cb in _buttons(_inline.exam_manage(exam))))
+    R.check("Adminda diagramma tugmasi bor",
+            any("charts" in cb
+                for cb in _buttons(_inline.exam_manage(exam, is_admin=True))))
     R.check("Admin nusxasi ogohlantiriladi",
             "kanalga qo" in _TA.REPORT_ADMIN_COPY)
     R.check("E'lon fayli kanalga mo'ljallangani aytiladi",

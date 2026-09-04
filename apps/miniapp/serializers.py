@@ -190,27 +190,42 @@ def review_dict(rows: list[dict]) -> list[dict]:
     return result
 
 
-def rating_dict(attempts, *, uses_rasch: bool, me_id: int | None = None) -> list[dict]:
+def rating_dict(
+    attempts,
+    *,
+    uses_rasch: bool,
+    me_id: int | None = None,
+    show_raw: bool = False,
+) -> list[dict]:
     """
     Reyting jadvali.
 
     Nom `Attempt.public_label` dan olinadi: pullik RASH testida ism o'rniga
     ishtirokchining ID raqami ko'rsatiladi.
+
+    RASH testida nechta savolni to'g'ri topgani reytingda ko'rsatilmaydi —
+    u faqat `show_raw=True` bo'lganda (asosiy admin uchun) qo'shiladi.
+    Oddiy testda esa to'g'ri javoblar soni natijaning o'zi, shuning uchun
+    doim ko'rinadi.
     """
+    include_raw = show_raw or not uses_rasch
     rows = []
     for index, attempt in enumerate(attempts, start=1):
-        rows.append(
-            {
-                "place": attempt.rank or index,
-                "name": attempt.public_label,
-                "ball": attempt.display_ball if uses_rasch else None,
-                "grade": attempt.grade or "",
-                "raw_score": attempt.raw_score,
-                "max_raw_score": attempt.max_raw_score,
-                "percent": round(attempt.percent, 1),
-                "is_me": attempt.id == me_id,
-            }
-        )
+        row = {
+            "place": attempt.rank or index,
+            "name": attempt.public_label,
+            "ball": attempt.display_ball if uses_rasch else None,
+            "grade": attempt.grade or "",
+            "is_me": attempt.id == me_id,
+        }
+        if include_raw:
+            row["raw_score"] = attempt.raw_score
+            row["max_raw_score"] = attempt.max_raw_score
+            row["percent"] = round(attempt.percent, 1)
+        else:
+            # RASH testida foiz `ball * 100 / 65` bo'yicha ko'rsatiladi.
+            row["percent"] = C.certificate_percent(attempt.ball, attempt.grade)
+        rows.append(row)
     return rows
 
 
@@ -248,14 +263,20 @@ def certificate_dict(certificate) -> dict:
 # --------------------------------------------------------------------------
 
 
-def statistics_dict(statistics) -> dict | None:
-    """Test statistikasi."""
+def statistics_dict(statistics, *, show_raw: bool = False) -> dict | None:
+    """
+    Test statistikasi.
+
+    O'rtacha to'g'ri javoblar soni va ularning foizi — «nechta topgani»
+    ma'lumoti, shuning uchun u faqat `show_raw=True` da (asosiy admin
+    uchun) qaytariladi.
+    """
     if statistics is None or not statistics.participants:
         return None
     return {
         "participants": statistics.participants,
-        "avg_raw_score": round(statistics.avg_raw_score, 2),
-        "avg_percent": round(statistics.avg_percent, 1),
+        "avg_raw_score": round(statistics.avg_raw_score, 2) if show_raw else None,
+        "avg_percent": round(statistics.avg_percent, 1) if show_raw else None,
         "avg_ball": round(statistics.avg_ball, 2),
         "max_ball": round(statistics.max_ball_achieved, 2),
         "min_ball": round(statistics.min_ball_achieved, 2),

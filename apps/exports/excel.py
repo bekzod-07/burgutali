@@ -134,6 +134,73 @@ def codes_workbook(batch: CodeBatch) -> bytes:
 # --------------------------------------------------------------------------
 
 
+def overall_results_workbook(exam: Exam) -> bytes:
+    """
+    E'lon uchun soddalashtirilgan Excel jadvali.
+
+    Ustunlar: `№ · F.I.SH (yoki ID raqami) · Ball · Foiz · Daraja` va
+    RASH testlarida fan ballari. Nechta savolni to'g'ri topgani, javoblar
+    matritsasi va savollar statistikasi **bu faylda yo'q** — shu sababli
+    uni testni yaratgan foydalanuvchiga ham berish mumkin. To'liq jadval
+    `results_workbook()` da, u faqat asosiy adminlar uchun.
+    """
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Natijalar"
+
+    uses_rasch = exam.uses_rasch
+    headers = ["№", "F.I.SH", "Ball", "Foiz", "Daraja"]
+    widths = [6, 30, 10, 10, 16]
+    if uses_rasch:
+        headers += C.subject_names()
+        widths += [14] * len(C.SUBJECT_SCORES)
+    headers.append("Topshirgan vaqt")
+    widths.append(18)
+
+    sheet["A1"] = f"«{exam.title}» — natijalar"
+    sheet["A1"].font = TITLE_FONT
+    sheet.merge_cells(f"A1:{get_column_letter(len(headers))}1")
+    sheet["A2"] = (
+        f"Test kodi: {exam.code}   |   Turi: {exam.get_exam_type_display()}   |   "
+        f"Eksport: {_timestamp()}"
+    )
+    sheet.merge_cells(f"A2:{get_column_letter(len(headers))}2")
+
+    for index, header in enumerate(headers, start=1):
+        sheet.cell(row=4, column=index, value=header)
+    _style_header(sheet, 4, len(headers))
+
+    for row_index, attempt in enumerate(ranked_attempts(exam), start=1):
+        row = row_index + 4
+        percent = (
+            C.certificate_percent(attempt.ball, attempt.grade)
+            if uses_rasch
+            else round(attempt.percent, 2)
+        )
+        values = [
+            attempt.rank or row_index,
+            attempt.public_label,
+            round(attempt.ball, 2) if attempt.ball is not None else "",
+            percent,
+            attempt.grade or "",
+        ]
+        if uses_rasch:
+            values += C.subject_scores(attempt.ball, attempt.grade)
+        values.append(
+            timezone.localtime(attempt.submitted_at).strftime("%d.%m.%Y %H:%M")
+            if attempt.submitted_at
+            else ""
+        )
+        for column, value in enumerate(values, start=1):
+            cell = sheet.cell(row=row, column=column, value=value)
+            cell.border = BORDER
+            cell.alignment = LEFT if column == 2 else CENTER
+
+    _auto_width(sheet, widths)
+    sheet.freeze_panes = "A5"
+    return _save(workbook)
+
+
 def results_workbook(exam: Exam) -> bytes:
     """Test natijalari va reytingini Excel ko'rinishida qaytaradi."""
     workbook = Workbook()
@@ -379,6 +446,7 @@ def default_filename(prefix: str, exam: Exam | None = None) -> str:
 
 
 __all__ = [
+    "overall_results_workbook",
     "codes_workbook",
     "results_workbook",
     "participants_workbook",
