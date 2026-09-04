@@ -95,6 +95,10 @@ def result_snapshot(attempt_id: int) -> dict:
         # RASH testida qatnashchiga shu foiz ko'rsatiladi (`ball * 100 / 65`),
         # to'g'ri javoblar ulushi emas.
         "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
+        # Fan ballari: sertifikat foiziga proporsional (100% -> 93 + 63 + 11).
+        "subjects": list(
+            zip(C.subject_names(), C.subject_scores(attempt.ball, attempt.grade))
+        ),
         "ball": attempt.display_ball,
         "grade": attempt.grade or "—",
         "rank": f"{attempt.rank} / {total}" if attempt.rank else "—",

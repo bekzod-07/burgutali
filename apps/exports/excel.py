@@ -23,6 +23,7 @@ from apps.accesscodes.models import AccessCode, CodeBatch
 from apps.attempts.models import Attempt
 from apps.attempts.services import ranked_attempts
 from apps.exams.models import Exam, Question
+from core import constants as C
 from django.utils import timezone
 
 # --------------------------------------------------------------------------
@@ -159,7 +160,10 @@ def results_workbook(exam: Exam) -> bytes:
         headers.append("ID raqami")
     headers += ["To‘g‘ri", "Xato", "Bo‘sh", "Foiz"]
     if uses_rasch:
-        headers += ["theta", "Ball", "Daraja"]
+        # «Sert. foizi» — `ball * 100 / 65`, fan ballari esa shu foizga
+        # proporsional: 100% -> 93 + 63 + 11 (`core.constants.subject_scores`).
+        headers += ["theta", "Ball", "Daraja", "Sert. foizi"]
+        headers += C.subject_names()
     headers += ["Topshirgan vaqt", "Sarflangan vaqt"]
 
     for index, header in enumerate(headers, start=1):
@@ -194,7 +198,9 @@ def results_workbook(exam: Exam) -> bytes:
                 round(attempt.theta, 4) if attempt.theta is not None else "",
                 round(attempt.ball, 2) if attempt.ball is not None else "",
                 attempt.grade or "",
+                C.certificate_percent(attempt.ball, attempt.grade),
             ]
+            values += C.subject_scores(attempt.ball, attempt.grade)
         values += [submitted, duration]
 
         for column, value in enumerate(values, start=1):
@@ -207,7 +213,7 @@ def results_workbook(exam: Exam) -> bytes:
         widths.append(14)
     widths += [9, 8, 8, 9]
     if uses_rasch:
-        widths += [10, 10, 12]
+        widths += [10, 10, 12, 11] + [13] * len(C.SUBJECT_SCORES)
     widths += [18, 16]
     _auto_width(sheet, widths)
     sheet.freeze_panes = "A5"

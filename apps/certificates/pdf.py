@@ -281,7 +281,7 @@ def draw_certificate(canvas: pdf_canvas.Canvas, data: CertificateData) -> None:
     # Nechta to'g'ri javob berilgani sertifikatda ko'rsatilmaydi — faqat
     # ball, foiz (`ball * 100 / 65`) va daraja.
     if data.award_percent is not None:
-        boxes.append(("FOIZ", f"{data.award_percent:.0f}%", False))
+        boxes.append(("FOIZ", f"{data.award_percent:.2f}%", False))
     if data.grade:
         boxes.append(("DARAJA", data.grade, False))
     if data.rank and data.total_participants:

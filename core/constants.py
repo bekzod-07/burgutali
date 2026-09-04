@@ -35,7 +35,7 @@ NO_GRADE: Final[str] = "Daraja olinmadi"
 
 #: Ball shkalasi shu darajaga «anchor» qilinadi: savollarning
 #: `CERT_MIN_PERCENT` ulushini topgan qatnashchi aynan shu darajaning quyi
-#: chegarasini oladi. 55 ballik shablonda 18 ta to'g'ri javob -> 46.0 ball
+#: chegarasini oladi. 55 ballik shablonda 16 ta to'g'ri javob -> 46.0 ball
 #: -> «C». Undan yuqorisi savollar qiyinligiga qarab taqsimlanadi.
 SCALE_ANCHOR_GRADE: Final[str] = "C"
 
@@ -44,11 +44,13 @@ SCALE_ANCHOR_GRADE: Final[str] = "C"
 CERT_MIN_GRADE: Final[str] = "C"
 
 #: Sertifikat uchun talab qilinadigan standart foiz — to'g'ri javoblarning
-#: ulushi. 55 ballik milliy shablonda 18 ta to'g'ri javob shu chegaraga
-#: to'g'ri keladi (18/55 = 32.7%). Yangi testlar shu chegara bilan
-#: yaratiladi, admin uni har bir test uchun alohida o'zgartirishi mumkin
-#: (`Exam.certificate_min_percent`). Chegara qatnashchiga ko'rsatilmaydi.
-CERT_MIN_PERCENT: Final[float] = 32.0
+#: ulushi. 55 ballik milliy shablonda **16 ta** to'g'ri javob shu chegaraga
+#: to'g'ri keladi (`ceil(55 * 29 / 100) = 16`). Ilgari chegara 32% edi va
+#: daraja 18 ta to'g'ri javobdan boshlanardi — 2026-09-04 da yengillashtirildi.
+#: Yangi testlar shu chegara bilan yaratiladi, admin uni har bir test uchun
+#: alohida o'zgartirishi mumkin (`Exam.certificate_min_percent`). Chegara
+#: qatnashchiga ko'rsatilmaydi.
+CERT_MIN_PERCENT: Final[float] = 29.0
 
 #: Darajalarni kuchi bo'yicha tartiblangan ro'yxati (pastdan yuqoriga).
 GRADE_ORDER: Final[tuple[str, ...]] = (NO_GRADE, "C", "C+", "B", "B+", "A", "A+")
@@ -109,6 +111,47 @@ def certificate_percent(ball: float | Decimal | None, grade: str | None = None) 
     if ball is None:
         return 0.0
     return round(min(100.0, float(ball) * 100.0 / CERT_PERCENT_BASE), 2)
+
+
+#: Qabul imtihonidagi fanlar va ularning maksimal ballari. Qatnashchining
+#: sertifikat foizi (`certificate_percent`) shu ballarga ko'chiriladi:
+#: 100% -> 93 + 63 + 11 ball.
+SUBJECT_SCORES: Final[tuple[tuple[str, float], ...]] = (
+    ("Asosiy 1-fan", 93.0),
+    ("Asosiy 2-fan", 63.0),
+    ("Majburiy fan", 11.0),
+)
+
+#: Fan ballari yig'indisi (100% olgan qatnashchi uchun).
+SUBJECT_TOTAL: Final[float] = sum(maximum for _name, maximum in SUBJECT_SCORES)
+
+#: Ball va foiz nechta o'nlik xonagacha yaxlitlanadi.
+SCORE_DECIMALS: Final[int] = 2
+
+
+def subject_scores(ball: float | Decimal | None, grade: str | None = None) -> list[float]:
+    """
+    Fanlar bo'yicha ballar: `[Asosiy 1-fan, Asosiy 2-fan, Majburiy fan]`.
+
+    Har bir fan balli sertifikat foiziga proporsional:
+
+      * 100%    -> 93.00, 63.00, 11.00;
+      * 92.77%  -> 86.28, 58.45, 10.20.
+
+    Daraja olinmagan bo'lsa (ball 46 dan past) fanlar bo'yicha ball ham
+    berilmaydi — hammasi 0.
+    """
+    if not grade or grade == NO_GRADE:
+        return [0.0 for _name, _maximum in SUBJECT_SCORES]
+    share = certificate_percent(ball, grade) / 100.0
+    return [
+        round(maximum * share, SCORE_DECIMALS) for _name, maximum in SUBJECT_SCORES
+    ]
+
+
+def subject_names() -> list[str]:
+    """Fan ustunlarining sarlavhalari."""
+    return [name for name, _maximum in SUBJECT_SCORES]
 
 
 # ==========================================================================
@@ -223,6 +266,11 @@ TOP_RATING_LIMIT: Final[int] = 10
 __all__ = [
     "MAX_BALL",
     "GRADE_TABLE",
+    "SUBJECT_SCORES",
+    "SUBJECT_TOTAL",
+    "SCORE_DECIMALS",
+    "subject_scores",
+    "subject_names",
     "NO_GRADE",
     "GRADE_ORDER",
     "grade_for_ball",

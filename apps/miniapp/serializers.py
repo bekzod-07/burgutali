@@ -150,6 +150,13 @@ def attempt_dict(attempt: Attempt, *, total_participants: int = 0) -> dict:
         "percent": round(attempt.percent, 1),
         # RASH testida qatnashchiga shu foiz ko'rsatiladi (`ball * 100 / 65`).
         "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
+        # Fan ballari: sertifikat foiziga proporsional (100% -> 93 + 63 + 11).
+        "subjects": [
+            {"name": name, "value": value}
+            for name, value in zip(
+                C.subject_names(), C.subject_scores(attempt.ball, attempt.grade)
+            )
+        ],
         "theta": attempt.theta,
         "ball": attempt.display_ball,
         "grade": attempt.grade or "",

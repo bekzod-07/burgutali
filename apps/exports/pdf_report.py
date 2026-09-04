@@ -334,7 +334,7 @@ def results_report(exam: Exam) -> bytes:
         if uses_rasch:
             row += [
                 f"{attempt.ball:.2f}" if attempt.ball is not None else "—",
-                f"{C.certificate_percent(attempt.ball, attempt.grade):.0f}%"
+                f"{C.certificate_percent(attempt.ball, attempt.grade):.2f}%"
                 if attempt.ball is not None else "—",
                 grade_label(attempt.grade),
             ]
@@ -384,9 +384,10 @@ def overall_results_report(exam: Exam) -> bytes:
     """
     Umumiy natijalar e'loni — soddalashtirilgan jadval.
 
-    Ustunlar: ``№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA``.
-    Aynan shu ko'rinish test yakunlangach adminga yuboriladi va
-    ishtirokchilarga e'lon qilinadi.
+    Ustunlar: ``№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA`` va
+    RASH testlarida yana uchta fan balli: ``ASOSIY 1-FAN · ASOSIY 2-FAN ·
+    MAJBURIY FAN``. Aynan shu ko'rinish test yakunlangach adminga yuboriladi
+    va ishtirokchilarga e'lon qilinadi.
     """
     styles = _styles()
     fonts = styles["fonts"]
@@ -422,28 +423,43 @@ def overall_results_report(exam: Exam) -> bytes:
     # javoblarning ulushi. Nechta to'g'ri topgani e'londa ko'rsatilmaydi —
     # u faqat adminlar hisobotida bo'ladi.
     header = ["№", participant_column(exam), "BALL", "FOIZ", "DARAJA"]
+    widths = [9 * mm, 45 * mm, 20 * mm, 22 * mm, 24 * mm]
+    if exam.uses_rasch:
+        # Sertifikat foizi fan ballariga ko'chiriladi: 100% -> 93 + 63 + 11.
+        # Sarlavha ikki qatorga bo'linadi, aks holda ustunga sig'maydi.
+        header += [
+            name.upper().replace(" ", "\n", 1) for name in C.subject_names()
+        ]
+        widths += [21 * mm, 21 * mm, 20 * mm]
+    else:
+        widths = [12 * mm, 92 * mm, 24 * mm, 22 * mm, 28 * mm]
+
     data = [header]
     for index, attempt in enumerate(ranked_attempts(exam), start=1):
         if exam.uses_rasch:
             percent = C.certificate_percent(attempt.ball, attempt.grade)
         else:
             percent = attempt.percent or 0.0
-        data.append(
-            [
-                str(attempt.rank or index),
-                attempt.public_label,
-                attempt.display_ball if exam.uses_rasch else f"{attempt.raw_score:g}",
-                f"{percent:.0f}%",
-                grade_label(attempt.grade),
+        row = [
+            str(attempt.rank or index),
+            attempt.public_label,
+            attempt.display_ball if exam.uses_rasch else f"{attempt.raw_score:g}",
+            f"{percent:.2f}%",
+            grade_label(attempt.grade),
+        ]
+        if exam.uses_rasch:
+            row += [
+                f"{value:.2f}"
+                for value in C.subject_scores(attempt.ball, attempt.grade)
             ]
-        )
+        data.append(row)
 
     if len(data) == 1:
         story.append(Paragraph(safe_text("Qatnashchilar yo‘q.", fonts), styles["body"]))
     else:
         table = Table(
             [[safe_text(cell, fonts) for cell in row] for row in data],
-            colWidths=[14 * mm, 92 * mm, 24 * mm, 20 * mm, 28 * mm],
+            colWidths=widths,
             repeatRows=1,
         )
         table.setStyle(_table_style(len(header)))

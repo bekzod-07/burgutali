@@ -174,11 +174,14 @@ async def _notify_participants(bot: Bot, exam_id: int) -> None:
             # RASH testida nechta savolni to'g'ri topgani ko'rsatilmaydi —
             # u faqat adminlar hisobotida bo'ladi.
             if exam.uses_rasch:
+                from bot.handlers.results import subjects_block
+
                 result = (
                     f"RASH ballingiz: <b>{snapshot['ball']}</b>\n"
-                    f"Foiz: <b>{snapshot['award_percent']:g}%</b>\n"
+                    f"Foiz: <b>{snapshot['award_percent']:.2f}%</b>\n"
                     f"Daraja: <b>{snapshot['grade']}</b>\n"
                     f"Reyting: <b>{snapshot['rank']}</b>"
+                    f"{subjects_block(snapshot)}"
                 )
             else:
                 result = (

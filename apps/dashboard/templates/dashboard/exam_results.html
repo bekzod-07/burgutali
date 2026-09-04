@@ -156,14 +156,21 @@
             <th class="num">Xato</th>
             <th class="num">Bo‘sh</th>
             <th class="num">Foiz</th>
-            {% if exam.uses_rasch %}<th class="num">θ</th><th class="num">Ball</th><th class="num">Daraja</th>{% endif %}
+            {% if exam.uses_rasch %}
+              <th class="num">θ</th>
+              <th class="num">Ball</th>
+              <th class="num">Daraja</th>
+              <th class="num" title="ball × 100 / 65">Sert. foizi</th>
+              {% for name in subject_names %}<th class="num">{{ name }}</th>{% endfor %}
+            {% endif %}
             <th>Topshirgan</th>
           </tr>
         </thead>
         <tbody>
-          {% for attempt in attempts %}
+          {% for row in rows %}
+            {% with attempt=row.attempt %}
             <tr>
-              <td class="num rank">{{ attempt.rank|default:forloop.counter }}</td>
+              <td class="num rank">{{ row.place }}</td>
               <td>
                 <a href="{% url 'dashboard:attempt_detail' attempt.pk %}">
                   {{ attempt.full_name|default:attempt.user.display_name }}
@@ -187,11 +194,17 @@
                     <span class="badge badge-gold">{{ attempt.grade }}</span>
                   {% else %}<span class="badge badge-gray">—</span>{% endif %}
                 </td>
+                <td class="num">{{ row.award_percent|floatformat:2 }}%</td>
+                {# Sertifikat foizi fan ballariga ko'chiriladi: 100% → 93 + 63 + 11. #}
+                {% for value in row.subjects %}
+                  <td class="num"><b>{{ value|floatformat:2 }}</b></td>
+                {% endfor %}
               {% endif %}
               <td class="small">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"—" }}</td>
             </tr>
+            {% endwith %}
           {% empty %}
-            <tr><td colspan="11"><div class="empty">Hozircha qatnashchilar yo‘q.</div></td></tr>
+            <tr><td colspan="15"><div class="empty">Hozircha qatnashchilar yo‘q.</div></td></tr>
           {% endfor %}
         </tbody>
       </table>

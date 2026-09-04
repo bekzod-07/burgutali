@@ -129,9 +129,10 @@ Maksimal standartlashtirilgan ball — **90.14**.
 
 **Shkala daraja chegarasiga moslashadi.** Rasch `theta` si ballga chiziqli
 o'tkaziladi, lekin shkalaning quyi uchi har bir test hisoblanganda
-avtomatik sozlanadi: savollarning **32% ini** topgan qatnashchi aynan
+avtomatik sozlanadi: savollarning **29% ini** topgan qatnashchi aynan
 **46.00 ball = «C»** oladi. Milliy shablonda jami 55 ball bor, ya'ni
-**18 ta to'g'ri javob — C darajasi**; undan yuqorisi savollarning
+**16 ta to'g'ri javob — C darajasi** (2026-09-04 gacha 18 ta edi — daraja
+yengillashtirildi); undan yuqorisi savollarning
 qiyinligiga qarab taqsimlanadi. Shkalaning yuqori uchi tegilmaydi
 (`theta_max` -> 90.14). Sozlamani test darajasida o'chirish mumkin —
 «Ball shkalasi darajaga moslansin».
@@ -160,7 +161,7 @@ va adminlarga **ikkita PDF** avtomatik yuboriladi:
 
 | Fayl | Kimga | Ustunlar |
 |------|-------|----------|
-| `umumiy-natijalar-…pdf` | **kanalga qo‘yish uchun** | `№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA` |
+| `umumiy-natijalar-…pdf` | **kanalga qo‘yish uchun** | `№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA · ASOSIY 1-FAN · ASOSIY 2-FAN · MAJBURIY FAN` |
 | `admin-hisobot-…pdf` | **faqat admin** | yuqoridagilarga qo‘shimcha `TO‘G‘RI · FOIZ (to‘g‘ri javob) · SERT. % · SANA`, umumiy statistika va savollar qiyinchiligi |
 
 Birinchi faylda **nechta savolni to‘g‘ri topgani ko‘rsatilmaydi** — shu
@@ -169,7 +170,19 @@ kelishini tashqaridan hisoblab bo‘lmaydi. Ikkinchi fayl faqat adminlar
 uchun, unda hamma narsa bor.
 
 Qatnashchining o‘z natijasida ham (botda va web ilovada) RASH testlari
-uchun faqat ball, foiz va daraja ko‘rinadi.
+uchun faqat ball, foiz, daraja va fanlar bo‘yicha ball ko‘rinadi.
+
+**Fanlar bo‘yicha ball.** Sertifikat foizi qabul imtihoni shkalasiga
+ko‘chiriladi — 100% olgan qatnashchi **93 + 63 + 11** ball oladi:
+
+| Ustun | Maksimal ball | 92.77% da |
+|-------|---------------|-----------|
+| Asosiy 1-fan | 93.00 | 86.28 |
+| Asosiy 2-fan | 63.00 | 58.45 |
+| Majburiy fan | 11.00 | 10.20 |
+
+Daraja olinmagan natijada (46 balldan past) uchala ustun ham **0** bo‘ladi.
+Barcha ball va foizlar **yuzdan birlar xonasigacha** yaxlitlanadi.
 
 Daraja bo‘yicha **butun qator rang bilan ajratiladi** — yuqori daraja
 to‘q yashil, pastga tushgan sari och yashil, limon, sariq va apelsin
@@ -694,7 +707,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 839 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 850 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

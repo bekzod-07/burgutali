@@ -295,7 +295,12 @@ RESULT_READY = (
     "Foiz: <b>{percent}%</b>\n"
     "Daraja: <b>{grade}</b>\n"
     "Reyting: <b>{rank}</b>"
+    "{subjects}"
 )
+
+#: Fan ballari bloki — sertifikat foizidan kelib chiqadi.
+RESULT_SUBJECTS_TITLE = "\n\nFanlar bo‘yicha ball:"
+RESULT_SUBJECT_ROW = "\n{name}: <b>{value}</b>"
 
 RESULT_SIMPLE = (
     "<b>Natijangiz</b>\n\n"

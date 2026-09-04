@@ -52,6 +52,24 @@ async def open_result(
     await _send_result(callback.message, callback_data.attempt_id, user)
 
 
+def subjects_block(snapshot: dict) -> str:
+    """
+    Fan ballari bloki: «Asosiy 1-fan: 86.28» ko'rinishidagi qatorlar.
+
+    Daraja olinmagan bo'lsa blok umuman chiqmaydi — hamma ball nol.
+    """
+    rows = [
+        (name, value) for name, value in snapshot.get("subjects") or [] if value
+    ]
+    if not rows:
+        return ""
+    lines = "".join(
+        TE.RESULT_SUBJECT_ROW.format(name=esc(name), value=f"{value:.2f}")
+        for name, value in rows
+    )
+    return TE.RESULT_SUBJECTS_TITLE + lines
+
+
 async def _send_result(message: Message, attempt_id: int, user) -> None:
     """Natija kartochkasini yuboradi."""
     attempt = await attempt_service.get_attempt(attempt_id)
@@ -73,9 +91,10 @@ async def _send_result(message: Message, attempt_id: int, user) -> None:
         text = TE.RESULT_READY.format(
             title=esc(snapshot["title"]),
             ball=snapshot["ball"],
-            percent=f"{snapshot['award_percent']:g}",
+            percent=f"{snapshot['award_percent']:.2f}",
             grade=snapshot["grade"],
             rank=snapshot["rank"],
+            subjects=subjects_block(snapshot),
         )
     else:
         text = TE.RESULT_SIMPLE.format(

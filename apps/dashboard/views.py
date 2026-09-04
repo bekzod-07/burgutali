@@ -509,12 +509,24 @@ def exam_results(request, pk: int):
     ko'radi (talab: «FAQAT ADMINGA»).
     """
     exam = get_object_or_404(Exam, pk=pk)
-    attempts = attempt_services.ranked_attempts(exam)
     summary = charts.build_summary(exam)
+
+    # Reyting qatorlariga sertifikat foizi va fan ballari qo'shiladi:
+    # 100% -> 93 + 63 + 11 (`core.constants.subject_scores`).
+    rows = []
+    for index, attempt in enumerate(attempt_services.ranked_attempts(exam), start=1):
+        rows.append({
+            "attempt": attempt,
+            "place": attempt.rank or index,
+            "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
+            "subjects": C.subject_scores(attempt.ball, attempt.grade),
+        })
+
     context = {
         "section": "exams",
         "exam": exam,
-        "attempts": attempts,
+        "rows": rows,
+        "subject_names": C.subject_names(),
         "statistics": getattr(exam, "statistics", None),
         "certificates": Certificate.objects.filter(exam=exam).count(),
         "charts": summary,

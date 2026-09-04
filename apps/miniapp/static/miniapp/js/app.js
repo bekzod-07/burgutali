@@ -899,7 +899,7 @@
         kv("Test", esc(attempt.exam_title)) +
         (attempt.uses_rasch
           ? kv("Ball", esc(attempt.ball)) +
-            kv("Foiz", attempt.award_percent + "%") +
+            kv("Foiz", attempt.award_percent.toFixed(2) + "%") +
             kv("Daraja", esc(attempt.grade || "—"))
           : kv("To‘g‘ri javoblar", attempt.correct + " / " + attempt.max_raw_score) +
             kv("Xato javoblar", attempt.wrong) +
@@ -909,6 +909,19 @@
         kv("Topshirgan vaqt", esc(attempt.submitted_at_human)) +
         "</div></div>";
 
+      /* Fan ballari — sertifikat foiziga proporsional: 100% → 93 + 63 + 11. */
+      if (attempt.uses_rasch && attempt.subjects && attempt.subjects.length) {
+        var earned = attempt.subjects.filter(function (item) { return item.value > 0; });
+        if (earned.length) {
+          html += '<div class="card"><div class="card-head">' + ic("sigma") +
+            "<h2>Fanlar bo‘yicha ball</h2></div><div class=\"kv-list\">";
+          earned.forEach(function (item) {
+            html += kv(esc(item.name), item.value.toFixed(2));
+          });
+          html += "</div></div>";
+        }
+      }
+
       if (data.certificate) {
         html += '<div class="card"><div class="card-head">' + ic("award") + "<h2>Sertifikat</h2></div>" +
           '<div class="kv-list">' +
@@ -916,7 +929,7 @@
           kv("Ball", esc(data.certificate.ball)) +
           (data.certificate.award_percent !== null &&
            data.certificate.award_percent !== undefined
-            ? kv("Foiz", data.certificate.award_percent + "%") : "") +
+            ? kv("Foiz", data.certificate.award_percent.toFixed(2) + "%") : "") +
           kv("Daraja", esc(data.certificate.grade || "—")) +
           "</div>" +
           '<a class="btn btn-gold" href="' + esc(data.certificate.download_url) + '" target="_blank" rel="noopener">' +
