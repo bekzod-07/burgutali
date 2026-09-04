@@ -2630,6 +2630,30 @@ def test_charts() -> None:
     R.check("PNG yaratildi", png.startswith(b"\x89PNG"))
     R.equal("Bo'sh ma'lumotda PNG bo'sh", charts.difficulty_png(exam, []), b"")
 
+    # Rasm savollar soniga qarab kengayadi — yorliqlar siqilib qolmasin.
+    from PIL import Image as _Image
+    import io as _png_io
+
+    picture = _Image.open(_png_io.BytesIO(png))
+    R.check(f"PNG yetarlicha katta ({picture.width}×{picture.height})",
+            picture.width >= 1240 and picture.height >= 1200)
+    wide_width, _wh, wide_bar, wide_slot = charts._png_layout(55)  # noqa: SLF001
+    R.check(f"55 ta ustunda rasm kengayadi ({wide_width} px)", wide_width >= 2600)
+    R.check("Har bir ustunga kamida 48 px joy", wide_slot >= 48)
+    R.check("Ustun eni ko'rinarli", wide_bar >= 24)
+    narrow_width, _nh, narrow_bar, _ns = charts._png_layout(6)  # noqa: SLF001
+    R.check("Kam savolda ustunlar kengayadi", narrow_bar > wide_bar)
+    R.check("Kichik diagramma ham keng", narrow_width >= 1240)
+
+    # Diagramma rasm emas, hujjat sifatida yuboriladi (Telegram siqmasin).
+    charts_sched = (BASE_DIR / "bot/tasks/scheduler.py").read_text(encoding="utf-8")
+    charts_handler = (BASE_DIR / "bot/handlers/my_tests.py").read_text(encoding="utf-8")
+    R.check("Fon vazifasi diagrammani hujjat qilib yuboradi",
+            "send_document(" in charts_sched and "send_photo(" not in charts_sched)
+    R.check("Tugma ham hujjat qilib yuboradi",
+            "answer_document(" in charts_handler
+            and "answer_photo(" not in charts_handler)
+
     if summary.bins:
         distribution = charts.distribution_svg(summary.bins)
         R.check("Ballar taqsimoti SVG yaratildi", distribution.startswith("<svg"))

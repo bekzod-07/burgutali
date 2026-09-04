@@ -457,12 +457,25 @@ def _wrap_svg(width: int, height: int, parts: list[str]) -> str:
 #  PNG (Telegram bot — adminlarga yuboriladigan hisobot)
 # --------------------------------------------------------------------------
 
-_PNG_WIDTH_MIN = 900
-_PNG_HEIGHT = 660
-_PNG_PLOT = 420
-_PNG_LEFT = 70
-_PNG_TOP = 90
-_PNG_BOTTOM_LABELS = 70
+#: Rasm kamida shuncha keng bo'ladi (savol kam bo'lsa ustunlar kengayadi).
+_PNG_MIN_WIDTH = 1240
+
+#: Bitta ustunga ajratiladigan joy (ustun + oraliq) chegaralari.
+_PNG_SLOT_MIN = 48
+_PNG_SLOT_MAX = 96
+
+#: Ustun eni — unga ajratilgan joyning shuncha ulushi.
+_PNG_BAR_RATIO = 0.78
+
+_PNG_LEFT = 128
+_PNG_RIGHT = 56
+_PNG_TOP = 178
+_PNG_PLOT = 820
+_PNG_XLABELS = 150
+_PNG_LEGEND = 132
+
+#: Ustun ichidagi son shu balandlikdan boshlab sig'adi (piksel).
+_PNG_INNER_MIN = 46
 
 
 def _pillow():
@@ -475,22 +488,56 @@ def _pillow():
     return Image, ImageDraw, ImageFont
 
 
-def _png_fonts(ImageFont):
-    """Diagramma uchun shriftlar (topilmasa — Pillow ning standarti)."""
+def _png_font_factory(ImageFont):
+    """
+    Kerakli o'lchamdagi shriftni qaytaruvchi funksiya.
+
+    Diagramma katta chizilgani uchun sarlavha, o'q va ustun ichidagi
+    sonlar turli o'lchamda bo'ladi. Shrift topilmasa Pillow ning
+    standart shrifti ishlatiladi (o'lcham o'zgarmaydi).
+    """
     from apps.certificates.fonts import font_files
 
     regular, bold = font_files()
-    try:
-        if regular is None:
-            raise OSError("shrift yo'q")
-        return (
-            ImageFont.truetype(str(regular), 15),
-            ImageFont.truetype(str(bold or regular), 24),
-            ImageFont.truetype(str(regular), 13),
-        )
-    except Exception:  # pragma: no cover - shrift o'qilmasa
-        default = ImageFont.load_default()
-        return default, default, default
+
+    def font(size: int, *, bold_face: bool = False):
+        try:
+            if regular is None:
+                raise OSError("shrift yo'q")
+            path = (bold or regular) if bold_face else regular
+            return ImageFont.truetype(str(path), size)
+        except Exception:  # pragma: no cover - shrift o'qilmasa
+            return ImageFont.load_default()
+
+    return font
+
+
+def _png_layout(count: int) -> tuple[int, int, int, int]:
+    """
+    Diagramma o'lchamlarini savollar soniga qarab hisoblaydi.
+
+    Qaytaradi: `(rasm eni, rasm bo'yi, ustun eni, ustunga ajratilgan joy)`.
+    Savollar ko'p bo'lsa rasm kengayadi — ustunlar siqilib, yorliqlar
+    ustma-ust tushib qolmaydi.
+    """
+    count = max(1, int(count))
+    plot_min = _PNG_MIN_WIDTH - _PNG_LEFT - _PNG_RIGHT
+    slot = int(min(_PNG_SLOT_MAX, max(_PNG_SLOT_MIN, plot_min / count)))
+    bar_width = max(10, int(slot * _PNG_BAR_RATIO))
+    width = max(_PNG_MIN_WIDTH, _PNG_LEFT + count * slot + _PNG_RIGHT)
+    height = _PNG_TOP + _PNG_PLOT + _PNG_XLABELS + _PNG_LEGEND
+    return width, height, bar_width, slot
+
+
+def _png_rotated_text(
+    Image, ImageDraw, canvas, font, text: str, color: str, angle: int
+):
+    """Burilgan matnni alohida qatlamda tayyorlaydi (Pillow matnni burmaydi)."""
+    box = ImageDraw.Draw(canvas).textbbox((0, 0), text, font=font)
+    width, height = box[2] - box[0], box[3] - box[1]
+    patch = Image.new("RGBA", (width + 6, height + 6), (0, 0, 0, 0))
+    ImageDraw.Draw(patch).text((3 - box[0], 3 - box[1]), text, font=font, fill=color)
+    return patch.rotate(angle, expand=True, resample=Image.BICUBIC)
 
 
 def _png_vertical_number(
@@ -503,13 +550,9 @@ def _png_vertical_number(
     balandligi yetmasa, son butunlay yozilmaydi.
     """
     text = str(value)
-    box = ImageDraw.Draw(canvas).textbbox((0, 0), text, font=font)
-    width, height = box[2] - box[0], box[3] - box[1]
-    if width + 6 > segment_height:
+    patch = _png_rotated_text(Image, ImageDraw, canvas, font, text, "#ffffff", 90)
+    if patch.height > segment_height - 6:
         return
-    patch = Image.new("RGBA", (width + 4, height + 4), (0, 0, 0, 0))
-    ImageDraw.Draw(patch).text((2 - box[0], 2 - box[1]), text, font=font, fill="#ffffff")
-    patch = patch.rotate(90, expand=True)
     canvas.paste(
         patch,
         (int(center_x - patch.width / 2), int(center_y - patch.height / 2)),
@@ -517,12 +560,24 @@ def _png_vertical_number(
     )
 
 
+def _png_axis_label(
+    Image, ImageDraw, canvas, font, center_x, top_y, text: str
+) -> None:
+    """Gorizontal o'qdagi savol raqamini yozadi (kerak bo'lsa buriladi)."""
+    box = ImageDraw.Draw(canvas).textbbox((0, 0), text, font=font)
+    patch = _png_rotated_text(Image, ImageDraw, canvas, font, text, MUTED, 60)
+    canvas.paste(patch, (int(center_x - patch.width + 8), int(top_y)), patch)
+    del box
+
+
 def difficulty_png(exam, rows: list[DifficultyRow] | None = None) -> bytes:
     """
     Savollar qiyinligi diagrammasini PNG ko'rinishida qaytaradi.
 
     Ko'rinishi panel bilan bir xil: ustunning ko'k qismi — savolni
-    topganlar, qizil qismi — topa olmaganlar soni.
+    topganlar, qizil qismi — topa olmaganlar soni. Rasm savollar soniga
+    qarab kengayadi, shuning uchun 55 ta birlikda ham ustunlar va
+    yorliqlar bemalol o'qiladi.
 
     Diagramma yaratib bo'lmasa (Pillow yo'q yoki ma'lumot yetarli emas)
     bo'sh `bytes` qaytadi — chaqiruvchi uni jimgina o'tkazib yuboradi.
@@ -540,91 +595,91 @@ def difficulty_png(exam, rows: list[DifficultyRow] | None = None) -> bytes:
         return b""
     Image, ImageDraw, ImageFont = modules
 
-    bar_gap = 4
-    bar_width = max(6, min(22, (_PNG_WIDTH_MIN - _PNG_LEFT - 30) // len(rows) - bar_gap))
-    width = max(_PNG_WIDTH_MIN, _PNG_LEFT + len(rows) * (bar_width + bar_gap) + 30)
-
-    image = Image.new("RGB", (width, _PNG_HEIGHT), "#ffffff")
+    width, height, bar_width, slot = _png_layout(len(rows))
+    image = Image.new("RGB", (width, height), "#ffffff")
     draw = ImageDraw.Draw(image)
-    regular, title_font, small = _png_fonts(ImageFont)
 
+    font = _png_font_factory(ImageFont)
+    title_font = font(42, bold_face=True)
+    subtitle_font = font(24)
+    axis_font = font(24)
+    legend_font = font(26)
+    note_font = font(22)
+    label_font = font(24)
+    value_font = font(22)
+
+    draw.text((_PNG_LEFT, 44), "Savollar qiyinchilik darajasi",
+              font=title_font, fill=NAVY)
     draw.text(
-        (_PNG_LEFT, 28), "Savollar qiyinchilik darajasi", font=title_font, fill=NAVY
-    )
-    draw.text(
-        (_PNG_LEFT, 62),
+        (_PNG_LEFT, 106),
         f"{exam.title} · test kodi {exam.code} · faqat admin uchun",
-        font=small,
-        fill=MUTED,
+        font=subtitle_font, fill=MUTED,
     )
 
     # --- To'r va o'q (odamlar soni bo'yicha) ---
     axis_top, tick = _nice_top(people)
+    base = _PNG_TOP + _PNG_PLOT
     for value in range(0, axis_top + 1, tick):
-        y = _PNG_TOP + _PNG_PLOT - _PNG_PLOT * value / axis_top
-        draw.line([(_PNG_LEFT, y), (width - 24, y)], fill=GRID, width=1)
-        draw.text((_PNG_LEFT - 40, y - 8), f"{value}", font=small, fill=MUTED)
+        y = base - _PNG_PLOT * value / axis_top
+        draw.line([(_PNG_LEFT, y), (width - _PNG_RIGHT, y)], fill=GRID, width=2)
+        text = str(value)
+        text_width = draw.textlength(text, font=axis_font)
+        draw.text((_PNG_LEFT - 18 - text_width, y - 15), text,
+                  font=axis_font, fill=MUTED)
 
     # --- Ustunlar: ko'k (topgan) + qizil (topmagan) ---
-    base = _PNG_TOP + _PNG_PLOT
     labels: list[tuple[float, float, float, int]] = []
     for index, row in enumerate(rows):
-        x = _PNG_LEFT + index * (bar_width + bar_gap)
+        x = _PNG_LEFT + index * slot + (slot - bar_width) / 2
         correct_height = _PNG_PLOT * row.correct_count / axis_top
         wrong_height = _PNG_PLOT * row.wrong_count / axis_top
         correct_top = base - correct_height
         wrong_top = correct_top - wrong_height
         if correct_height > 0:
-            draw.rectangle(
-                [(x, correct_top), (x + bar_width, base)], fill=CORRECT_COLOR
-            )
+            draw.rectangle([(x, correct_top), (x + bar_width, base)],
+                           fill=CORRECT_COLOR)
             labels.append(
                 (x, correct_top + correct_height / 2, correct_height, row.correct_count)
             )
         if wrong_height > 0:
-            draw.rectangle(
-                [(x, wrong_top), (x + bar_width, correct_top)], fill=WRONG_COLOR
-            )
+            draw.rectangle([(x, wrong_top), (x + bar_width, correct_top)],
+                           fill=WRONG_COLOR)
             labels.append(
                 (x, wrong_top + wrong_height / 2, wrong_height, row.wrong_count)
             )
 
-    # Sonlar ustun ichiga tik yoziladi — ustunlar ingichka bo'lgani uchun.
-    if bar_width >= 10:
-        for x, center_y, segment_height, value in labels:
-            _png_vertical_number(
-                Image, ImageDraw, image, small,
-                x + bar_width / 2, center_y, segment_height, value,
-            )
+        # Savol raqami — har bir ustun ostida, burilgan holda.
+        _png_axis_label(
+            Image, ImageDraw, image, label_font,
+            x + bar_width / 2 + 10, base + 16, row.label,
+        )
 
-    # --- Yorliqlar (sig'gani qadar) ---
-    step = max(1, math.ceil(26 / (bar_width + bar_gap)))
-    for index, row in enumerate(rows):
-        if index % step:
+    # Sonlar ustun ichiga tik yoziladi.
+    for x, center_y, segment_height, value in labels:
+        if segment_height < _PNG_INNER_MIN:
             continue
-        x = _PNG_LEFT + index * (bar_width + bar_gap)
-        draw.text(
-            (x, _PNG_TOP + _PNG_PLOT + 8), row.label, font=small, fill=MUTED
+        _png_vertical_number(
+            Image, ImageDraw, image, value_font,
+            x + bar_width / 2, center_y, segment_height, value,
         )
 
     # --- Izoh ---
-    legend_y = _PNG_TOP + _PNG_PLOT + _PNG_BOTTOM_LABELS
+    legend_y = base + _PNG_XLABELS
     x = _PNG_LEFT
     for name, color, count in (
         ("Topganlar", CORRECT_COLOR, sum(row.correct_count for row in rows)),
         ("Topa olmaganlar", WRONG_COLOR, sum(row.wrong_count for row in rows)),
     ):
-        draw.rectangle([(x, legend_y), (x + 16, legend_y + 16)], fill=color)
+        draw.rectangle([(x, legend_y), (x + 28, legend_y + 28)], fill=color)
         text = f"{name} — {count} ta javob"
-        draw.text((x + 22, legend_y), text, font=regular, fill=NAVY)
-        x += 26 + int(draw.textlength(text, font=regular))
+        draw.text((x + 40, legend_y), text, font=legend_font, fill=NAVY)
+        x += 74 + int(draw.textlength(text, font=legend_font))
 
     draw.text(
-        (_PNG_LEFT, legend_y + 34),
+        (_PNG_LEFT, legend_y + 58),
         f"Ustun balandligi — {people} ta ishtirokchi. Ko‘k qism savolni "
         "topganlar, qizil qism topa olmaganlar soni.",
-        font=small,
-        fill=MUTED,
+        font=note_font, fill=MUTED,
     )
 
     buffer = io.BytesIO()
@@ -633,7 +688,12 @@ def difficulty_png(exam, rows: list[DifficultyRow] | None = None) -> bytes:
 
 
 def distribution_png(exam, bins: list[DistributionBin] | None = None) -> bytes:
-    """Ballar taqsimoti diagrammasi (PNG)."""
+    """
+    Ballar taqsimoti diagrammasi (PNG).
+
+    Qiyinchilik diagrammasi bilan bir xil o'lchamda chiziladi — oraliqlar
+    ko'p bo'lsa rasm kengayadi va yorliqlar ustma-ust tushmaydi.
+    """
     bins = ball_distribution(exam) if bins is None else bins
     if not bins:
         return b""
@@ -643,54 +703,59 @@ def distribution_png(exam, bins: list[DistributionBin] | None = None) -> bytes:
         return b""
     Image, ImageDraw, ImageFont = modules
 
-    bar_gap = 6
-    bar_width = max(8, min(30, (_PNG_WIDTH_MIN - _PNG_LEFT - 30) // len(bins) - bar_gap))
-    width = max(_PNG_WIDTH_MIN, _PNG_LEFT + len(bins) * (bar_width + bar_gap) + 30)
-
-    image = Image.new("RGB", (width, _PNG_HEIGHT), "#ffffff")
+    width, height, bar_width, slot = _png_layout(len(bins))
+    image = Image.new("RGB", (width, height), "#ffffff")
     draw = ImageDraw.Draw(image)
-    regular, title_font, small = _png_fonts(ImageFont)
 
-    draw.text((_PNG_LEFT, 28), "Ballar taqsimoti", font=title_font, fill=NAVY)
+    font = _png_font_factory(ImageFont)
+    title_font = font(42, bold_face=True)
+    subtitle_font = font(24)
+    axis_font = font(24)
+    note_font = font(22)
+    label_font = font(22)
+    value_font = font(22)
+
+    draw.text((_PNG_LEFT, 44), "Ballar taqsimoti", font=title_font, fill=NAVY)
     draw.text(
-        (_PNG_LEFT, 62),
+        (_PNG_LEFT, 106),
         f"{exam.title} · test kodi {exam.code} · faqat admin uchun",
-        font=small,
-        fill=MUTED,
+        font=subtitle_font, fill=MUTED,
     )
 
     peak = max(item.count for item in bins) or 1
-    tick = max(1, math.ceil(peak / 5))
-    top_value = tick * 5
-    for index in range(6):
-        value = tick * index
-        y = _PNG_TOP + _PNG_PLOT - _PNG_PLOT * value / top_value
-        draw.line([(_PNG_LEFT, y), (width - 24, y)], fill=GRID, width=1)
-        draw.text((_PNG_LEFT - 34, y - 8), f"{value}", font=small, fill=MUTED)
+    axis_top, tick = _nice_top(peak)
+    base = _PNG_TOP + _PNG_PLOT
+    for value in range(0, axis_top + 1, tick):
+        y = base - _PNG_PLOT * value / axis_top
+        draw.line([(_PNG_LEFT, y), (width - _PNG_RIGHT, y)], fill=GRID, width=2)
+        text = str(value)
+        text_width = draw.textlength(text, font=axis_font)
+        draw.text((_PNG_LEFT - 18 - text_width, y - 15), text,
+                  font=axis_font, fill=MUTED)
 
     for index, item in enumerate(bins):
-        x = _PNG_LEFT + index * (bar_width + bar_gap)
-        bar_height = _PNG_PLOT * item.count / top_value
-        top = _PNG_TOP + _PNG_PLOT - bar_height
-        draw.rectangle(
-            [(x, top), (x + bar_width, _PNG_TOP + _PNG_PLOT)],
-            fill=BLUE,
-            outline=BLUE_SOFT,
+        x = _PNG_LEFT + index * slot + (slot - bar_width) / 2
+        bar_height = _PNG_PLOT * item.count / axis_top
+        top = base - bar_height
+        if bar_height > 0:
+            draw.rectangle([(x, top), (x + bar_width, base)], fill=BLUE)
+            # Ishtirokchilar soni kichik son — ustun ustiga to'g'ri yoziladi.
+            text = str(item.count)
+            text_width = draw.textlength(text, font=value_font)
+            draw.text(
+                (x + bar_width / 2 - text_width / 2, top - 34),
+                text, font=value_font, fill=NAVY,
+            )
+        _png_axis_label(
+            Image, ImageDraw, image, label_font,
+            x + bar_width / 2 + 10, base + 16, item.label,
         )
 
-    step = max(1, math.ceil(52 / (bar_width + bar_gap)))
-    for index, item in enumerate(bins):
-        if index % step:
-            continue
-        x = _PNG_LEFT + index * (bar_width + bar_gap)
-        draw.text((x, _PNG_TOP + _PNG_PLOT + 8), item.label, font=small, fill=MUTED)
-
     draw.text(
-        (_PNG_LEFT, _PNG_TOP + _PNG_PLOT + _PNG_BOTTOM_LABELS),
+        (_PNG_LEFT, base + _PNG_XLABELS),
         "Gorizontal o‘q — ball oralig‘i, vertikal o‘q — "
         "ishtirokchilar soni.",
-        font=small,
-        fill=MUTED,
+        font=note_font, fill=MUTED,
     )
 
     buffer = io.BytesIO()

@@ -848,25 +848,33 @@ async def scenario_admin(sim: Simulator) -> None:
     index = await sim.click(ADMIN_ID, f"exam:rating:{exam.id}")
     R.check("Reyting ko'rsatildi", "reyting" in sim.joined_texts(index).lower())
 
-    # --- Savollar qiyinchiligi diagrammasi (faqat admin/test egasiga) ---
-    photos_before = len(sim.session.photos)
+    # --- Savollar qiyinchiligi diagrammasi (faqat asosiy adminga) ---
+    # Diagramma keng bo'lgani uchun rasm emas, **hujjat** sifatida ketadi:
+    # Telegram uni siqib yuborsa ustun ichidagi sonlar o'qilmay qoladi.
+    docs_before = len(sim.session.documents)
     index = await sim.click(ADMIN_ID, f"exam:charts:{exam.id}")
-    new_photos = sim.session.photos[photos_before:]
-    R.check("Qiyinchilik diagrammasi yuborildi", bool(new_photos))
-    if new_photos:
-        R.check("Diagramma PNG fayli",
-                new_photos[0]["filename"].endswith(".png"))
-        R.check("Diagramma hajmi ma'noli", new_photos[0]["size"] > 3000)
+    new_charts = [
+        item for item in sim.session.documents[docs_before:]
+        if item["filename"].endswith(".png")
+    ]
+    R.check("Qiyinchilik diagrammasi yuborildi", bool(new_charts))
+    if new_charts:
+        R.check("Diagramma PNG hujjat sifatida ketdi",
+                new_charts[0]["filename"].endswith(".png"))
+        R.check("Diagramma hajmi ma'noli", new_charts[0]["size"] > 3000)
         R.check("Diagramma izohi tushunarli",
-                "qiyinchilik" in new_photos[0]["caption"].lower())
+                "qiyinchilik" in new_charts[0]["caption"].lower())
         R.check("Diagramma faqat adminga ketdi",
-                all(item["chat_id"] == ADMIN_ID for item in new_photos))
+                all(item["chat_id"] == ADMIN_ID for item in new_charts))
 
-    # --- Begona foydalanuvchi diagrammani ololmaydi ---
-    photos_before = len(sim.session.photos)
+    # --- Oddiy foydalanuvchi diagrammani ololmaydi ---
+    docs_before = len(sim.session.documents)
     index = await sim.click(SECOND_ID, f"exam:charts:{exam.id}")
-    R.check("Begona foydalanuvchiga diagramma berilmadi",
-            len(sim.session.photos) == photos_before)
+    new_docs = [
+        item for item in sim.session.documents[docs_before:]
+        if item["filename"].endswith(".png")
+    ]
+    R.check("Oddiy foydalanuvchiga diagramma berilmadi", not new_docs)
 
 
 # ==========================================================================

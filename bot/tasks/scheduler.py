@@ -173,11 +173,14 @@ async def _broadcast_charts(bot: Bot, recipients: list[int], payload: dict) -> N
         "qiyinchilik": TA.REPORT_CHART_DIFFICULTY,
         "ballar-taqsimoti": TA.REPORT_CHART_DISTRIBUTION,
     }
+    # Diagramma keng (55 ta ustunda ~2800 piksel) — rasm sifatida
+    # yuborilsa Telegram uni siqib, yozuvlarni o'qib bo'lmay qoladi.
+    # Shuning uchun hujjat sifatida yuboriladi: sifat saqlanadi.
     for telegram_id in recipients:
         for kind, image in images:
             name = timestamped_name(kind, "png", payload["code"])
             try:
-                await bot.send_photo(
+                await bot.send_document(
                     telegram_id,
                     document(image, name),
                     caption=captions.get(kind, ""),

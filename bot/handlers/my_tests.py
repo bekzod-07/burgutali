@@ -348,8 +348,10 @@ async def export_charts(
         "qiyinchilik": TA.REPORT_CHART_DIFFICULTY,
         "ballar-taqsimoti": TA.REPORT_CHART_DISTRIBUTION,
     }
+    # Diagramma keng — hujjat sifatida yuboriladi, aks holda Telegram uni
+    # siqib yuboradi va ustun ichidagi sonlar o'qilmay qoladi.
     for kind, image in images:
-        await callback.message.answer_photo(
+        await callback.message.answer_document(
             document(image, timestamped_name(kind, "png", exam.code)),
             caption=captions.get(kind, ""),
         )

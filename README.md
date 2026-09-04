@@ -247,11 +247,16 @@ foizi (noto‘g‘ri javob berganlar ulushi) bo‘yicha daraja ham beriladi:
 Yonida — **ballar taqsimoti** diagrammasi (ball oraliqlari bo‘yicha
 ishtirokchilar soni).
 
-Diagramma **ishtirokchilarga ko‘rinmaydi**. U uch joyda beriladi:
-boshqaruv panelining natijalar sahifasida (SVG), test yakunlangach
-adminlarga yuboriladigan xabarda (PNG) va «Natijalar (PDF)» hisobotida.
-Botda esa test egasi «Savollar qiyinchiligi» tugmasi orqali istalgan
-paytda oladi.
+Diagramma **faqat `.env` dagi asosiy adminlarga** ko‘rinadi — u har bir
+savolni nechta odam topganini ochib beradi. Uch joyda beriladi: boshqaruv
+panelining natijalar sahifasida (SVG), test yakunlangach adminlarga
+yuboriladigan xabarda (PNG) va «Natijalar (PDF)» hisobotida; botda
+«Savollar qiyinchiligi» tugmasi orqali ham olinadi.
+
+PNG savollar soniga qarab kengayadi (55 ta birlikda ~2800 piksel),
+ustunlar va yorliqlar siqilib qolmaydi. Telegramga u **rasm emas, hujjat**
+sifatida yuboriladi — aks holda siqilib, ustun ichidagi sonlar
+o‘qilmay qolardi.
 
 ### Matematik formulalar klaviaturasi (Telegram Mini App)
 
@@ -727,7 +732,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 868 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 876 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```
