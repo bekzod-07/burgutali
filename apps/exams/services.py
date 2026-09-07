@@ -657,12 +657,17 @@ def report_recipients(exam: Exam) -> list[int]:
     recipients: list[int] = []
 
     def add(value) -> None:
+        """Ro'yxatga haqiqiy Telegram ID ni qo'shadi."""
         try:
             number = int(value)
         except (TypeError, ValueError):
             return
-        if number and number not in recipients:
-            recipients.append(number)
+        # Paneldan login-parol bilan kirgan hisob uchun `BotUser.telegram_id`
+        # sun'iy va manfiy bo'ladi (`dashboard.views._dashboard_owner`),
+        # «Web panel» egasida esa 0. Bunday ID ga xabar yuborib bo'lmaydi.
+        if number <= 0 or number in recipients:
+            return
+        recipients.append(number)
 
     if exam.owner_id:
         add(getattr(exam.owner, "telegram_id", None))

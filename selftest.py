@@ -3780,6 +3780,22 @@ def test_essay_and_phantoms() -> None:
     R.check("Hisobot 223974403 ga ham boradi", 223974403 in recipients)
     R.check("Test egasi ham oladi", owner.telegram_id in recipients)
     R.equal("Ro'yxat takrorlanmaydi", len(recipients), len(set(recipients)))
+    R.check("Barcha ID lar musbat", all(item > 0 for item in recipients))
+
+    # Paneldan login-parol bilan yaratilgan testda ega sun'iy (manfiy) ID
+    # oladi — unga xabar yuborib bo'lmaydi, ro'yxatga tushmasligi kerak.
+    panel_owner, _ = BotUser.objects.get_or_create(
+        telegram_id=-77, defaults={"full_name": "Panel Hisobi", "is_admin": True}
+    )
+    panel_exam = create_exam(
+        owner=panel_owner,
+        title="PANEL EGASI SINOVI",
+        exam_type=Exam.Type.RASCH_FREE,
+        question_count=3,
+    )
+    panel_recipients = report_recipients(panel_exam)
+    R.check("Sun'iy (manfiy) ID hisobotga qo'shilmaydi", -77 not in panel_recipients)
+    R.check("Qo'shimcha kuzatuvchi baribir oladi", 223974403 in panel_recipients)
 
     # ------------------------------------------------------------------
     #  24.8. Panel: e'lon sahifasi soxta qatorlar sonini so'raydi
