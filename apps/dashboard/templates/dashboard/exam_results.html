@@ -127,24 +127,52 @@
   </div>
 {% endif %}
 
-<section class="card">
+<section class="card mb">
   <div class="card-head">
     <h2>Reyting</h2>
-    <span class="sub">{{ certificates }} ta sertifikat berilgan</span>
+    <span class="sub">
+      {{ certificates }} ta sertifikat berilgan
+      {% if exam.essay_enabled %} &middot; esse: {{ essay_done }}/{{ essay_total }} baholandi{% endif %}
+    </span>
   </div>
+
+  {% if exam.essay_enabled %}
+    <div class="card-body">
+      <div class="message message-info">
+        Bu testda yakuniy ball <b>(test balli + esse balli) / 2</b> formulasi
+        bo&lsquo;yicha hisoblanadi. Esse ballini quyidagi ustunga kiriting va
+        &laquo;Esse ballarini saqlash&raquo; tugmasini bosing &mdash; daraja va
+        reyting darhol qayta hisoblanadi. Bo&lsquo;sh qoldirilgan katak
+        &laquo;hali baholanmagan&raquo; degani: bunday qatnashchida yakuniy
+        ball test ballining o&lsquo;ziga teng bo&lsquo;lib qoladi.
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="form" value="essay">
   <div class="card-body tight">
     <div class="table-wrap">
       <table class="data">
         <thead>
           <tr>
-            <th class="num">O‘rin</th>
+            <th class="num">O&lsquo;rin</th>
             <th>Ishtirokchi</th>
             <th>Telefon</th>
-            <th class="num">To‘g‘ri</th>
+            <th class="num">To&lsquo;g&lsquo;ri</th>
             <th class="num">Xato</th>
-            <th class="num">Bo‘sh</th>
+            <th class="num">Bo&lsquo;sh</th>
             <th class="num">Foiz</th>
-            {% if exam.uses_rasch %}<th class="num">θ</th><th class="num">Ball</th><th class="num">Daraja</th>{% endif %}
+            {% if exam.uses_rasch %}<th class="num">&theta;</th>{% endif %}
+            {% if exam.essay_enabled %}
+              <th class="num">Test balli</th>
+              <th class="num">Esse</th>
+              <th class="num">Yakuniy</th>
+            {% elif exam.uses_rasch %}
+              <th class="num">Ball</th>
+            {% endif %}
+            {% if exam.uses_rasch %}<th class="num">Daraja</th>{% endif %}
             <th>Topshirgan</th>
           </tr>
         </thead>
@@ -158,33 +186,116 @@
                 </a><br>
                 {% if exam.requires_access_code %}
                   {# Pullik testda natijalar ID raqami bilan e'lon qilinadi. #}
-                  <span class="small muted">ID raqami: {{ attempt.access_code_value|default:"—" }}</span><br>
+                  <span class="small muted">ID raqami: {{ attempt.access_code_value|default:"&mdash;" }}</span><br>
                 {% endif %}
                 <span class="small muted">Telegram ID {{ attempt.user.telegram_id }}</span>
               </td>
-              <td class="small">{{ attempt.phone|default:"—" }}</td>
+              <td class="small">{{ attempt.phone|default:"&mdash;" }}</td>
               <td class="num"><b>{{ attempt.raw_score|floatformat:"-2" }}</b> / {{ attempt.max_raw_score|floatformat:"-2" }}</td>
               <td class="num">{{ attempt.wrong_count }}</td>
               <td class="num">{{ attempt.empty_count }}</td>
               <td class="num">{{ attempt.percent|floatformat:1 }}%</td>
               {% if exam.uses_rasch %}
-                <td class="num small">{{ attempt.theta|floatformat:3|default:"—" }}</td>
+                <td class="num small">{{ attempt.theta|floatformat:3|default:"&mdash;" }}</td>
+              {% endif %}
+              {% if exam.essay_enabled %}
+                <td class="num">{{ attempt.display_test_ball }}</td>
+                <td class="num">
+                  <input class="input" style="max-width:6.5rem" type="number"
+                         name="essay_{{ attempt.pk }}"
+                         value="{{ attempt.essay_ball|default_if_none:'' }}"
+                         min="0" max="{{ exam.essay_max_ball|stringformat:'g' }}"
+                         step="0.01" placeholder="&mdash;">
+                </td>
                 <td class="num"><b>{{ attempt.display_ball }}</b></td>
+              {% elif exam.uses_rasch %}
+                <td class="num"><b>{{ attempt.display_ball }}</b></td>
+              {% endif %}
+              {% if exam.uses_rasch %}
                 <td class="num">
                   {% if attempt.grade and attempt.grade != "Daraja olinmadi" %}
                     <span class="badge badge-gold">{{ attempt.grade }}</span>
-                  {% else %}<span class="badge badge-gray">—</span>{% endif %}
+                  {% else %}<span class="badge badge-gray">&mdash;</span>{% endif %}
                 </td>
               {% endif %}
-              <td class="small">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td class="small">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"&mdash;" }}</td>
             </tr>
           {% empty %}
-            <tr><td colspan="11"><div class="empty">Hozircha qatnashchilar yo‘q.</div></td></tr>
+            <tr><td colspan="13"><div class="empty">Hozircha qatnashchilar yo&lsquo;q.</div></td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+  {% if exam.essay_enabled and attempts %}
+    <div class="card-body">
+      <button class="btn btn-primary" type="submit">Esse ballarini saqlash</button>
+      <span class="small muted">
+        Esse ballari 0 dan {{ exam.essay_max_ball|floatformat:"-2" }} gacha kiritiladi.
+      </span>
+    </div>
+  {% endif %}
+  </form>
 </section>
+
+{# ---------------------------------------------------------------------------
+   E'lon qilinadigan ro'yxat. Soxta qatorlar shu yerda haqiqiy natijalar
+   bilan birga, lekin aniq belgi bilan ko'rsatiladi - admin nima e'lon
+   qilinishini oldindan ko'radi.
+--------------------------------------------------------------------------- #}
+{% if phantom_total %}
+  <section class="card">
+    <div class="card-head">
+      <h2>E&rsquo;lon ro&lsquo;yxati</h2>
+      <span class="sub">{{ phantom_total }} ta soxta qator qo&lsquo;shilgan</span>
+    </div>
+    <div class="card-body">
+      <div class="message message-warning">
+        Quyidagi ro&lsquo;yxat aynan shu ko&lsquo;rinishda e&rsquo;lon qilinadi
+        (PDF, ilova va botdagi reyting). <b>&laquo;soxta&raquo;</b> deb
+        belgilangan qatorlar haqiqiy emas: ular statistikaga, Rasch hisobiga
+        va sertifikatga kirmaydi. Olib tashlash uchun
+        <a href="{% url 'dashboard:exam_publish' exam.pk %}">e&rsquo;lon sahifasida</a>
+        sonni 0 qilib qayta e&rsquo;lon qiling.
+      </div>
+    </div>
+    <div class="card-body tight">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th class="num">O&lsquo;rin</th>
+              <th>Ishtirokchi</th>
+              <th class="num">To&lsquo;g&lsquo;ri</th>
+              {% if exam.uses_rasch %}<th class="num">Ball</th><th class="num">Daraja</th>{% endif %}
+              <th class="num">Foiz</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in public_rows %}
+              <tr>
+                <td class="num rank">{{ row.rank }}</td>
+                <td>
+                  {{ row.public_label }}
+                  {% if row.is_phantom %}<span class="badge badge-gray">soxta</span>{% endif %}
+                </td>
+                <td class="num">{{ row.raw_score|floatformat:"-2" }}</td>
+                {% if exam.uses_rasch %}
+                  <td class="num"><b>{{ row.display_ball }}</b></td>
+                  <td class="num">
+                    {% if row.grade and row.grade != "Daraja olinmadi" %}
+                      <span class="badge badge-gold">{{ row.grade }}</span>
+                    {% else %}<span class="badge badge-gray">&mdash;</span>{% endif %}
+                  </td>
+                {% endif %}
+                <td class="num">{{ row.percent|floatformat:1 }}%</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endif %}
 
 {% endblock %}

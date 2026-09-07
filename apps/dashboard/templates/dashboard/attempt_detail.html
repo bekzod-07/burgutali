@@ -62,7 +62,16 @@
       {% if attempt.exam.uses_rasch %}
         <div class="kv"><span class="k">theta (θ)</span><span class="v">{{ attempt.theta|floatformat:4|default:"—" }}</span></div>
         <div class="kv"><span class="k">theta xatosi</span><span class="v">{{ attempt.theta_se|floatformat:4|default:"—" }}</span></div>
-        <div class="kv"><span class="k">Standart ball</span><span class="v"><b>{{ attempt.display_ball }}</b></span></div>
+        <div class="kv"><span class="k">Test balli</span><span class="v">{{ attempt.display_test_ball }}</span></div>
+        {% if attempt.exam.essay_enabled %}
+          <div class="kv"><span class="k">Esse balli</span><span class="v">{{ attempt.display_essay_ball }}</span></div>
+          <div class="kv">
+            <span class="k">Yakuniy ball</span>
+            <span class="v"><b>{{ attempt.display_ball }}</b> <span class="small muted">(test + esse) / 2</span></span>
+          </div>
+        {% else %}
+          <div class="kv"><span class="k">Standart ball</span><span class="v"><b>{{ attempt.display_ball }}</b></span></div>
+        {% endif %}
         <div class="kv"><span class="k">Daraja</span><span class="v">
           {% if attempt.grade %}<span class="badge badge-gold">{{ attempt.grade }}</span>{% else %}—{% endif %}
         </span></div>
@@ -78,6 +87,37 @@
   </section>
 
 </div>
+
+{% if attempt.exam.essay_enabled %}
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-edit"></use></svg>
+      <h2>Esse balli</h2>
+      <span class="sub">Yakuniy ball = (test balli + esse balli) / 2</span>
+    </div>
+    <div class="card-body">
+      <form method="post" class="chip-row" style="align-items:flex-end">
+        {% csrf_token %}
+        <input type="hidden" name="form" value="essay">
+        <div class="form-row" style="margin:0">
+          <label for="essay_ball">
+            Esse balli (0 – {{ attempt.exam.essay_max_ball|floatformat:"-2" }})
+          </label>
+          <input class="input" style="max-width:10rem" type="number" id="essay_ball"
+                 name="essay_ball" value="{{ attempt.essay_ball|default_if_none:'' }}"
+                 min="0" max="{{ attempt.exam.essay_max_ball|stringformat:'g' }}"
+                 step="0.01" placeholder="baholanmagan">
+        </div>
+        <button class="btn btn-primary" type="submit">Saqlash</button>
+      </form>
+      <div class="small muted mt">
+        Bo‘sh qoldirilsa esse «hali baholanmagan» hisoblanadi va yakuniy ball
+        test ballining o‘ziga teng bo‘ladi. Saqlangach daraja va reyting
+        qayta hisoblanadi.
+      </div>
+    </div>
+  </section>
+{% endif %}
 
 {% if attempt.section_scores %}
   <section class="card mb">

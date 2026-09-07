@@ -35,6 +35,7 @@ urlpatterns = [
         name="question_edit",
     ),
     path("testlar/<int:pk>/natijalar/", views.exam_results, name="exam_results"),
+    path("testlar/<int:pk>/elon/", views.exam_publish, name="exam_publish"),
     path("testlar/<int:pk>/kodlar/", views.exam_codes, name="exam_codes"),
     path("testlar/<int:pk>/amal/<str:action>/", views.exam_action, name="exam_action"),
 

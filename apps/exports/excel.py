@@ -157,9 +157,13 @@ def results_workbook(exam: Exam) -> bytes:
     # ikkala ustun ham kerak.
     if is_paid:
         headers.append("ID raqami")
+    with_essay = bool(exam.essay_enabled)
     headers += ["To‘g‘ri", "Xato", "Bo‘sh", "Foiz"]
     if uses_rasch:
-        headers += ["theta", "Ball", "Daraja"]
+        headers += ["theta", "Test balli"]
+        if with_essay:
+            headers += ["Esse balli", "Yakuniy ball"]
+        headers += ["Daraja"]
     headers += ["Topshirgan vaqt", "Sarflangan vaqt"]
 
     for index, header in enumerate(headers, start=1):
@@ -193,8 +197,13 @@ def results_workbook(exam: Exam) -> bytes:
             values += [
                 round(attempt.theta, 4) if attempt.theta is not None else "",
                 round(attempt.ball, 2) if attempt.ball is not None else "",
-                attempt.grade or "",
             ]
+            if with_essay:
+                values += [
+                    round(attempt.essay_ball, 2) if attempt.essay_ball is not None else "",
+                    round(attempt.result_ball, 2) if attempt.result_ball is not None else "",
+                ]
+            values += [attempt.grade or ""]
         values += [submitted, duration]
 
         for column, value in enumerate(values, start=1):
@@ -207,7 +216,10 @@ def results_workbook(exam: Exam) -> bytes:
         widths.append(14)
     widths += [9, 8, 8, 9]
     if uses_rasch:
-        widths += [10, 10, 12]
+        widths += [10, 11]
+        if with_essay:
+            widths += [11, 12]
+        widths += [12]
     widths += [18, 16]
     _auto_width(sheet, widths)
     sheet.freeze_panes = "A5"

@@ -91,7 +91,10 @@ def rating_rows(attempts, *, uses_rasch: bool, highlight_id: int | None = None) 
         place = attempt.rank or index
         name = esc(shorten(attempt.public_label or "Ishtirokchi", 26))
         if uses_rasch:
-            score = f"{attempt.ball:.2f}" if attempt.ball is not None else "—"
+            # `RankRow` da `ball` allaqachon yakuniy ball; `Attempt` uchun esa
+            # `result_ball` (esse hisobga olingan) olinadi.
+            value = getattr(attempt, "result_ball", attempt.ball)
+            score = f"{value:.2f}" if value is not None else "—"
             grade = f" · {attempt.grade}" if attempt.grade else ""
             row = f"{place}. <b>{name}</b> — {score}{grade}"
         else:

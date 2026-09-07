@@ -13,6 +13,11 @@ from functools import lru_cache
 from core.env import get_bool, get_int, get_int_list, get_str, load_env
 
 
+#: Natijalar hisobotini standart holatda oladigan qo'shimcha kuzatuvchilar.
+#: `.env` da `REPORT_EXTRA_IDS` berilsa, o'sha ro'yxat ishlatiladi.
+DEFAULT_REPORT_EXTRA_IDS: tuple[int, ...] = (223974403,)
+
+
 @dataclass(frozen=True)
 class BotConfig:
     """Botning ishga tushish sozlamalari."""
@@ -20,6 +25,10 @@ class BotConfig:
     token: str
     username: str
     admin_ids: frozenset[int] = field(default_factory=frozenset)
+    #: Natijalar hisobotini qo'shimcha oladigan Telegram ID lar.
+    #: Bular admin emas — faqat yopilgan/e'lon qilingan testlar bo'yicha
+    #: umumiy natijalar PDF sini oladi (`REPORT_EXTRA_IDS`).
+    report_extra_ids: frozenset[int] = field(default_factory=frozenset)
     required_channel: str = ""
     required_channel_url: str = ""
     subscription_required: bool = True
@@ -84,6 +93,9 @@ def get_config() -> BotConfig:
         token=get_str("BOT_TOKEN", ""),
         username=get_str("BOT_USERNAME", "").lstrip("@"),
         admin_ids=frozenset(get_int_list("ADMIN_IDS", [])),
+        report_extra_ids=frozenset(
+            get_int_list("REPORT_EXTRA_IDS", DEFAULT_REPORT_EXTRA_IDS)
+        ),
         required_channel=get_str("REQUIRED_CHANNEL", "@Oybek_ustoz_MS"),
         required_channel_url=get_str("REQUIRED_CHANNEL_URL", "https://t.me/Oybek_ustoz_MS"),
         subscription_required=get_bool("SUBSCRIPTION_REQUIRED", True),
@@ -93,4 +105,4 @@ def get_config() -> BotConfig:
     )
 
 
-__all__ = ["BotConfig", "get_config"]
+__all__ = ["BotConfig", "get_config", "DEFAULT_REPORT_EXTRA_IDS"]

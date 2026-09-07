@@ -485,10 +485,20 @@ def exam_results(request, pk: int):
     Savollarning qiyinchilik darajasi diagrammasi ham shu yerda ko'rsatiladi —
     sahifa `@staff_required` bilan himoyalangani uchun uni faqat adminlar
     ko'radi (talab: «FAQAT ADMINGA»).
+
+    Esse yoqilgan testda shu sahifadan har bir qatnashchining esse balli
+    kiritiladi: saqlangach yakuniy ball `(test + esse) / 2` bo'yicha
+    qaytadan hisoblanadi va reyting yangilanadi.
     """
     exam = get_object_or_404(Exam, pk=pk)
+
+    if request.method == "POST" and request.POST.get("form") == "essay":
+        _save_essay_balls(request, exam)
+        return redirect("dashboard:exam_results", pk=exam.pk)
+
     attempts = attempt_services.ranked_attempts(exam)
     summary = charts.build_summary(exam)
+    essay_done, essay_total = attempt_services.essay_progress(exam)
     context = {
         "section": "exams",
         "exam": exam,
@@ -498,8 +508,102 @@ def exam_results(request, pk: int):
         "charts": summary,
         "difficulty_svg": mark_safe(charts.difficulty_svg(summary.rows)),
         "distribution_svg": mark_safe(charts.distribution_svg(summary.bins)),
+        "public_rows": attempt_services.public_ranking(exam),
+        "phantom_total": attempt_services.phantom_count(exam),
+        "essay_done": essay_done,
+        "essay_total": essay_total,
     }
     return render(request, "dashboard/exam_results.html", context)
+
+
+def _save_essay_balls(request, exam: Exam) -> None:
+    """Formadagi barcha esse ballarini o'qib saqlaydi."""
+    values: dict[int, float | None] = {}
+    errors: list[str] = []
+
+    for key, raw in request.POST.items():
+        if not key.startswith("essay_"):
+            continue
+        attempt_id = key[len("essay_"):]
+        if not attempt_id.isdigit():
+            continue
+        try:
+            values[int(attempt_id)] = attempt_services.parse_essay_ball(raw, exam)
+        except attempt_services.EssayError as error:
+            errors.append(f"#{attempt_id}: {error}")
+
+    for error in errors[:8]:
+        messages.error(request, error)
+    if errors:
+        return
+
+    changed = attempt_services.set_essay_balls(exam, values)
+    if changed:
+        messages.success(
+            request,
+            f"{changed} ta qatnashchining esse balli saqlandi. "
+            "Yakuniy ball, daraja va reyting qayta hisoblandi.",
+        )
+    else:
+        messages.info(request, "O'zgarish yo'q.")
+
+
+@staff_required
+def exam_publish(request, pk: int):
+    """
+    Natijalarni e'lon qilish — soxta qatorlar sonini so'raydigan sahifa.
+
+    Talab: e'lon qilishdan oldin «nechta soxta profil qo'shilsin?» deb
+    so'ralishi kerak. Sahifada haqiqiy qatnashchilar soni ko'rsatiladi,
+    admin esa qo'shiladigan qatorlar sonini kiritadi (0 — qo'shilmaydi).
+
+    Soxta qatorlar faqat e'lon ro'yxatida ko'rinadi: statistikaga,
+    Rasch hisobiga va sertifikatga umuman ta'sir qilmaydi.
+    """
+    exam = get_object_or_404(Exam, pk=pk)
+    participants = attempt_services.participants_count(exam)
+
+    if request.method == "POST":
+        raw = (request.POST.get("phantom_count") or "0").strip()
+        if not raw.isdigit():
+            messages.error(request, "Soxta qatorlar soni butun son bo'lishi kerak.")
+            return redirect("dashboard:exam_publish", pk=exam.pk)
+
+        count = int(raw)
+        if count > attempt_services.MAX_PHANTOMS:
+            messages.error(
+                request,
+                f"Eng ko'pi {attempt_services.MAX_PHANTOMS} ta qator qo'shish mumkin.",
+            )
+            return redirect("dashboard:exam_publish", pk=exam.pk)
+
+        ok, message = exam_services.publish_results(exam, phantom_count=count)
+        if not ok:
+            messages.error(request, message)
+            return redirect("dashboard:exam_detail", pk=exam.pk)
+
+        messages.success(request, message)
+        if exam.can_issue_certificate:
+            result = issue_for_exam(exam)
+            messages.success(
+                request,
+                f"Sertifikatlar: {result['created']} ta yaratildi, "
+                f"{result['skipped']} ta o'tkazib yuborildi.",
+            )
+        return redirect("dashboard:exam_results", pk=exam.pk)
+
+    return render(
+        request,
+        "dashboard/exam_publish.html",
+        {
+            "section": "exams",
+            "exam": exam,
+            "participants": participants,
+            "phantom_total": attempt_services.phantom_count(exam),
+            "max_phantoms": attempt_services.MAX_PHANTOMS,
+            "ready": exam.status in {Exam.Status.CALCULATED, Exam.Status.PUBLISHED},
+        },
+    )
 
 
 @staff_required
@@ -556,13 +660,8 @@ def exam_action(request, pk: int, action: str):
             f"ishonchlilik {report.reliability:.3f}."
         )
     elif action == "elon":
-        ok, message = exam_services.publish_results(exam)
-        if ok and exam.can_issue_certificate:
-            result = issue_for_exam(exam)
-            message += (
-                f" Sertifikatlar: {result['created']} ta yaratildi, "
-                f"{result['skipped']} ta o'tkazib yuborildi."
-            )
+        # E'lon qilishdan oldin soxta qatorlar soni so'raladi.
+        return redirect("dashboard:exam_publish", pk=exam.pk)
     elif action == "sertifikatlar":
         if not exam.can_issue_certificate:
             ok, message = False, "Bu testda sertifikat berish yoqilmagan."
@@ -837,10 +936,31 @@ def attempt_list(request):
 
 @staff_required
 def attempt_detail(request, pk: int):
-    """Bitta urinish: barcha javoblar va baholash."""
+    """
+    Bitta urinish: barcha javoblar va baholash.
+
+    Esse yoqilgan testda shu yerdan esse balli kiritiladi — saqlangach
+    yakuniy ball `(test + esse) / 2` bo'yicha qayta hisoblanadi.
+    """
     attempt = get_object_or_404(
         Attempt.objects.select_related("exam", "user"), pk=pk
     )
+
+    if request.method == "POST" and request.POST.get("form") == "essay":
+        try:
+            value = attempt_services.parse_essay_ball(
+                request.POST.get("essay_ball"), attempt.exam
+            )
+        except attempt_services.EssayError as error:
+            messages.error(request, str(error))
+        else:
+            attempt_services.set_essay_ball(attempt, value)
+            messages.success(
+                request,
+                "Esse balli saqlandi — yakuniy ball va daraja qayta hisoblandi.",
+            )
+        return redirect("dashboard:attempt_detail", pk=pk)
+
     rows = attempt_services.answer_review(attempt)
     certificate = Certificate.objects.filter(attempt=attempt).first()
     code = AccessCode.objects.filter(attempt=attempt).first()

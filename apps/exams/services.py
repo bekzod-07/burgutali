@@ -378,12 +378,18 @@ def close_exam(exam: Exam) -> tuple[bool, str]:
     return True, "Test yopildi."
 
 
-def publish_results(exam: Exam) -> tuple[bool, str]:
+def publish_results(exam: Exam, *, phantom_count: int | None = None) -> tuple[bool, str]:
     """
     Natijalarni e'lon qiladi.
 
     TZ talabi: sertifikat test yakunlangan zahoti emas, balki admin
     natijalarni tasdiqlagandan keyingina ochiladi.
+
+    `phantom_count` berilsa, e'lon qilinadigan ro'yxatga shuncha **soxta**
+    qatnashchi qatori qo'shiladi (`apps.attempts.services.create_phantoms`).
+    Ular hisob-kitobga kirmaydi va sertifikat olmaydi — faqat e'lon
+    ro'yxatida ko'rinadi. `None` bo'lsa mavjud qatorlar o'zgarishsiz
+    qoladi, `0` esa ularni butunlay o'chiradi.
     """
     _reload(exam)
     if exam.status not in {Exam.Status.CALCULATED, Exam.Status.PUBLISHED}:
@@ -393,7 +399,23 @@ def publish_results(exam: Exam) -> tuple[bool, str]:
     exam.save(update_fields=["status", "published_at", "updated_at"])
     # Test to'liq yakunlandi — kodi ham bo'shaydi (yopilmagan bo'lsa ham).
     release_code(exam.code)
-    return True, "Natijalar e'lon qilindi."
+
+    message = "Natijalar e'lon qilindi."
+    if phantom_count is not None:
+        from apps.attempts.services import create_phantoms
+
+        created = create_phantoms(exam, phantom_count)
+        if created:
+            message += f" Ro'yxatga {created} ta soxta qator qo'shildi."
+        elif phantom_count == 0:
+            message += " Soxta qatorlar o'chirildi."
+
+    # Natijalar o'zgardi — hisobot qaytadan yuborilsin.
+    if exam.published_report_sent_at is not None:
+        exam.published_report_sent_at = None
+        exam.save(update_fields=["published_report_sent_at", "updated_at"])
+
+    return True, message
 
 
 def archive_exam(exam: Exam) -> tuple[bool, str]:
@@ -618,19 +640,36 @@ def mark_report_sent(exam: Exam, reason: str) -> None:
 
 def report_recipients(exam: Exam) -> list[int]:
     """
-    Hisobotni kim olishi kerak: test egasi va `.env` dagi asosiy adminlar.
+    Hisobotni kim olishi kerak.
+
+    Uch manba qo'shiladi:
+
+      * test egasi;
+      * `.env` dagi asosiy adminlar (`ADMIN_IDS`);
+      * `.env` dagi qo'shimcha kuzatuvchilar (`REPORT_EXTRA_IDS`) — ular
+        faqat hisobotni oladi, botda admin huquqiga ega bo'lmaydi.
 
     Bir xil odam ikki marta olmasligi uchun ro'yxat takrorlanmaydi.
     """
     from bot.config import get_config
 
+    config = get_config()
     recipients: list[int] = []
-    owner_id = getattr(exam.owner, "telegram_id", None) if exam.owner_id else None
-    if owner_id:
-        recipients.append(int(owner_id))
-    for admin_id in sorted(get_config().admin_ids):
-        if admin_id not in recipients:
-            recipients.append(int(admin_id))
+
+    def add(value) -> None:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            return
+        if number and number not in recipients:
+            recipients.append(number)
+
+    if exam.owner_id:
+        add(getattr(exam.owner, "telegram_id", None))
+    for admin_id in sorted(config.admin_ids):
+        add(admin_id)
+    for extra_id in sorted(config.report_extra_ids):
+        add(extra_id)
     return recipients
 
 

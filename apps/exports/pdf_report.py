@@ -27,7 +27,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from apps.attempts.services import ranked_attempts
+from apps.attempts.services import public_ranking, ranked_attempts
 from apps.certificates.fonts import register_fonts, safe_text
 from apps.exams.models import Exam
 from core import constants as C
@@ -314,13 +314,20 @@ def results_report(exam: Exam) -> bytes:
     # borligi ham ko'rsatiladi. Qatnashchilarga e'lon qilinadigan jadvalda
     # (`overall_results_report`) bu ustunlar yo'q.
     uses_rasch = exam.uses_rasch
+    with_essay = bool(exam.essay_enabled)
     header = ["O‘rin", participant_column(exam), "To‘g‘ri", "Foiz"]
-    widths = [13 * mm, 44 * mm, 16 * mm, 16 * mm]
+    widths = [13 * mm, 40 * mm, 15 * mm, 15 * mm]
     if uses_rasch:
-        header += ["Ball", "Sert. %", "Daraja"]
-        widths += [18 * mm, 18 * mm, 20 * mm]
+        if with_essay:
+            # Esse yoqilgan testda uch ustun ham ko'rsatiladi, shunda
+            # yakuniy ball qanday chiqqani hisobotdan ko'rinib turadi.
+            header += ["Test", "Esse", "Yakuniy", "Sert. %", "Daraja"]
+            widths += [15 * mm, 15 * mm, 17 * mm, 16 * mm, 18 * mm]
+        else:
+            header += ["Ball", "Sert. %", "Daraja"]
+            widths += [18 * mm, 18 * mm, 20 * mm]
     header += ["Sana"]
-    widths += [26 * mm]
+    widths += [24 * mm]
 
     data = [header]
     attempts = ranked_attempts(exam)
@@ -332,10 +339,18 @@ def results_report(exam: Exam) -> bytes:
             f"{attempt.percent:.1f}%",
         ]
         if uses_rasch:
+            final = attempt.result_ball
+            if with_essay:
+                row += [
+                    attempt.display_test_ball,
+                    attempt.display_essay_ball,
+                    attempt.display_ball,
+                ]
+            else:
+                row += [f"{final:.2f}" if final is not None else "—"]
             row += [
-                f"{attempt.ball:.2f}" if attempt.ball is not None else "—",
-                f"{C.certificate_percent(attempt.ball, attempt.grade):.0f}%"
-                if attempt.ball is not None else "—",
+                f"{C.certificate_percent(final, attempt.grade):.0f}%"
+                if final is not None else "—",
                 grade_label(attempt.grade),
             ]
         row.append(
@@ -421,20 +436,22 @@ def overall_results_report(exam: Exam) -> bytes:
     # (`core.constants.certificate_percent`), oddiy testda esa to'g'ri
     # javoblarning ulushi. Nechta to'g'ri topgani e'londa ko'rsatilmaydi —
     # u faqat adminlar hisobotida bo'ladi.
+    # E'lon ro'yxatiga administrator qo'shgan qatorlar ham kiradi
+    # (`apps.attempts.services.public_ranking`).
     header = ["№", participant_column(exam), "BALL", "FOIZ", "DARAJA"]
     data = [header]
-    for index, attempt in enumerate(ranked_attempts(exam), start=1):
+    for row in public_ranking(exam):
         if exam.uses_rasch:
-            percent = C.certificate_percent(attempt.ball, attempt.grade)
+            percent = C.certificate_percent(row.ball, row.grade)
         else:
-            percent = attempt.percent or 0.0
+            percent = row.percent or 0.0
         data.append(
             [
-                str(attempt.rank or index),
-                attempt.public_label,
-                attempt.display_ball if exam.uses_rasch else f"{attempt.raw_score:g}",
+                str(row.rank),
+                row.public_label,
+                row.display_ball if exam.uses_rasch else f"{row.raw_score:g}",
                 f"{percent:.0f}%",
-                grade_label(attempt.grade),
+                grade_label(row.grade),
             ]
         )
 

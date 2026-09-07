@@ -471,7 +471,9 @@ def exam_rating(request, user, code: str):
 
     my_attempt = attempt_services.get_result(exam, user)
     limit = None if is_owner else 30
-    attempts = attempt_services.rating(exam, limit=limit)
+    # E'lon qilinadigan ro'yxat: haqiqiy natijalar va administrator
+    # qo'shgan qatorlar birgalikda tartiblanadi.
+    attempts = attempt_services.public_ranking(exam, limit=limit)
 
     return {
         "exam": S.exam_dict(exam),

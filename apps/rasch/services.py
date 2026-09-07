@@ -160,7 +160,7 @@ def calculate_exam(exam: Exam, *, regrade: bool = True) -> CalculationReport:
         report = _score_simple(exam, attempts, graded)
 
     # --- 3. Reyting ---
-    _assign_ranks(exam)
+    assign_ranks(exam)
 
     # --- 4. Statistika ---
     _update_statistics(exam, matrix, items)
@@ -172,6 +172,49 @@ def calculate_exam(exam: Exam, *, regrade: bool = True) -> CalculationReport:
     exam.save(update_fields=["calculated_at", "status", "updated_at"])
 
     return report
+
+
+# --------------------------------------------------------------------------
+#  Yakuniy ball (test + esse)
+# --------------------------------------------------------------------------
+
+
+def ball_scale(exam: Exam) -> float:
+    """
+    Test balli qaysi shkalada berilishi (esse bilan qo'shish uchun).
+
+    RASH testlarida bu `Exam.max_ball` (standart 90.14), oddiy testda esa
+    ball foizga teng, ya'ni shkala 100 ballik.
+    """
+    return float(exam.max_ball or C.MAX_BALL) if exam.uses_rasch else 100.0
+
+
+def apply_final_ball(attempt: Attempt, exam: Exam | None = None) -> float | None:
+    """
+    `attempt.final_ball` va `attempt.grade` ni qayta hisoblaydi (saqlamaydi).
+
+    Esse yoqilgan bo'lsa yakuniy ball — test balli va esse ballining
+    o'rtachasi (`scoring.combine_with_essay`), aks holda test ballining
+    o'zi. Daraja doim **yakuniy** ball bo'yicha aniqlanadi.
+    """
+    exam = exam or attempt.exam
+    scale = ball_scale(exam)
+
+    if exam.essay_enabled:
+        final = scoring.combine_with_essay(
+            attempt.ball,
+            attempt.essay_ball,
+            max_ball=scale,
+            essay_max_ball=exam.essay_max_ball,
+        )
+    else:
+        final = attempt.ball
+
+    attempt.final_ball = final
+    attempt.grade = (
+        C.grade_for_ball(final) if (exam.uses_rasch and final is not None) else ""
+    )
+    return final
 
 
 def anchor_theta_min(
@@ -281,6 +324,9 @@ def _score_rasch(
         )
         attempt.ball = score.ball
         attempt.grade = score.grade
+        # Esse yoqilgan bo'lsa yakuniy ball va daraja shu yerda qayta
+        # hisoblanadi (esse balli hali kiritilmagan bo'lsa test balli qoladi).
+        apply_final_ball(attempt, exam)
         attempt.section_scores = result["sections"]
         attempt.is_scored = True
         attempt.scored_at = timezone.now()
@@ -292,7 +338,7 @@ def _score_rasch(
         updated,
         [
             "raw_score", "max_raw_score", "percent", "wrong_count", "empty_count",
-            "theta", "theta_se", "ball", "grade", "section_scores",
+            "theta", "theta_se", "ball", "final_ball", "grade", "section_scores",
             "is_scored", "scored_at", "updated_at",
         ],
         batch_size=500,
@@ -327,6 +373,7 @@ def _score_simple(
         attempt.theta_se = None
         attempt.ball = ball
         attempt.grade = ""
+        apply_final_ball(attempt, exam)
         attempt.section_scores = result["sections"]
         attempt.is_scored = True
         attempt.scored_at = timezone.now()
@@ -336,7 +383,7 @@ def _score_simple(
         updated,
         [
             "raw_score", "max_raw_score", "percent", "wrong_count", "empty_count",
-            "theta", "theta_se", "ball", "grade", "section_scores",
+            "theta", "theta_se", "ball", "final_ball", "grade", "section_scores",
             "is_scored", "scored_at", "updated_at",
         ],
         batch_size=500,
@@ -372,17 +419,24 @@ def _persist_difficulties(items: list[Item], difficulties: np.ndarray) -> None:
     Question.objects.bulk_update(questions, ["difficulty", "difficulty_b", "updated_at"])
 
 
-def _assign_ranks(exam: Exam) -> None:
-    """Reyting o'rinlarini belgilaydi (bir xil ballga bir xil o'rin)."""
+def assign_ranks(exam: Exam) -> None:
+    """
+    Reyting o'rinlarini belgilaydi (bir xil ballga bir xil o'rin).
+
+    Tartib **yakuniy** ball bo'yicha: esse yoqilgan testda u test va esse
+    ballining o'rtachasi. Shu sababli esse balli kiritilgach reyting
+    qaytadan chiqariladi.
+    """
     attempts = list(
         Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
-        .order_by("-ball", "-raw_score", "submitted_at", "id")
+        .select_related("exam")
+        .order_by("-final_ball", "-ball", "-raw_score", "submitted_at", "id")
     )
     previous_key = None
     previous_rank = 0
     updated: list[Attempt] = []
     for index, attempt in enumerate(attempts, start=1):
-        key = (round(attempt.ball or 0.0, 4), round(attempt.raw_score or 0.0, 4))
+        key = (round(attempt.result_ball or 0.0, 4), round(attempt.raw_score or 0.0, 4))
         if key == previous_key:
             attempt.rank = previous_rank
         else:
@@ -396,14 +450,19 @@ def _assign_ranks(exam: Exam) -> None:
 
 def _update_statistics(exam: Exam, matrix: np.ndarray, items: list[Item]) -> None:
     """Test bo'yicha yig'ma statistikani yangilaydi."""
-    attempts = list(Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED))
+    attempts = list(
+        Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
+        .select_related("exam")
+    )
     stats, _ = ExamStatistics.objects.get_or_create(exam=exam)
 
     if not attempts:
         _reset_statistics(exam, stats)
         return
 
-    balls = np.asarray([a.ball or 0.0 for a in attempts], dtype=float)
+    # Statistika ham yakuniy ball bo'yicha — esse yoqilgan testda
+    # o'rtacha va tarqoqlik qatnashchi ko'radigan ball bilan bir xil bo'lsin.
+    balls = np.asarray([a.result_ball or 0.0 for a in attempts], dtype=float)
     percents = np.asarray([a.percent or 0.0 for a in attempts], dtype=float)
     raws = np.asarray([a.raw_score or 0.0 for a in attempts], dtype=float)
 
@@ -503,6 +562,7 @@ def score_attempt_preliminary(attempt: Attempt) -> dict:
         attempt.grade = ""
         attempt.percent = percent
 
+    apply_final_ball(attempt, exam)
     attempt.raw_score = result["raw_score"]
     attempt.max_raw_score = result["max_raw_score"]
     attempt.wrong_count = result["wrong"]
@@ -513,7 +573,7 @@ def score_attempt_preliminary(attempt: Attempt) -> dict:
     attempt.save(
         update_fields=[
             "raw_score", "max_raw_score", "percent", "wrong_count", "empty_count",
-            "theta", "theta_se", "ball", "grade", "section_scores",
+            "theta", "theta_se", "ball", "final_ball", "grade", "section_scores",
             "is_scored", "scored_at", "updated_at",
         ]
     )
@@ -524,6 +584,9 @@ __all__ = [
     "Item",
     "CalculationReport",
     "build_items",
+    "ball_scale",
+    "apply_final_ball",
+    "assign_ranks",
     "calculate_exam",
     "score_attempt_preliminary",
 ]

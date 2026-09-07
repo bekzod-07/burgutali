@@ -336,3 +336,38 @@ soya daraxtiga ham o‘tadi).
 ishlatilgan har bir `#i-...` ikonka sprite da mavjudligini, va bot
 matnlarida emoji yo‘qligini. `simulate.py` esa haqiqiy oqimda yuborilgan
 barcha xabar, tugma va fayl izohlarini emoji uchun tekshiradi.
+
+
+## Esse balli va e'lon ro'yxati
+
+### Yakuniy ball
+
+`Exam.essay_enabled` yoqilganda qatnashchining natijasi ikki maydondan
+yig'iladi:
+
+| Maydon | Kim to'ldiradi | Ma'nosi |
+|--------|----------------|---------|
+| `Attempt.ball` | Rasch modeli | test qismidan olingan standart ball |
+| `Attempt.essay_ball` | administrator (panel) | esse balli (`Exam.essay_max_ball` shkalasida) |
+| `Attempt.final_ball` | tizim | `(test + esse) / 2` — daraja, reyting va sertifikat shu ball bo'yicha |
+
+Hisob `apps.rasch.scoring.combine_with_essay` da, uni qo'llash esa
+`apps.rasch.services.apply_final_ball` da. Esse balli o'zgarganda
+`apps.attempts.services.set_essay_ball(s)` yakuniy ballni qayta hisoblaydi
+va `assign_ranks` orqali reytingni yangilaydi.
+
+`Attempt.result_ball` — qulaylik uchun: `final_ball` bo'lmasa `ball` ga
+tushadi, shuning uchun eski yozuvlar ham to'g'ri ko'rinadi.
+
+### E'lon ro'yxati
+
+`PhantomParticipant` — e'lon uchun qo'shiladigan soxta qator. U
+`Attempt` emas, shuning uchun hech qanday hisob-kitobga qo'shilmaydi.
+
+`apps.attempts.services.public_ranking(exam)` haqiqiy urinishlar va soxta
+qatorlarni bitta `RankRow` ro'yxatiga birlashtiradi va o'rinlarni qaytadan
+taqsimlaydi. Uni uch joy ishlatadi: e'lon PDF si
+(`overall_results_report`), Mini App reytingi va botdagi reyting.
+
+Statistika, Rasch kalibrlash, sertifikat va admin hisoboti esa doim
+`ranked_attempts` bilan — ya'ni faqat haqiqiy ma'lumot bilan ishlaydi.

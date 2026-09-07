@@ -120,6 +120,44 @@ def test_information(theta: float, difficulties) -> float:
     return float((p * (1.0 - p)).sum())
 
 
+def combine_with_essay(
+    test_ball: float | None,
+    essay_ball: float | None,
+    *,
+    max_ball: float = C.MAX_BALL,
+    essay_max_ball: float | None = None,
+) -> float | None:
+    """
+    Test balli va esse ballini birlashtiradi: ``(test + esse) / 2``.
+
+    Esse boshqa shkalada baholangan bo'lsa (`essay_max_ball`), u avval
+    test shkalasiga keltiriladi, shundan keyin o'rtacha olinadi::
+
+        esse_moslangan = esse * max_ball / essay_max_ball
+        yakuniy        = (test + esse_moslangan) / 2
+
+    Standart holatda ikkala shkala ham 90.14 ga teng, shuning uchun
+    hisob aynan «qo'shib ikkiga bo'lish» bo'lib qoladi.
+
+    Esse balli kiritilmagan bo'lsa (`None`) — test ballining o'zi
+    qaytariladi: qatnashchi esse baholanmagani uchun jazolanmaydi.
+    """
+    if test_ball is None:
+        return None
+    test_ball = float(test_ball)
+    if essay_ball is None:
+        return round(test_ball, 2)
+
+    scale = float(essay_max_ball or max_ball)
+    if scale <= 0:
+        scale = float(max_ball)
+    scaled = float(essay_ball) * float(max_ball) / scale
+    scaled = float(np.clip(scaled, 0.0, float(max_ball)))
+
+    combined = (test_ball + scaled) / 2.0
+    return round(float(np.clip(combined, 0.0, float(max_ball))), 2)
+
+
 def simple_percent_score(raw_score: float, max_raw_score: float) -> tuple[float, float]:
     """
     1-tur (oddiy test) uchun natija: (foiz, 100 ballik shkaladagi ball).
@@ -140,5 +178,6 @@ __all__ = [
     "build_score",
     "expected_score",
     "test_information",
+    "combine_with_essay",
     "simple_percent_score",
 ]

@@ -163,13 +163,17 @@ def difficulty_rows(exam) -> list[DifficultyRow]:
 
 def ball_distribution(exam, step: float = BALL_BIN_STEP) -> list[DistributionBin]:
     """Ishtirokchilar ballarining oraliqlar bo'yicha taqsimoti."""
+    from django.db.models.functions import Coalesce
+
     from apps.attempts.models import Attempt
 
+    # Taqsimot **yakuniy** ball bo'yicha: esse yoqilgan testda diagramma
+    # qatnashchi ko'radigan ball bilan bir xil bo'lishi kerak.
     values = [
         float(ball)
         for ball in Attempt.objects.filter(
             exam=exam, status=Attempt.Status.SUBMITTED
-        ).values_list("ball", flat=True)
+        ).values_list(Coalesce("final_ball", "ball"), flat=True)
         if ball is not None
     ]
     if not values:

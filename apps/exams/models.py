@@ -191,6 +191,21 @@ class Exam(TimeStampedModel):
         "Tashkilotchi / o'qituvchi", max_length=120, blank=True, default=""
     )
 
+    # --- Esse (yozma qism) ---
+    # Talab: testdan olingan ball bilan esse balli qo'shilib, ikkiga
+    # bo'linadi. Esse qo'lda baholanadi — uni admin panelda kiritadi.
+    essay_enabled = models.BooleanField(
+        "Esse baholansinmi", default=False,
+        help_text="Yoqilsa yakuniy ball = (test balli + esse balli) / 2. "
+                  "Esse balli har bir qatnashchi uchun panelda kiritiladi.",
+    )
+    essay_max_ball = models.FloatField(
+        "Esse uchun maksimal ball", default=C.MAX_BALL,
+        help_text="Esse shu shkalada baholanadi. Test shkalasidan farq "
+                  "qilsa, qo'shishdan oldin avtomatik moslashtiriladi.",
+        validators=[MinValueValidator(1.0), MaxValueValidator(1000.0)],
+    )
+
     # --- Hisoblash holati ---
     calculated_at = models.DateTimeField("Hisoblangan vaqt", null=True, blank=True)
     published_at = models.DateTimeField("E'lon qilingan vaqt", null=True, blank=True)

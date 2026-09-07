@@ -1,0 +1,97 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Natijalarni e’lon qilish{% endblock %}
+{% block page_title %}Natijalarni e’lon qilish{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:exam_list' %}">Testlar</a> /
+  <a href="{% url 'dashboard:exam_detail' exam.pk %}">{{ exam.title }}</a> / E’lon
+{% endblock %}
+
+{% block content %}
+
+<div style="max-width:640px">
+
+  <section class="card mb">
+    <div class="card-head">
+      <svg class="icon icon-lg"><use href="#i-send"></use></svg>
+      <h2>{{ exam.title }}</h2>
+      <span class="sub"><span class="code-pill">{{ exam.code }}</span></span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        <span class="k">Holati</span>
+        <span class="v">{{ exam.get_status_display }}</span>
+      </div>
+      <div class="kv">
+        <span class="k">Haqiqiy qatnashchilar</span>
+        <span class="v"><b>{{ participants }}</b> ta</span>
+      </div>
+      {% if phantom_total %}
+        <div class="kv">
+          <span class="k">Hozirgi soxta qatorlar</span>
+          <span class="v">{{ phantom_total }} ta</span>
+        </div>
+      {% endif %}
+
+      {% if not ready %}
+        <div class="message message-warning mt">
+          Natijalar hali hisoblanmagan. Avval
+          <a href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">«Natijalarni hisoblash»</a>
+          amalini bajaring.
+        </div>
+      {% endif %}
+
+      {% if exam.essay_enabled and participants %}
+        <div class="message message-warning mt">
+          Bu testda esse baholanadi. E’lon qilishdan oldin
+          <a href="{% url 'dashboard:exam_results' exam.pk %}">esse ballarini kiriting</a> —
+          aks holda yakuniy ball faqat test qismidan hisoblanadi.
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <svg class="icon"><use href="#i-users"></use></svg>
+      <h2>Nechta soxta profil qo‘shilsin?</h2>
+    </div>
+    <div class="card-body">
+      <p class="mb">
+        Testda <b>{{ participants }} ta</b> haqiqiy qatnashchi bor. E’lon
+        qilinadigan ro‘yxatga qo‘shimcha qatorlar qo‘shishingiz mumkin:
+        ularga tasodifiy ism-familiya beriladi va ball haqiqiy natijalar
+        orasiga tabiiy joylashadi.
+      </p>
+
+      <div class="message message-warning mb">
+        <b>Bu qatorlar haqiqiy emas.</b> Ular faqat e’lon qilinadigan
+        ro‘yxatda (umumiy natijalar PDF si, ilova va botdagi reyting)
+        ko‘rinadi. Statistikaga, Rasch hisobiga va qatnashchilar soniga
+        kirmaydi, ularga sertifikat berilmaydi. Boshqaruv panelida ular
+        «soxta» belgisi bilan ajratib ko‘rsatiladi.
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-row">
+          <label for="phantom_count">Qo‘shiladigan qatorlar soni</label>
+          <input class="input" type="number" id="phantom_count" name="phantom_count"
+                 value="0" min="0" max="{{ max_phantoms }}" step="1" autofocus>
+          <div class="small muted">
+            0 — hech narsa qo‘shilmaydi{% if phantom_total %} (mavjud {{ phantom_total }} ta qator o‘chiriladi){% endif %}.
+            Eng ko‘pi {{ max_phantoms }} ta.
+          </div>
+        </div>
+
+        <button class="btn btn-gold" type="submit">
+          <svg class="icon"><use href="#i-send"></use></svg> Natijalarni e’lon qilish
+        </button>
+        <a class="btn btn-outline" href="{% url 'dashboard:exam_detail' exam.pk %}">Bekor qilish</a>
+      </form>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}

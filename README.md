@@ -155,10 +155,40 @@ Bu foiz **to'g'ri javoblar ulushi emas**. Nechta savolni to'g'ri
 topgani qatnashchiga ko'rsatilmaydi — u faqat adminlar hisobotida
 bo'ladi (2- va 3-tur testlar uchun).
 
+### Esse (yozma qism) — yakuniy ball
+
+Test sozlamalarida **«Esse baholansinmi»** yoqilsa, qatnashchining
+yakuniy balli ikki qismdan chiqadi:
+
+```
+yakuniy ball = (test balli + esse balli) / 2
+```
+
+* **Test balli** — Rasch modeli hisoblagan standart ball (90.14 gacha).
+* **Esse balli** — administrator qo‘lda kiritadi. Shkala test bilan bir
+  xil (standart 90.14), lekin sozlamalarda o‘zgartirish mumkin — boshqa
+  shkalada baholansa, qo‘shishdan oldin avtomatik moslashtiriladi.
+
+**Esse balli qayerdan kiritiladi:**
+
+| Joy | Qanday |
+|-----|--------|
+| `Panel → Test → Natijalar` | jadvaldagi «Esse» ustuniga hamma uchun birdaniga |
+| `Panel → Urinish` | bitta qatnashchi uchun alohida |
+
+Saqlangach **daraja va reyting darhol qayta hisoblanadi** — daraja doim
+yakuniy ball bo‘yicha aniqlanadi. Esse balli kiritilmagan bo‘lsa,
+yakuniy ball test ballining o‘ziga teng bo‘ladi va bunday qatnashchiga
+**sertifikat berilmaydi** (natija hali to‘liq emas).
+
+Qatnashchi botda va ilovada uchala ballni ham ko‘radi: test balli, esse
+balli va yakuniy ball.
+
 ### Umumiy natijalar va ularda ko‘rsatiladigan nom
 
-Test yakunlangach (yopilganda va natijalar e’lon qilinganda) test egasiga
-va adminlarga **ikkita PDF** avtomatik yuboriladi:
+Test yakunlangach (yopilganda va natijalar e’lon qilinganda) test egasiga,
+adminlarga va `.env` dagi `REPORT_EXTRA_IDS` ro‘yxatidagi kuzatuvchilarga
+**ikkita PDF** avtomatik yuboriladi:
 
 | Fayl | Kimga | Ustunlar |
 |------|-------|----------|
@@ -187,6 +217,31 @@ Nom test turiga qarab tanlanadi:
 | **1-tur — Oddiy test** | ism va familiya | — |
 | **2-tur — Bepul RASH testi** | ism va familiya | — |
 | **3-tur — Pullik RASH testi** | **ID raqami** | ism va familiya |
+
+### Natijalarni e’lon qilish
+
+`Panel → Test → Natijalarni e’lon qilish` tugmasi alohida sahifani ochadi.
+U yerda testda nechta **haqiqiy** qatnashchi borligi ko‘rsatiladi va
+e’lon ro‘yxatiga nechta qo‘shimcha qator qo‘shish kerakligi so‘raladi
+(0 — qo‘shilmaydi).
+
+Qo‘shimcha qatorlarga tasodifiy o‘zbekcha ism-familiya beriladi, ball esa
+haqiqiy natijalarning o‘rtachasi va tarqoqligiga qarab tanlanadi — shuning
+uchun ular ro‘yxatning o‘rtasiga tushadi, birinchi yoki oxirgi o‘rinni
+egallab olmaydi.
+
+> **Bu qatorlar haqiqiy ma’lumot emas.** Shu sababli ular qat’iy
+> chegaralangan:
+>
+> * faqat **e’lon ro‘yxatida** ko‘rinadi (umumiy natijalar PDF si, ilova va
+>   botdagi reyting);
+> * statistikaga, Rasch kalibrlashiga va qatnashchilar soniga **kirmaydi** —
+>   barcha ilmiy hisob faqat haqiqiy urinishlar ustida bajariladi;
+> * ularga **sertifikat berilmaydi**;
+> * boshqaruv panelida «soxta» belgisi bilan ajratib ko‘rsatiladi, shunda
+>   admin ularni haqiqiy natijadan doim ajrata oladi.
+>
+> Olib tashlash uchun e’lon sahifasida sonni `0` qilib qayta e’lon qiling.
 
 ### Savollar qiyinchiligi diagrammasi — faqat adminga
 

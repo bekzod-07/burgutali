@@ -24,6 +24,7 @@ class ExamSettingsForm(forms.ModelForm):
             "max_ball", "theta_min", "theta_max", "auto_calibrate", "anchor_scale",
             "certificate_enabled", "certificate_scope", "certificate_min_percent",
             "certificate_min_ball", "certificate_min_grade", "organizer_name",
+            "essay_enabled", "essay_max_ball",
         ]
         widgets = {
             "title": forms.TextInput(attrs={"class": "input"}),
@@ -46,6 +47,9 @@ class ExamSettingsForm(forms.ModelForm):
             "certificate_min_ball": forms.NumberInput(attrs={"class": "input", "step": "0.01"}),
             "certificate_min_grade": forms.Select(attrs={"class": "input"}),
             "organizer_name": forms.TextInput(attrs={"class": "input"}),
+            "essay_max_ball": forms.NumberInput(
+                attrs={"class": "input", "step": "0.01", "min": 1}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -69,6 +73,12 @@ class ExamSettingsForm(forms.ModelForm):
         ends_at = data.get("ends_at")
         if starts_at and ends_at and starts_at >= ends_at:
             self.add_error("ends_at", "Tugash vaqti boshlanish vaqtidan keyin bo'lishi kerak.")
+
+        if data.get("essay_enabled") and not (data.get("essay_max_ball") or 0) > 0:
+            self.add_error(
+                "essay_max_ball",
+                "Esse yoqilgan bo'lsa maksimal ball noldan katta bo'lishi kerak.",
+            )
         return data
 
 

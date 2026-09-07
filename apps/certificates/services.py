@@ -63,6 +63,10 @@ def check_eligibility(attempt: Attempt) -> EligibilityCheck:
         return EligibilityCheck(False, "Natijalar hali e'lon qilinmagan.")
     if attempt.status != Attempt.Status.SUBMITTED or not attempt.is_scored:
         return EligibilityCheck(False, "Natijangiz hali hisoblanmagan.")
+    if exam.essay_enabled and attempt.essay_ball is None:
+        # Esse balli kiritilmagan bo'lsa yakuniy ball hali to'liq emas —
+        # sertifikat noto'g'ri daraja bilan chiqib ketmasligi kerak.
+        return EligibilityCheck(False, "Esse qismi hali baholanmagan.")
 
     # Shart bajarilmasa, sabab **umumiy** qoladi: chegara (daraja, ball yoki
     # foiz) qatnashchiga aytilmaydi, uni faqat admin ko'radi.
@@ -75,7 +79,7 @@ def check_eligibility(attempt: Attempt) -> EligibilityCheck:
             return not_enough
     elif scope == Exam.CertificateScope.MIN_BALL:
         minimum = exam.certificate_min_ball
-        if minimum is not None and (attempt.ball or 0.0) < float(minimum):
+        if minimum is not None and (attempt.result_ball or 0.0) < float(minimum):
             return not_enough
     elif scope == Exam.CertificateScope.MIN_GRADE:
         required = (exam.certificate_min_grade or "").strip()
@@ -156,7 +160,9 @@ def issue_certificate(attempt: Attempt, *, force: bool = False) -> tuple[Certifi
     certificate.exam_date = timezone.localtime(
         attempt.submitted_at or attempt.created_at
     ).date()
-    certificate.ball = float(attempt.ball or 0.0)
+    # Sertifikatda **yakuniy** ball turadi: esse yoqilgan testda u test va
+    # esse ballining o'rtachasi (`Attempt.result_ball`).
+    certificate.ball = float(attempt.result_ball or 0.0)
     certificate.max_ball = float(exam.max_ball or C.MAX_BALL)
     certificate.percent = float(attempt.percent or 0.0)
     certificate.grade = attempt.grade or ""

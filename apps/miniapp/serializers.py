@@ -94,6 +94,8 @@ def exam_dict(exam: Exam, *, participants: int | None = None, detailed: bool = F
                 "duration_minutes": exam.duration_minutes,
                 "created_at": iso(exam.created_at),
                 "deep_link": exam.deep_link,
+                "essay_enabled": bool(exam.essay_enabled),
+                "essay_max_ball": exam.essay_max_ball,
             }
         )
     return data
@@ -149,9 +151,17 @@ def attempt_dict(attempt: Attempt, *, total_participants: int = 0) -> dict:
         "empty": attempt.empty_count,
         "percent": round(attempt.percent, 1),
         # RASH testida qatnashchiga shu foiz ko'rsatiladi (`ball * 100 / 65`).
-        "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
+        # Hisob yakuniy ball bo'yicha: esse yoqilgan testda u test va esse
+        # ballining o'rtachasi.
+        "award_percent": C.certificate_percent(attempt.result_ball, attempt.grade),
         "theta": attempt.theta,
         "ball": attempt.display_ball,
+        # --- Esse (yozma qism) ---
+        "essay_enabled": bool(exam.essay_enabled),
+        "essay_max_ball": exam.essay_max_ball,
+        "test_ball": attempt.display_test_ball,
+        "essay_ball": attempt.display_essay_ball,
+        "essay_pending": attempt.essay_pending,
         "grade": attempt.grade or "",
         "rank": attempt.rank,
         "total_participants": total_participants,
@@ -186,8 +196,10 @@ def rating_dict(attempts, *, uses_rasch: bool, me_id: int | None = None) -> list
     """
     Reyting jadvali.
 
-    Nom `Attempt.public_label` dan olinadi: pullik RASH testida ism o'rniga
-    ishtirokchining ID raqami ko'rsatiladi.
+    Nom `public_label` dan olinadi: pullik RASH testida ism o'rniga
+    ishtirokchining ID raqami ko'rsatiladi. Qatorlar `Attempt` ham,
+    `apps.attempts.services.RankRow` ham bo'lishi mumkin — ikkalasi bir xil
+    maydonlarni beradi, shuning uchun bu yerda farq qilmaydi.
     """
     rows = []
     for index, attempt in enumerate(attempts, start=1):

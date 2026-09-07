@@ -3474,6 +3474,425 @@ def test_broadcast() -> None:
 # ==========================================================================
 
 
+# ==========================================================================
+#  24. Esse balli va e'lon uchun qo'shimcha qatorlar
+# ==========================================================================
+
+
+def test_essay_and_phantoms() -> None:
+    from django.contrib.auth.models import User
+    from django.test import Client
+
+    from apps.attempts import services as attempt_services
+    from apps.attempts.models import Attempt, PhantomParticipant
+    from apps.attempts.services import (
+        EssayError,
+        create_phantoms,
+        parse_essay_ball,
+        public_ranking,
+        save_answer,
+        set_essay_ball,
+        start_attempt,
+        submit_attempt,
+    )
+    from apps.certificates.services import check_eligibility
+    from apps.exams.models import Exam
+    from apps.exams.services import (
+        activate_exam,
+        apply_single_keys,
+        close_exam,
+        create_exam,
+        publish_results,
+        report_recipients,
+    )
+    from apps.rasch.scoring import combine_with_essay
+    from apps.rasch.services import calculate_exam
+    from apps.users.models import BotUser
+    from core import constants as C
+
+    R.head("24. Esse balli va e'lon uchun qo'shimcha qatorlar")
+
+    # ------------------------------------------------------------------
+    #  24.1. Qo'shish formulasi
+    # ------------------------------------------------------------------
+    R.close(
+        "(60 + 80) / 2 = 70",
+        combine_with_essay(60.0, 80.0, max_ball=C.MAX_BALL, essay_max_ball=C.MAX_BALL),
+        70.0,
+        0.01,
+    )
+    R.equal(
+        "Esse kiritilmasa test balli qoladi",
+        combine_with_essay(63.25, None, max_ball=C.MAX_BALL),
+        63.25,
+    )
+    R.equal(
+        "Test balli yo'q bo'lsa natija ham yo'q",
+        combine_with_essay(None, 50.0, max_ball=C.MAX_BALL),
+        None,
+    )
+    # Esse 100 ballik shkalada: 50 -> 45.07 -> (60 + 45.07) / 2
+    R.close(
+        "Boshqa shkaladagi esse moslashtiriladi",
+        combine_with_essay(60.0, 50.0, max_ball=C.MAX_BALL, essay_max_ball=100.0),
+        (60.0 + C.MAX_BALL / 2) / 2,
+        0.02,
+    )
+    R.equal(
+        "Esse maksimal balldan oshsa shkala chetiga qisiladi",
+        combine_with_essay(90.14, 500.0, max_ball=C.MAX_BALL, essay_max_ball=C.MAX_BALL),
+        90.14,
+    )
+
+    # ------------------------------------------------------------------
+    #  24.2. Kiritilgan qiymatni tekshirish
+    # ------------------------------------------------------------------
+    owner, _ = BotUser.objects.get_or_create(
+        telegram_id=4100, defaults={"full_name": "Esse Yaratuvchi", "is_registered": True}
+    )
+    exam = create_exam(
+        owner=owner,
+        title="ESSE VA REYTING SINOVI",
+        exam_type=Exam.Type.RASCH_FREE,
+        question_count=10,
+        show_results=True,
+    )
+    apply_single_keys(exam, ["A"] * 10)
+    exam.essay_enabled = True
+    exam.essay_max_ball = C.MAX_BALL
+    exam.save(update_fields=["essay_enabled", "essay_max_ball"])
+    activate_exam(exam)
+    exam.refresh_from_db()
+
+    R.equal("Bo'sh qiymat — baholanmagan", parse_essay_ball("", exam), None)
+    R.equal("Vergul o'nlik ajratkichi", parse_essay_ball("7,5", exam), 7.5)
+    R.raises("Harf qabul qilinmaydi", lambda: parse_essay_ball("abc", exam), EssayError)
+    R.raises("Manfiy ball rad etiladi", lambda: parse_essay_ball("-1", exam), EssayError)
+    R.raises(
+        "Maksimaldan katta ball rad etiladi",
+        lambda: parse_essay_ball("999", exam),
+        EssayError,
+    )
+
+    # ------------------------------------------------------------------
+    #  24.3. Qatnashchilar va yakuniy ball
+    # ------------------------------------------------------------------
+    questions = list(exam.questions.order_by("order"))
+    attempts: list[Attempt] = []
+    for index in range(6):
+        user, _ = BotUser.objects.get_or_create(
+            telegram_id=4200 + index,
+            defaults={
+                "full_name": f"Esse Qatnashchi {index + 1}",
+                "phone": "+998900000000",
+                "is_registered": True,
+            },
+        )
+        attempt = start_attempt(user, exam)
+        # Har xil natija: birinchi qatnashchi ko'proq topadi.
+        correct = 9 - index
+        for position, question in enumerate(questions):
+            save_answer(attempt, question, selected="A" if position < correct else "B")
+        attempts.append(submit_attempt(attempt))
+
+    close_exam(exam)
+    calculate_exam(exam)
+    exam.refresh_from_db()
+
+    first = Attempt.objects.get(pk=attempts[0].pk)
+    R.check("Test balli hisoblandi", first.ball is not None)
+    R.equal(
+        "Esse kiritilmaguncha yakuniy ball test balliga teng",
+        first.final_ball,
+        first.ball,
+    )
+    R.check("Esse hali baholanmagan deb belgilanadi", first.essay_pending)
+
+    # --- Esse ballini kiritamiz ---
+    test_ball = float(first.ball)
+    set_essay_ball(first, 90.14)
+    first.refresh_from_db()
+    R.close(
+        "Yakuniy ball = (test + esse) / 2",
+        first.final_ball,
+        round((test_ball + 90.14) / 2, 2),
+        0.01,
+    )
+    R.equal(
+        "Daraja yakuniy ball bo'yicha",
+        first.grade,
+        C.grade_for_ball(first.final_ball),
+    )
+    R.check("Esse baholandi deb belgilandi", not first.essay_pending)
+    R.equal("display_ball yakuniy ballni ko'rsatadi", first.display_ball, f"{first.final_ball:.2f}")
+
+    # --- Eng past natijali qatnashchiga yuqori esse: reyting o'zgaradi ---
+    last = Attempt.objects.get(pk=attempts[-1].pk)
+    R.check("Oxirgi qatnashchi quyi o'rinda edi", (last.rank or 0) > 1)
+    set_essay_ball(last, 90.14)
+    last.refresh_from_db()
+    R.check(
+        "Esse balli reytingni qayta chiqaradi",
+        (last.rank or 99) < (Attempt.objects.get(pk=attempts[2].pk).rank or 0),
+    )
+
+    # --- Esse balli o'chirilsa yakuniy ball test balliga qaytadi ---
+    set_essay_ball(last, None)
+    last.refresh_from_db()
+    R.equal("Esse o'chirilsa yakuniy ball test balli", last.final_ball, last.ball)
+
+    # --- To'plam bo'lib kiritish ---
+    changed = attempt_services.set_essay_balls(
+        exam, {attempts[i].pk: 45.0 for i in range(1, 4)}
+    )
+    R.equal("Uchta esse balli birdaniga saqlandi", changed, 3)
+    done, total = attempt_services.essay_progress(exam)
+    R.equal("Baholanganlar soni", done, 4)
+    R.equal("Jami topshirganlar", total, 6)
+
+    # ------------------------------------------------------------------
+    #  24.4. Esse baholanmaguncha sertifikat berilmaydi
+    # ------------------------------------------------------------------
+    pending = Attempt.objects.get(pk=attempts[4].pk)
+    paid = create_exam(
+        owner=owner,
+        title="ESSE SERTIFIKAT SINOVI",
+        exam_type=Exam.Type.RASCH_PAID,
+        question_count=5,
+        certificate_enabled=True,
+    )
+    paid.essay_enabled = True
+    paid.status = Exam.Status.PUBLISHED
+    paid.certificate_scope = Exam.CertificateScope.ALL
+    paid.save(update_fields=["essay_enabled", "status", "certificate_scope"])
+    pending.exam = paid
+    check = check_eligibility(pending)
+    R.check("Esse baholanmagan bo'lsa sertifikat berilmaydi", not check.ok)
+    R.check("Sabab esse haqida", "sse" in check.reason)
+
+    # ------------------------------------------------------------------
+    #  24.5. E'lon uchun qo'shimcha (soxta) qatorlar
+    # ------------------------------------------------------------------
+    exam.refresh_from_db()
+    real_total = attempt_services.participants_count(exam)
+    real_names = set(
+        Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
+        .values_list("full_name", flat=True)
+    )
+    real_balls = [
+        a.result_ball
+        for a in Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
+        if a.result_ball is not None
+    ]
+
+    created = create_phantoms(exam, 10, seed=42)
+    R.equal("10 ta soxta qator yaratildi", created, 10)
+
+    phantoms = list(PhantomParticipant.objects.filter(exam=exam))
+    names = [p.full_name for p in phantoms]
+    R.equal("Ismlar takrorlanmaydi", len(set(names)), 10)
+    R.check(
+        "Ismlar haqiqiy qatnashchilarniki bilan to'qnashmaydi",
+        not (set(names) & real_names),
+    )
+    R.check("Ismlar ikki so'zdan iborat", all(len(n.split()) >= 2 for n in names))
+    R.check(
+        "Ballar haqiqiy natijalar oralig'ida",
+        all(min(real_balls) - 0.01 <= p.ball <= max(real_balls) + 0.01 for p in phantoms),
+    )
+    R.check("Daraja ball bo'yicha to'g'ri", all(
+        p.grade == C.grade_for_ball(p.ball) for p in phantoms
+    ))
+
+    # --- Hisob-kitobga ta'sir qilmaydi ---
+    R.equal(
+        "Qatnashchilar soni o'zgarmaydi",
+        attempt_services.participants_count(exam),
+        real_total,
+    )
+    calculate_exam(exam)
+    exam.refresh_from_db()
+    R.equal(
+        "Statistikaga kirmaydi",
+        exam.statistics.participants,
+        real_total,
+    )
+    R.equal(
+        "Soxta qatorda urinish yo'q (sertifikat berilmaydi)",
+        Attempt.objects.filter(exam=exam).exclude(full_name__in=real_names).count(),
+        0,
+    )
+
+    # --- Umumiy ro'yxat ---
+    rows = public_ranking(exam)
+    R.equal("E'lon ro'yxatida hamma qatorlar bor", len(rows), real_total + 10)
+    R.equal("Birinchi o'rin 1 dan boshlanadi", rows[0].rank, 1)
+    R.check(
+        "Ro'yxat ball bo'yicha kamayib boradi",
+        all(
+            (rows[i].ball or 0) >= (rows[i + 1].ball or 0)
+            for i in range(len(rows) - 1)
+        ),
+    )
+    R.equal(
+        "Soxta qatorlar belgilangan",
+        sum(1 for row in rows if row.is_phantom),
+        10,
+    )
+    R.check(
+        "Haqiqiy qatorlarda urinish ID si bor",
+        all(row.id for row in rows if not row.is_phantom),
+    )
+    R.equal("Cheklov ishlaydi", len(public_ranking(exam, limit=4)), 4)
+
+    # --- Qayta yaratilganda eskilari o'chadi ---
+    create_phantoms(exam, 3, seed=7)
+    R.equal(
+        "Qayta yaratilganda ro'yxat uzaymaydi",
+        PhantomParticipant.objects.filter(exam=exam).count(),
+        3,
+    )
+    create_phantoms(exam, 0)
+    R.equal(
+        "Nol berilsa hammasi o'chadi",
+        PhantomParticipant.objects.filter(exam=exam).count(),
+        0,
+    )
+
+    # ------------------------------------------------------------------
+    #  24.6. E'lon qilish soxta qatorlar bilan
+    # ------------------------------------------------------------------
+    ok, message = publish_results(exam, phantom_count=5)
+    exam.refresh_from_db()
+    R.check(f"Natijalar e'lon qilindi ({message})", ok)
+    R.equal("Holat = e'lon qilingan", exam.status, Exam.Status.PUBLISHED)
+    R.equal(
+        "E'lon bilan birga 5 ta qator qo'shildi",
+        PhantomParticipant.objects.filter(exam=exam).count(),
+        5,
+    )
+    R.check("Xabarda qatorlar soni ko'rsatiladi", "5 ta" in message)
+
+    # ------------------------------------------------------------------
+    #  24.7. Hisobot oluvchilar
+    # ------------------------------------------------------------------
+    recipients = report_recipients(exam)
+    R.check("Hisobot 223974403 ga ham boradi", 223974403 in recipients)
+    R.check("Test egasi ham oladi", owner.telegram_id in recipients)
+    R.equal("Ro'yxat takrorlanmaydi", len(recipients), len(set(recipients)))
+
+    # ------------------------------------------------------------------
+    #  24.8. Panel: e'lon sahifasi soxta qatorlar sonini so'raydi
+    # ------------------------------------------------------------------
+    User.objects.filter(username="selftest_essay").delete()
+    User.objects.create_superuser("selftest_essay", "essay@test.local", "SelfTest12345!")
+    client = Client()
+    R.check(
+        "Admin panelga kirdi",
+        client.login(username="selftest_essay", password="SelfTest12345!"),
+    )
+
+    publish_url = f"/panel/testlar/{exam.pk}/elon/"
+    body = client.get(publish_url).content.decode("utf-8", "replace")
+    R.check("E'lon sahifasi ochiladi", "soxta profil" in body)
+    R.check("Haqiqiy qatnashchilar soni ko'rsatiladi", str(real_total) in body)
+    R.check("Ogohlantirish matni bor", "haqiqiy emas" in body.lower())
+
+    response = client.post(publish_url, {"phantom_count": "4"})
+    R.equal("E'lon qilingach natijalarga yo'naltiriladi", response.status_code, 302)
+    R.equal(
+        "So'ralgan 4 ta qator qo'shildi",
+        PhantomParticipant.objects.filter(exam=exam).count(),
+        4,
+    )
+
+    # Eski havola ham e'lon sahifasiga olib boradi.
+    R.equal(
+        "«elon» amali sahifaga yo'naltiradi",
+        client.get(f"/panel/testlar/{exam.pk}/amal/elon/").status_code,
+        302,
+    )
+
+    # Natijalar sahifasida soxta qatorlar belgisi bilan ko'rinadi.
+    results_body = client.get(
+        f"/panel/testlar/{exam.pk}/natijalar/"
+    ).content.decode("utf-8", "replace")
+    R.check("Panelda e'lon ro'yxati bor", "E&rsquo;lon ro&lsquo;yxati" in results_body)
+    R.check("Soxta qatorlar belgilangan", ">soxta<" in results_body)
+    R.check("Esse ustuni bor", "Test balli" in results_body)
+
+    # --- Esse ballarini panel orqali saqlash ---
+    target = Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED).first()
+    response = client.post(
+        f"/panel/testlar/{exam.pk}/natijalar/",
+        {"form": "essay", f"essay_{target.pk}": "30"},
+    )
+    R.equal("Esse formasi qabul qilindi", response.status_code, 302)
+    target.refresh_from_db()
+    R.equal("Panel orqali esse balli saqlandi", target.essay_ball, 30.0)
+
+    # --- Bitta urinish sahifasidan ---
+    response = client.post(
+        f"/panel/urinish/{target.pk}/",
+        {"form": "essay", "essay_ball": "12,5"},
+    )
+    R.equal("Urinish sahifasidagi forma ishladi", response.status_code, 302)
+    target.refresh_from_db()
+    R.equal("Vergulli qiymat saqlandi", target.essay_ball, 12.5)
+
+    detail_body = client.get(
+        f"/panel/urinish/{target.pk}/"
+    ).content.decode("utf-8", "replace")
+    R.check("Urinish sahifasida esse bo'limi bor", "Esse balli" in detail_body)
+    R.check("Yakuniy ball ko'rsatiladi", "Yakuniy ball" in detail_body)
+
+    # ------------------------------------------------------------------
+    #  24.9. Eksport va ilova soxta qatorlarni ko'rsatadi
+    # ------------------------------------------------------------------
+    from apps.exports.excel import results_workbook
+    from apps.exports.pdf_report import overall_results_report, results_report
+
+    R.check("E'lon PDF si yasaladi", len(overall_results_report(exam)) > 1000)
+    R.check("Admin PDF si yasaladi", len(results_report(exam)) > 1000)
+    R.check("Excel yasaladi", len(results_workbook(exam)) > 1000)
+
+    from apps.miniapp import serializers as S
+
+    payload = S.rating_dict(public_ranking(exam), uses_rasch=True)
+    R.equal("Ilova reytingida hamma qatorlar", len(payload), real_total + 4)
+    R.check("Ilova qatorlarida nom bor", all(row["name"] for row in payload))
+
+    from bot.utils.formatting import rating_rows
+
+    text = rating_rows(public_ranking(exam, limit=5), uses_rasch=True)
+    R.equal("Botda beshta qator chiqadi", len(text.splitlines()), 5)
+
+    # --- Botdagi natija xabari ---
+    import asyncio
+
+    from bot.services import attempts as bot_attempts
+    from bot.texts import exam as TE
+
+    snapshot = asyncio.run(bot_attempts.result_snapshot(target.pk))
+    R.check("Snapshotda esse belgisi bor", snapshot["essay_enabled"])
+    R.equal("Snapshotda esse balli", snapshot["essay_ball"], target.display_essay_ball)
+    R.equal("Snapshotda test balli", snapshot["test_ball"], target.display_test_ball)
+    R.equal("Snapshotda yakuniy ball", snapshot["ball"], target.display_ball)
+
+    message = TE.RESULT_READY_ESSAY.format(
+        title="Sinov",
+        test_ball=snapshot["test_ball"],
+        essay_ball=snapshot["essay_ball"],
+        ball=snapshot["ball"],
+        percent="70",
+        grade=snapshot["grade"],
+        rank=snapshot["rank"],
+    )
+    R.check("Xabarda esse balli ko'rinadi", "Esse balli" in message)
+    R.check("Xabarda formula tushuntirilgan", "(test + esse) / 2" in message)
+    R.check("Xabarda emoji yo'q", not _has_emoji(message))
+
+
 def main() -> int:
     print("\033[1m" + "═" * 60)
     print("  RASCH TELEGRAM BOT — O'Z-O'ZINI TEKSHIRUV")
@@ -3504,6 +3923,7 @@ def main() -> int:
         test_open_answers,
         test_keysheet,
         test_broadcast,
+        test_essay_and_phantoms,
     ]
 
     for step in steps:

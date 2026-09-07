@@ -34,7 +34,7 @@
       <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">
         <svg class="icon"><use href="#i-sigma"></use></svg> Natijalarni hisoblash
       </a>
-      <a class="btn btn-gold" href="{% url 'dashboard:exam_action' exam.pk 'elon' %}">
+      <a class="btn btn-gold" href="{% url 'dashboard:exam_publish' exam.pk %}">
         <svg class="icon"><use href="#i-send"></use></svg> Natijalarni e’lon qilish
       </a>
       {% if exam.can_issue_certificate %}

@@ -27,6 +27,11 @@ unanswered_orders = sync_to_async(attempt_services.unanswered_orders, thread_sen
 submit_attempt = sync_db_call(attempt_services.submit_attempt)
 get_result = sync_to_async(attempt_services.get_result, thread_sensitive=True)
 rating = sync_to_async(attempt_services.rating, thread_sensitive=True)
+#: E'lon qilinadigan reyting — haqiqiy natijalar va administrator
+#: qo'shgan qatorlar birga (`apps.attempts.services.public_ranking`).
+public_ranking = sync_to_async(
+    attempt_services.public_ranking, thread_sensitive=True
+)
 participants_count = sync_to_async(attempt_services.participants_count, thread_sensitive=True)
 answer_review = sync_to_async(attempt_services.answer_review, thread_sensitive=True)
 user_history = sync_to_async(attempt_services.user_history, thread_sensitive=True)
@@ -94,8 +99,14 @@ def result_snapshot(attempt_id: int) -> dict:
         "percent": round(attempt.percent, 1),
         # RASH testida qatnashchiga shu foiz ko'rsatiladi (`ball * 100 / 65`),
         # to'g'ri javoblar ulushi emas.
-        "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
+        "award_percent": C.certificate_percent(attempt.result_ball, attempt.grade),
         "ball": attempt.display_ball,
+        # --- Esse (yozma qism) ---
+        "essay_enabled": bool(attempt.exam.essay_enabled),
+        "test_ball": attempt.display_test_ball,
+        "essay_ball": (
+            "baholanmoqda" if attempt.essay_pending else attempt.display_essay_ball
+        ),
         "grade": attempt.grade or "—",
         "rank": f"{attempt.rank} / {total}" if attempt.rank else "—",
         "is_scored": attempt.is_scored,

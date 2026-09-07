@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.common.models import TimeStampedModel
@@ -32,8 +33,17 @@ class AttemptQuerySet(models.QuerySet):
         return self.filter(exam=exam)
 
     def ranked(self):
-        """Reyting tartibida (ball -> to'g'ri javob -> topshirish vaqti)."""
-        return self.order_by("-ball", "-raw_score", "submitted_at")
+        """
+        Reyting tartibida (yakuniy ball -> to'g'ri javob -> topshirish vaqti).
+
+        Tartib `final_ball` bo'yicha: esse yoqilgan testda u test balli va
+        esse ballining o'rtachasi, aks holda test ballining o'zi.
+        `final_ball` hali hisoblanmagan eski yozuvlar uchun `ball` ga
+        tushiladi.
+        """
+        return self.annotate(
+            _rank_ball=Coalesce("final_ball", "ball")
+        ).order_by("-_rank_ball", "-raw_score", "submitted_at")
 
 
 class Attempt(TimeStampedModel):
@@ -76,7 +86,19 @@ class Attempt(TimeStampedModel):
 
     theta = models.FloatField("Rasch theta", null=True, blank=True)
     theta_se = models.FloatField("theta standart xatosi", null=True, blank=True)
-    ball = models.FloatField("Standart ball", null=True, blank=True, db_index=True)
+    ball = models.FloatField("Test balli", null=True, blank=True, db_index=True)
+
+    # --- Esse (yozma qism) ---
+    #: Esse balli — admin panelda qo'lda kiritiladi (`Exam.essay_max_ball`
+    #: shkalasida). Kiritilmagan bo'lsa `None`.
+    essay_ball = models.FloatField("Esse balli", null=True, blank=True)
+    #: Yakuniy ball: esse yoqilgan va kiritilgan bo'lsa
+    #: `(test balli + esse balli) / 2`, aks holda test ballining o'zi.
+    #: Daraja, reyting va sertifikat aynan shu ball bo'yicha aniqlanadi.
+    final_ball = models.FloatField(
+        "Yakuniy ball", null=True, blank=True, db_index=True
+    )
+
     grade = models.CharField("Daraja", max_length=16, blank=True, default="")
     rank = models.PositiveIntegerField("Reyting o'rni", null=True, blank=True)
 
@@ -103,6 +125,7 @@ class Attempt(TimeStampedModel):
             models.Index(fields=["exam", "status"]),
             models.Index(fields=["user", "-created_at"]),
             models.Index(fields=["exam", "-ball"]),
+            models.Index(fields=["exam", "-final_ball"]),
         ]
 
     def __str__(self) -> str:
@@ -119,11 +142,42 @@ class Attempt(TimeStampedModel):
         return self.status == self.Status.SUBMITTED
 
     @property
+    def result_ball(self) -> float | None:
+        """
+        Natija sifatida qaraladigan ball.
+
+        Esse yoqilgan testda bu `(test balli + esse balli) / 2`, aks holda
+        test ballining o'zi. Daraja, reyting, sertifikat va barcha
+        ko'rsatkichlar shu qiymatga tayanadi.
+        """
+        return self.final_ball if self.final_ball is not None else self.ball
+
+    @property
     def display_ball(self) -> str:
-        """Ballning matnli ko'rinishi."""
+        """Yakuniy ballning matnli ko'rinishi."""
+        value = self.result_ball
+        if value is None:
+            return "—"
+        return f"{value:.2f}"
+
+    @property
+    def display_test_ball(self) -> str:
+        """Faqat test qismidan olingan ball (esse hisobga olinmagan)."""
         if self.ball is None:
             return "—"
         return f"{self.ball:.2f}"
+
+    @property
+    def display_essay_ball(self) -> str:
+        """Esse balli (kiritilmagan bo'lsa «—»)."""
+        if self.essay_ball is None:
+            return "—"
+        return f"{self.essay_ball:.2f}"
+
+    @property
+    def essay_pending(self) -> bool:
+        """Esse yoqilgan, lekin balli hali kiritilmaganmi."""
+        return bool(self.exam.essay_enabled) and self.essay_ball is None
 
     @property
     def display_percent(self) -> str:
@@ -168,6 +222,8 @@ class Attempt(TimeStampedModel):
         self.theta = None
         self.theta_se = None
         self.ball = None
+        # `essay_ball` ataylab tozalanmaydi — u qo'lda kiritilgan ma'lumot.
+        self.final_ball = None
         self.grade = ""
         self.rank = None
         self.section_scores = {}
@@ -300,3 +356,65 @@ class ExamStatistics(TimeStampedModel):
         """Darajalar taqsimotini tartiblangan ro'yxat sifatida qaytaradi."""
         data = self.grade_distribution or {}
         return [(g, int(data.get(g, 0))) for g in reversed(C.GRADE_ORDER)]
+
+
+class PhantomParticipant(TimeStampedModel):
+    """
+    E'lon uchun qo'shiladigan **soxta** qatnashchi qatori.
+
+    Natijalar e'lon qilinayotganda administrator ro'yxatga qo'shimcha
+    qatorlar qo'shishi mumkin: tasodifiy ism-familiya va real natijalar
+    orasiga tabiiy joylashadigan ball.
+
+    Bu qatorlar **hech qanday haqiqiy ma'lumot emas** va shu sababli
+    qat'iy chegaralangan:
+
+      * ular faqat e'lon qilinadigan ro'yxatda (umumiy natijalar PDF si,
+        ilova va botdagi reyting) ko'rinadi;
+      * statistikaga, Rasch kalibrlashiga va qatnashchilar soniga
+        **kirmaydi** — barcha ilmiy hisob-kitob faqat haqiqiy urinishlar
+        ustida bajariladi;
+      * ularga sertifikat **berilmaydi** (sertifikat `Attempt` ga
+        bog'langan, soxta qatorda esa urinish yo'q);
+      * boshqaruv panelida alohida belgi bilan ko'rsatiladi, shunda admin
+        ularni haqiqiy natijadan doim ajrata oladi.
+
+    Test qayta e'lon qilinsa, avvalgi qatorlar o'chib, yangisi yaratiladi.
+    """
+
+    exam = models.ForeignKey(
+        "exams.Exam", on_delete=models.CASCADE, related_name="phantoms",
+        verbose_name="Test",
+    )
+    full_name = models.CharField("Ism va familiya", max_length=120)
+    raw_score = models.FloatField("Xom ball", default=0.0)
+    max_raw_score = models.FloatField("Maksimal xom ball", default=0.0)
+    percent = models.FloatField("Foiz", default=0.0)
+    ball = models.FloatField("Yakuniy ball", null=True, blank=True)
+    grade = models.CharField("Daraja", max_length=16, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Soxta qatnashchi (e'lon uchun)"
+        verbose_name_plural = "Soxta qatnashchilar (e'lon uchun)"
+        ordering = ("-ball", "-raw_score", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["exam", "full_name"], name="uniq_phantom_name_per_exam"
+            ),
+        ]
+        indexes = [models.Index(fields=["exam", "-ball"])]
+
+    def __str__(self) -> str:
+        return f"{self.full_name} (soxta)"
+
+    # ------------------------------------------------------------------
+    @property
+    def public_label(self) -> str:
+        """E'lon qilinadigan ro'yxatdagi nom."""
+        return self.full_name
+
+    @property
+    def display_ball(self) -> str:
+        if self.ball is None:
+            return "—"
+        return f"{self.ball:.2f}"

@@ -69,7 +69,17 @@ async def _send_result(message: Message, attempt_id: int, user) -> None:
         await message.answer(TE.RESULT_PENDING, reply_markup=inline.back_to_menu())
         return
 
-    if snapshot["uses_rasch"]:
+    if snapshot["uses_rasch"] and snapshot["essay_enabled"]:
+        text = TE.RESULT_READY_ESSAY.format(
+            title=esc(snapshot["title"]),
+            test_ball=snapshot["test_ball"],
+            essay_ball=snapshot["essay_ball"],
+            ball=snapshot["ball"],
+            percent=f"{snapshot['award_percent']:g}",
+            grade=snapshot["grade"],
+            rank=snapshot["rank"],
+        )
+    elif snapshot["uses_rasch"]:
         text = TE.RESULT_READY.format(
             title=esc(snapshot["title"]),
             ball=snapshot["ball"],
@@ -166,7 +176,7 @@ async def show_rating(
         await callback.message.answer(TE.RESULT_PENDING)
         return
 
-    top = await attempt_service.rating(exam, limit=C.TOP_RATING_LIMIT)
+    top = await attempt_service.public_ranking(exam, limit=C.TOP_RATING_LIMIT)
     body = rating_rows(top, uses_rasch=exam.uses_rasch, highlight_id=attempt.id)
 
     text = TE.RATING_TITLE.format(title=esc(exam.title), rows=body)

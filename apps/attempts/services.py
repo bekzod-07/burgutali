@@ -12,13 +12,14 @@ Oqim:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from django.db import transaction
 from django.utils import timezone
 
 from apps.exams.models import Exam, Question
 from apps.users.models import UserAction
+from core import constants as C
 from apps.users.services import log_action
 
 from .models import Answer, Attempt
@@ -351,6 +352,306 @@ def answer_review(attempt: Attempt) -> list[dict]:
     return rows
 
 
+# --------------------------------------------------------------------------
+#  Esse balli (qo'lda baholanadigan yozma qism)
+# --------------------------------------------------------------------------
+
+
+class EssayError(ValueError):
+    """Esse balli noto'g'ri kiritildi."""
+
+
+def parse_essay_ball(raw, exam: Exam) -> float | None:
+    """
+    Kiritilgan esse ballini tekshiradi.
+
+    Bo'sh qiymat `None` qaytaradi — bu «hali baholanmagan» degani.
+    Vergul o'nlik ajratkichi sifatida qabul qilinadi («7,5» = 7.5).
+    """
+    text = str(raw if raw is not None else "").strip().replace(",", ".")
+    if not text:
+        return None
+    try:
+        value = float(text)
+    except ValueError:
+        raise EssayError("Esse balli son bo'lishi kerak.") from None
+
+    maximum = float(exam.essay_max_ball or 0) or 0.0
+    if value < 0 or (maximum and value > maximum):
+        raise EssayError(
+            f"Esse balli 0 dan {maximum:g} gacha bo'lishi kerak."
+        )
+    return round(value, 2)
+
+
+@transaction.atomic
+def set_essay_ball(attempt: Attempt, value: float | None, *, reassign: bool = True) -> Attempt:
+    """
+    Bitta urinishga esse ballini yozadi va yakuniy ballni qayta hisoblaydi.
+
+    Yakuniy ball — `(test balli + esse balli) / 2`, daraja esa aynan shu
+    ball bo'yicha. Reyting ham o'zgargani uchun o'rinlar qaytadan
+    taqsimlanadi (`reassign=False` bilan buni to'plam oxiriga qoldirish
+    mumkin).
+    """
+    from apps.rasch.services import apply_final_ball, assign_ranks
+
+    attempt.essay_ball = None if value is None else round(float(value), 2)
+    apply_final_ball(attempt, attempt.exam)
+    attempt.save(update_fields=["essay_ball", "final_ball", "grade", "updated_at"])
+
+    if reassign:
+        assign_ranks(attempt.exam)
+    return attempt
+
+
+@transaction.atomic
+def set_essay_balls(exam: Exam, values: dict[int, float | None]) -> int:
+    """
+    Bir nechta urinishga esse ballini birdaniga yozadi.
+
+    `values` — `{urinish_id: ball}`. Natijada reyting bir marta qayta
+    taqsimlanadi. Qaytaradi: o'zgartirilgan urinishlar soni.
+    """
+    from apps.rasch.services import apply_final_ball, assign_ranks
+
+    if not values:
+        return 0
+
+    attempts = list(
+        Attempt.objects.filter(exam=exam, id__in=list(values))
+        .select_related("exam")
+    )
+    changed: list[Attempt] = []
+    for attempt in attempts:
+        new_value = values.get(attempt.id)
+        new_value = None if new_value is None else round(float(new_value), 2)
+        if attempt.essay_ball == new_value:
+            continue
+        attempt.essay_ball = new_value
+        apply_final_ball(attempt, exam)
+        changed.append(attempt)
+
+    if changed:
+        Attempt.objects.bulk_update(
+            changed, ["essay_ball", "final_ball", "grade", "updated_at"], batch_size=200
+        )
+        assign_ranks(exam)
+    return len(changed)
+
+
+def essay_progress(exam: Exam) -> tuple[int, int]:
+    """(esse balli kiritilganlar soni, jami topshirganlar soni)."""
+    submitted = Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
+    return submitted.exclude(essay_ball__isnull=True).count(), submitted.count()
+
+
+# --------------------------------------------------------------------------
+#  E'lon qilinadigan umumiy ro'yxat (haqiqiy + soxta qatorlar)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RankRow:
+    """
+    Reyting jadvalining bitta qatori.
+
+    Haqiqiy urinish ham, e'lon uchun qo'shilgan soxta qator ham shu
+    ko'rinishga keltiriladi — shuning uchun PDF, ilova va bot bir xil
+    ma'lumot bilan ishlaydi. `is_phantom` bayrog'i faqat boshqaruv
+    panelida ko'rsatiladi.
+    """
+
+    rank: int
+    public_label: str
+    ball: float | None
+    grade: str
+    raw_score: float
+    max_raw_score: float
+    percent: float
+    id: int | None = None
+    is_phantom: bool = False
+    test_ball: float | None = None
+    essay_ball: float | None = None
+    attempt: Attempt | None = None
+
+    @property
+    def display_ball(self) -> str:
+        return "—" if self.ball is None else f"{self.ball:.2f}"
+
+    @property
+    def submitted_at(self):
+        return self.attempt.submitted_at if self.attempt is not None else None
+
+
+def _row_from_attempt(attempt: Attempt) -> RankRow:
+    """Haqiqiy urinishni jadval qatoriga aylantiradi."""
+    return RankRow(
+        rank=0,
+        public_label=attempt.public_label,
+        ball=attempt.result_ball,
+        grade=attempt.grade or "",
+        raw_score=attempt.raw_score or 0.0,
+        max_raw_score=attempt.max_raw_score or 0.0,
+        percent=attempt.percent or 0.0,
+        id=attempt.id,
+        is_phantom=False,
+        test_ball=attempt.ball,
+        essay_ball=attempt.essay_ball,
+        attempt=attempt,
+    )
+
+
+def _row_from_phantom(phantom) -> RankRow:
+    """Soxta qatorni jadval qatoriga aylantiradi."""
+    return RankRow(
+        rank=0,
+        public_label=phantom.full_name,
+        ball=phantom.ball,
+        grade=phantom.grade or "",
+        raw_score=phantom.raw_score or 0.0,
+        max_raw_score=phantom.max_raw_score or 0.0,
+        percent=phantom.percent or 0.0,
+        id=None,
+        is_phantom=True,
+    )
+
+
+#: Bir marta qo'shish mumkin bo'lgan soxta qatorlarning eng ko'p soni.
+MAX_PHANTOMS: int = 200
+
+
+def phantom_count(exam: Exam) -> int:
+    """Testga qo'shilgan soxta qatorlar soni."""
+    from .models import PhantomParticipant
+
+    return PhantomParticipant.objects.filter(exam=exam).count()
+
+
+@transaction.atomic
+def create_phantoms(exam: Exam, count: int, *, seed: int | None = None) -> int:
+    """
+    E'lon uchun `count` ta soxta qatnashchi qatorini yaratadi.
+
+    Avvalgi qatorlar o'chiriladi, ya'ni test qayta e'lon qilinsa ro'yxat
+    ikki barobar uzayib ketmaydi. `count=0` — barcha soxta qatorlarni
+    o'chiradi.
+
+    Ballar haqiqiy natijalar orasiga tabiiy joylashadi
+    (`apps.attempts.phantoms.blended_balls`), ismlar esa haqiqiy
+    qatnashchilarniki bilan to'qnashmaydi.
+
+    Qaytaradi: yaratilgan qatorlar soni.
+    """
+    import random
+
+    from apps.rasch.services import ball_scale
+
+    from . import phantoms as phantom_utils
+    from .models import PhantomParticipant
+
+    PhantomParticipant.objects.filter(exam=exam).delete()
+
+    count = max(0, min(int(count or 0), MAX_PHANTOMS))
+    if count == 0:
+        return 0
+
+    rng = random.Random(seed)
+    real = list(
+        Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
+        .select_related("exam")
+        .order_by("-final_ball", "-ball")
+    )
+
+    taken = {a.full_name for a in real if a.full_name}
+    names = phantom_utils.unique_names(count, taken, rng=rng)
+
+    scale = ball_scale(exam)
+    balls = phantom_utils.blended_balls(
+        count,
+        [a.result_ball for a in real if a.result_ball is not None],
+        max_ball=scale,
+        rng=rng,
+    )
+
+    # Xom ballni haqiqiy natijalardan interpolyatsiya qilamiz — shunda
+    # «to'g'ri javoblar soni» ustuni ham ishonarli chiqadi.
+    reference = sorted(
+        ((a.result_ball, a.raw_score) for a in real if a.result_ball is not None),
+        key=lambda pair: pair[0],
+    )
+    max_raw = float(exam.max_raw_score or 0.0)
+
+    def raw_for(ball: float) -> float:
+        if reference:
+            nearest = min(reference, key=lambda pair: abs(pair[0] - ball))
+            return float(nearest[1])
+        if max_raw and scale:
+            return round(max_raw * ball / scale)
+        return 0.0
+
+    rows: list[PhantomParticipant] = []
+    for name, ball in zip(names, balls):
+        raw = raw_for(ball)
+        if exam.uses_rasch:
+            percent = C.certificate_percent(ball)
+            grade = C.grade_for_ball(ball)
+        else:
+            percent = float(ball)
+            grade = ""
+        rows.append(
+            PhantomParticipant(
+                exam=exam,
+                full_name=name,
+                raw_score=raw,
+                max_raw_score=max_raw,
+                percent=round(percent, 2),
+                ball=ball,
+                grade=grade,
+            )
+        )
+
+    PhantomParticipant.objects.bulk_create(rows, batch_size=200)
+    logger.info("«%s» testiga %s ta soxta qator qo'shildi.", exam.code, len(rows))
+    return len(rows)
+
+
+def public_ranking(exam: Exam, limit: int | None = None) -> list[RankRow]:
+    """
+    E'lon qilinadigan reyting: haqiqiy natijalar + soxta qatorlar birga.
+
+    O'rinlar ikkala turdagi qator ustida birgalikda qayta taqsimlanadi,
+    shuning uchun ro'yxat uzluksiz chiqadi (1, 2, 3, ...). Soxta qatorlar
+    bo'lmasa natija oddiy reyting bilan bir xil.
+    """
+    from .models import PhantomParticipant
+
+    rows = [_row_from_attempt(a) for a in ranked_attempts(exam)]
+    rows += [
+        _row_from_phantom(p)
+        for p in PhantomParticipant.objects.filter(exam=exam)
+    ]
+
+    rows.sort(
+        key=lambda row: (-(row.ball or 0.0), -(row.raw_score or 0.0), row.public_label)
+    )
+
+    result: list[RankRow] = []
+    previous_key = None
+    previous_rank = 0
+    for index, row in enumerate(rows, start=1):
+        key = (round(row.ball or 0.0, 4), round(row.raw_score or 0.0, 4))
+        if key == previous_key:
+            place = previous_rank
+        else:
+            place = index
+            previous_rank = index
+            previous_key = key
+        result.append(replace(row, rank=place))
+
+    return result[:limit] if limit else result
+
+
 def user_history(user, limit: int = 20) -> list[Attempt]:
     """Foydalanuvchining oxirgi natijalari."""
     return list(
@@ -379,4 +680,14 @@ __all__ = [
     "participants_count",
     "answer_review",
     "user_history",
+    "EssayError",
+    "parse_essay_ball",
+    "set_essay_ball",
+    "set_essay_balls",
+    "essay_progress",
+    "RankRow",
+    "public_ranking",
+    "MAX_PHANTOMS",
+    "phantom_count",
+    "create_phantoms",
 ]

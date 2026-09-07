@@ -866,8 +866,10 @@
          bo'ladi. Foiz `ball * 100 / 65` formulasi bo'yicha hisoblanadi.
       */
       if (attempt.uses_rasch) {
+        /* Esse yoqilgan testda ko'rsatiladigan ball — yakuniy ball,
+           ya'ni test va esse ballining o'rtachasi. */
         html += '<div class="result-hero">' +
-          '<div class="lbl">RASH balli</div>' +
+          '<div class="lbl">' + (attempt.essay_enabled ? "Yakuniy ball" : "RASH balli") + "</div>" +
           '<div class="big">' + esc(attempt.ball) + "</div>" +
           (attempt.grade ? '<div class="grade">' + esc(attempt.grade) + "</div>" : "") +
           "</div>";
@@ -881,7 +883,11 @@
       html += '<div class="card"><div class="kv-list">' +
         kv("Test", esc(attempt.exam_title)) +
         (attempt.uses_rasch
-          ? kv("Ball", esc(attempt.ball)) +
+          ? (attempt.essay_enabled
+              ? kv("Test balli", esc(attempt.test_ball)) +
+                kv("Esse balli", esc(attempt.essay_pending ? "baholanmoqda" : attempt.essay_ball)) +
+                kv("Yakuniy ball", esc(attempt.ball) + " · (test + esse) / 2")
+              : kv("Ball", esc(attempt.ball))) +
             kv("Foiz", attempt.award_percent + "%") +
             kv("Daraja", esc(attempt.grade || "—"))
           : kv("To‘g‘ri javoblar", attempt.correct + " / " + attempt.max_raw_score) +

@@ -307,6 +307,19 @@ RESULT_READY = (
     "Reyting: <b>{rank}</b>"
 )
 
+#: Esse baholanadigan testda natija shu ko'rinishda beriladi — qatnashchi
+#: yakuniy ball qaysi ikki qismdan chiqqanini ko'radi.
+RESULT_READY_ESSAY = (
+    "<b>Natijangiz tayyor</b>\n\n"
+    "Test: <b>{title}</b>\n"
+    "Test balli: <b>{test_ball}</b>\n"
+    "Esse balli: <b>{essay_ball}</b>\n"
+    "Yakuniy ball: <b>{ball}</b>  <i>(test + esse) / 2</i>\n"
+    "Foiz: <b>{percent}%</b>\n"
+    "Daraja: <b>{grade}</b>\n"
+    "Reyting: <b>{rank}</b>"
+)
+
 RESULT_SIMPLE = (
     "<b>Natijangiz</b>\n\n"
     "Test: <b>{title}</b>\n"
