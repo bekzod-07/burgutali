@@ -251,8 +251,8 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 BOT_TOKEN = get_str("BOT_TOKEN", "")
 BOT_USERNAME = get_str("BOT_USERNAME", "").lstrip("@")
 PUBLIC_BASE_URL = get_str("PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
-REQUIRED_CHANNEL = get_str("REQUIRED_CHANNEL", "@Burgutali")
-REQUIRED_CHANNEL_URL = get_str("REQUIRED_CHANNEL_URL", "https://t.me/Burgutali")
+REQUIRED_CHANNEL = get_str("REQUIRED_CHANNEL", "@Oybek_ustoz_MS")
+REQUIRED_CHANNEL_URL = get_str("REQUIRED_CHANNEL_URL", "https://t.me/Oybek_ustoz_MS")
 
 #: Mini App initData imzosining amal qilish muddati (sekund).
 MINIAPP_INITDATA_TTL = get_int("MINIAPP_INITDATA_TTL", 24 * 60 * 60)
@@ -261,9 +261,9 @@ MINIAPP_INITDATA_TTL = get_int("MINIAPP_INITDATA_TTL", 24 * 60 * 60)
 # ==========================================================================
 #  Sertifikat sozlamalari
 # ==========================================================================
-CERT_ORGANIZATION = get_str("CERT_ORGANIZATION", "Burgutali Math Academy")
-CERT_ORGANIZER_NAME = get_str("CERT_ORGANIZER_NAME", "Burgutali Eshquvvatov")
-CERT_PLATFORM_NAME = get_str("CERT_PLATFORM_NAME", "RASCH MATH PLATFORM")
+CERT_ORGANIZATION = get_str("CERT_ORGANIZATION", "Oybek Ona tili markazi")
+CERT_ORGANIZER_NAME = get_str("CERT_ORGANIZER_NAME", "")
+CERT_PLATFORM_NAME = get_str("CERT_PLATFORM_NAME", "Ona tili RASH platformasi")
 CERT_MEDIA_SUBDIR = "certificates"
 EXPORT_MEDIA_SUBDIR = "exports"
 

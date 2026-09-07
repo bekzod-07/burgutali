@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # ==========================================================================
-#  Rasch Math Platform — to'liq server o'rnatish skripti (Ubuntu 22.04/24.04)
-#  Domen: burgutali.uz
+#  Ona tili RASH platformasi — server o'rnatish skripti
+#  (Ubuntu 22.04 / 24.04 / 26.04). Domen: oybek-onatili.uz
 #
 #  Ishlatish (serverda, root sifatida):
-#      git clone https://github.com/bekzod-07/burgutali.git
-#      cd burgutali
+#      cd /opt/onatili
 #      chmod +x deploy.sh
 #      sudo ./deploy.sh
 #
@@ -15,12 +14,16 @@
 set -euo pipefail
 
 # --------------------------- Sozlamalar ----------------------------------
-DOMAIN="burgutali.uz"
-APP_NAME="burgutali"
+DOMAIN="${DOMAIN:-oybek-onatili.uz}"
+APP_NAME="${APP_NAME:-onatili}"
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$APP_DIR/.venv"
 GUNICORN_BIND="127.0.0.1:8001"
-CERTBOT_EMAIL="${CERTBOT_EMAIL:-eshmatovbegzod04@gmail.com}"
+CERTBOT_EMAIL="${CERTBOT_EMAIL:-timeweb90@gmail.com}"
+
+#: Panelga kirish uchun boshlang'ich hisob.
+PANEL_USER="${PANEL_USER:-admin}"
+PANEL_PASSWORD="${PANEL_PASSWORD:-admin}"
 
 WEB_SERVICE="${APP_NAME}-web"
 BOT_SERVICE="${APP_NAME}-bot"
@@ -38,14 +41,35 @@ apt-get update -qq
 apt-get install -y -qq python3 python3-venv python3-pip python3-dev \
     build-essential nginx certbot python3-certbot-nginx git curl >/dev/null
 
-# Python 3.12+ talab qilinadi (numpy/scipy/pandas versiyalari uchun)
-PYTHON_BIN="python3"
-for cand in python3.13 python3.12; do
-    if command -v "$cand" >/dev/null 2>&1; then PYTHON_BIN="$cand"; break; fi
-done
+# --------------------- 1b. Python 3.12 -----------------------------------
+# Django 4.2 va requirements.txt dagi numpy/scipy/pandas/Pillow versiyalari
+# 3.12 uchun mo'ljallangan. Ubuntu 26.04 da tizimda faqat 3.14 bor, shuning
+# uchun kerak bo'lsa `uv` orqali mustaqil 3.12 o'rnatiladi.
+export PATH="/root/.local/bin:$PATH"
+
+find_python() {
+    for cand in python3.12 /root/.local/bin/python3.12; do
+        command -v "$cand" >/dev/null 2>&1 && { command -v "$cand"; return 0; }
+    done
+    if command -v uv >/dev/null 2>&1; then
+        uv python find 3.12 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+PYTHON_BIN="$(find_python || true)"
+
+if [ -z "$PYTHON_BIN" ]; then
+    log "Python 3.12 topilmadi — uv orqali o'rnatilmoqda..."
+    if ! command -v uv >/dev/null 2>&1; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null
+    fi
+    command -v uv >/dev/null 2>&1 || die "uv o'rnatilmadi — internetni tekshiring."
+    uv python install 3.12 >/dev/null
+    PYTHON_BIN="$(uv python find 3.12)" || die "Python 3.12 o'rnatilmadi."
+fi
+
 PYVER="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
-"$PYTHON_BIN" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' \
-    || die "Python 3.12+ kerak (topildi: $PYVER). Ubuntu 24.04 ishlating yoki python3.12 o'rnating."
 log "Python: $PYTHON_BIN ($PYVER)"
 
 # ----------------------- 2. Virtual muhit --------------------------------
@@ -88,8 +112,31 @@ fi
 log "Migratsiyalar va statik fayllar..."
 mkdir -p "$APP_DIR/data" "$APP_DIR/logs" "$APP_DIR/media" "$APP_DIR/staticfiles"
 cd "$APP_DIR"
-"$VENV_DIR/bin/python" manage.py migrate --noinput
+# collectstatic birinchi: production da `ManifestStaticFilesStorage`
+# ishlatiladi va manifest yig'ilmaguncha statik manzillar hisoblanmaydi.
 "$VENV_DIR/bin/python" manage.py collectstatic --noinput >/dev/null
+"$VENV_DIR/bin/python" manage.py migrate --noinput
+
+# Panelga kirish uchun hisob (yo'q bo'lsa yaratiladi, paroli yangilanadi).
+log "Panel hisobi tekshirilmoqda ($PANEL_USER)..."
+PANEL_USER="$PANEL_USER" PANEL_PASSWORD="$PANEL_PASSWORD" \
+    "$VENV_DIR/bin/python" manage.py shell -c '
+import os
+from django.contrib.auth.models import User
+
+name = os.environ["PANEL_USER"]
+password = os.environ["PANEL_PASSWORD"]
+account, created = User.objects.get_or_create(
+    username=name,
+    defaults={"is_staff": True, "is_superuser": True, "is_active": True},
+)
+account.is_staff = True
+account.is_superuser = True
+account.is_active = True
+account.set_password(password)
+account.save()
+print("Panel hisobi:", "yaratildi" if created else "yangilandi", name)
+'
 
 # www-data o'qiy olishi uchun
 chown -R www-data:www-data "$APP_DIR/staticfiles" "$APP_DIR/media"
@@ -107,7 +154,7 @@ log "systemd xizmatlari yozilmoqda..."
 
 cat > "/etc/systemd/system/$WEB_SERVICE.service" <<EOF
 [Unit]
-Description=Rasch Math Platform — Django web (gunicorn)
+Description=Ona tili RASH platformasi — Django web (gunicorn)
 After=network.target
 
 [Service]
@@ -126,7 +173,7 @@ EOF
 
 cat > "/etc/systemd/system/$BOT_SERVICE.service" <<EOF
 [Unit]
-Description=Rasch Math Platform — Telegram bot (aiogram)
+Description=Ona tili RASH platformasi — Telegram bot (aiogram)
 After=network.target $WEB_SERVICE.service
 
 [Service]
@@ -216,6 +263,7 @@ echo
 log "============================================================"
 log "  O'rnatish yakunlandi!"
 log "  Sayt:        https://$DOMAIN"
+log "  Panel:       https://$DOMAIN/panel/kirish/  ($PANEL_USER / $PANEL_PASSWORD)"
 log "  Web holati:  systemctl status $WEB_SERVICE"
 log "  Bot holati:  systemctl status $BOT_SERVICE"
 log "  Loglar:      journalctl -u $BOT_SERVICE -f"

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 
 def home(request):
@@ -18,6 +19,24 @@ def home(request):
         "certificates": Certificate.objects.count(),
     }
     return render(request, "common/home.html", {"stats": stats})
+
+
+def favicon(request):
+    """
+    Brauzer so'raydigan `/favicon.ico` ni statik belgiga yo'naltiradi.
+
+    Manzil **so'rov paytida** hisoblanadi: production da
+    `ManifestStaticFilesStorage` ishlatiladi va u `collectstatic` dan
+    oldin manifestni topa olmaydi — bu esa `manage.py migrate` ni ham
+    to'xtatib qo'yardi.
+    """
+    from django.templatetags.static import static
+
+    try:
+        url = static("favicon.svg")
+    except ValueError:  # manifest hali yig'ilmagan
+        url = f"{settings.STATIC_URL}favicon.svg"
+    return redirect(url, permanent=True)
 
 
 def healthcheck(request):

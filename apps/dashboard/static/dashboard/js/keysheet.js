@@ -4,8 +4,7 @@
    Varaqaning o'zi umumiy modulda (`static/keysheet/keysheet.js`), shuning
    uchun panelda ham web ilovadagi bilan **aynan bir xil** varaqa chiqadi:
    1–32 uchun A–D, 33–35 uchun A–F tugmalari (har birida faqat bitta
-   javob) va ochiq savollar uchun matematik klaviatura bilan ishlaydigan
-   maydonlar.
+   javob) va ochiq savollar uchun matn maydonlari.
 
    Bu fayl faqat panelga xos qismni bajaradi:
 
@@ -23,17 +22,21 @@
 
   var VALIDATE_URL = "/app/api/tekshir/";
 
-  /* Ifodani serverda tekshiradi — varaqa maydonlari ostidagi izoh uchun. */
+  /*
+     Javobni serverda tozalatadi — varaqa maydonlari ostidagi izoh uchun.
+     Panelda doim **kalit** yoziladi, shuning uchun `as_key` yuboriladi:
+     server sinonimlarni ajratib qaytaradi («osmon yoki samo yoki fazo»).
+  */
   function validate(expression) {
     return fetch(VALIDATE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expr: expression })
+      body: JSON.stringify({ expr: expression, as_key: true })
     })
       .then(function (response) { return response.json(); })
       .then(function (data) {
         if (data && data.ok) { return data; }
-        throw new Error((data && data.error) || "Ifoda noto‘g‘ri");
+        throw new Error((data && data.error) || "Javobni tekshirib bo‘lmadi");
       });
   }
 
@@ -113,7 +116,6 @@
         box.hidden = mode !== "sheet";
         if (textBox) { textBox.hidden = mode !== "text"; }
         if (progress) { progress.hidden = mode !== "sheet"; }
-        if (window.MathPad) { window.MathPad.close(); }
         if (mode === "sheet") { onChange(sheet); }
       });
     }
@@ -191,7 +193,7 @@
 
   function initOpenFields() {
     var fields = document.querySelectorAll(".answer-field input[data-ks-check]");
-    if (!fields.length || !window.MathPad) { return; }
+    if (!fields.length) { return; }
 
     var timers = {};
 
@@ -201,13 +203,9 @@
       if (!fx) { return; }
       var value = input.value.trim();
       if (!value) { fx.textContent = ""; fx.className = "fx"; return; }
-      if (window.MathField && window.MathField.incomplete(input)) {
-        fx.textContent = "Formulani to‘ldiring";
-        fx.className = "fx";
-        return;
-      }
       validate(value).then(function (data) {
-        fx.textContent = data.pretty + (data.value ? " ≈ " + data.value : "");
+        var note = data.variants > 1 ? " · " + data.variants + " ta sinonim" : "";
+        fx.textContent = "Tekshiruvda: " + data.pretty + note;
         fx.className = "fx ok";
       }).catch(function (error) {
         fx.textContent = error.message;
@@ -216,7 +214,6 @@
     }
 
     Array.prototype.forEach.call(fields, function (input) {
-      window.MathPad.bind(input, { label: input.dataset.ksCheck });
       input.addEventListener("input", function () {
         if (timers[input.id]) { clearTimeout(timers[input.id]); }
         timers[input.id] = setTimeout(function () { check(input); }, 400);
@@ -226,9 +223,6 @@
   }
 
   function init() {
-    if (!window.MathPad) { return; }
-    /* Varaqa maydonlari sahifa yuklanganda ham klaviaturaga ulanadi. */
-    window.MathPad.mount({});
     initCreate();
     initLetterPickers();
     initOpenFields();

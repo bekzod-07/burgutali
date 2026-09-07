@@ -3,15 +3,16 @@
 
    Test yaratuvchi to'g'ri javobni qatnashchi ko'radigan varaqaning **aynan
    o'zida** belgilaydi: 1–32 uchun A–D, 33–35 uchun A–F tugmalari, ochiq
-   savollar uchun matematik klaviatura bilan ishlaydigan maydonlar.
+   savollar uchun esa javob maydonlari.
 
    Modul ikkita joyda ishlatiladi va ikkalasida bir xil ko'rinadi:
 
      * web ilova  — «Testlarim → Test yaratish» ekrani;
      * boshqaruv paneli — «Yangi test» sahifasi va savollar ro'yxati.
 
-   Klaviatura o'zi `static/mathpad/mathpad.js` da; bu modul faqat varaqani
-   chizadi, tanlovni boshqaradi va maydonlarni klaviaturaga ulaydi.
+   Ochiq javob — so'z yoki qisqa ibora. Kalitda bir nechta sinonimni
+   vergul (yoki `;`, `/`) bilan ajratib yozish mumkin: `osmon, samo, fazo` —
+   qatnashchi qaysi birini yozsa ham javob to'g'ri hisoblanadi.
 
    Ishlatish:
 
@@ -34,11 +35,17 @@
   var SINGLE_LETTERS = ["A", "B", "C", "D"];
   var MULTI_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
-  /* Milliy sertifikat shabloni — 45 ta savol. */
+  /*
+     Milliy sertifikat shabloni — 45 ta savol, 51 ball:
+       1–32  A–D (32 ball) · 33–35 A–F (3 ball)
+       36–39 ochiq, bitta javob (4 ball)
+       40–45 ochiq, a) va b) (12 ball)
+  */
   var NATIONAL = {
     single: { from: 1, to: 32 },
     multi: { from: 33, to: 35 },
-    open: { from: 36, to: 45 }
+    open: { from: 36, to: 45 },
+    openSingle: { from: 36, to: 39 }
   };
 
   function esc(value) {
@@ -61,7 +68,8 @@
         national: true,
         single: { from: NATIONAL.single.from, to: NATIONAL.single.to },
         multi: { from: NATIONAL.multi.from, to: NATIONAL.multi.to },
-        open: { from: NATIONAL.open.from, to: NATIONAL.open.to }
+        open: { from: NATIONAL.open.from, to: NATIONAL.open.to },
+        openSingle: { from: NATIONAL.openSingle.from, to: NATIONAL.openSingle.to }
       };
     }
     var count = parseInt(options.count, 10) || 0;
@@ -94,25 +102,37 @@
     return html + "</div></div>";
   }
 
-  function openField(uid, order, part, value) {
+  function openField(uid, order, part, value, labelled) {
     var id = uid + "-" + order + "-" + part;
+    var label = labelled ? part + ") to‘g‘ri javob" : "To‘g‘ri javob";
     return '<div class="answer-field" data-field="' + id + '">' +
-      "<label>" + part + ") to‘g‘ri javob</label>" +
-      '<input type="text" inputmode="none" autocomplete="off" spellcheck="false" ' +
+      "<label>" + label + "</label>" +
+      '<input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" ' +
       'data-ks-order="' + order + '" data-ks-part="' + part + '" id="' + id + '" ' +
-      'value="' + esc(value) + '" placeholder="masalan: sqrt(2)">' +
+      'value="' + esc(value) + '" placeholder="masalan: osmon, samo, fazo">' +
       '<div class="fx"></div></div>';
   }
 
-  function openRow(uid, order, value) {
-    var ready = !!((value.a || "").trim() && (value.b || "").trim());
-    return '<div class="ks-row ks-open' + (ready ? " is-set" : "") +
+  /* Savol nechta javobdan iborat: 36–39 — bitta, 40–45 — a) va b). */
+  function openParts(plan, order) {
+    var single = plan && plan.openSingle;
+    if (single && order >= single.from && order <= single.to) { return 1; }
+    return 2;
+  }
+
+  function openRow(uid, order, value, parts) {
+    var ready = parts >= 2
+      ? !!((value.a || "").trim() && (value.b || "").trim())
+      : !!(value.a || "").trim();
+    var html = '<div class="ks-row ks-open' + (ready ? " is-set" : "") +
       '" data-ks-row="' + order + '">' +
       '<span class="ks-no">' + order + "</span>" +
       '<div class="answer-fields">' +
-      openField(uid, order, "a", value.a || "") +
-      openField(uid, order, "b", value.b || "") +
-      "</div></div>";
+      openField(uid, order, "a", value.a || "", parts >= 2);
+    if (parts >= 2) {
+      html += openField(uid, order, "b", value.b || "", true);
+    }
+    return html + "</div></div>";
   }
 
   function render(handle) {
@@ -142,13 +162,16 @@
     }
 
     if (p.open) {
-      html += head(
-        p.open.from + "–" + p.open.to + " · Ochiq javob",
-        "Maydonni bosing — matematik klaviatura ochiladi",
-        "open"
-      );
+      var note = "Sinonimlarni vergul bilan sanang: osmon, samo, fazo — har biri to‘g‘ri hisoblanadi";
+      if (p.openSingle) {
+        note = p.openSingle.from + "–" + p.openSingle.to + " bitta javobdan, " +
+          (p.openSingle.to + 1) + "–" + p.open.to + " esa a) va b) dan. " + note;
+      }
+      html += head(p.open.from + "–" + p.open.to + " · Ochiq javob", note, "open");
       for (order = p.open.from; order <= p.open.to; order += 1) {
-        html += openRow(handle.uid, order, keys.open[order] || { a: "", b: "" });
+        html += openRow(
+          handle.uid, order, keys.open[order] || { a: "", b: "" }, openParts(p, order)
+        );
       }
     }
 
@@ -175,15 +198,18 @@
     if (p.open) {
       for (order = p.open.from; order <= p.open.to; order += 1) {
         var value = keys.open[order] || {};
+        var filled = (value.a || "").trim() &&
+          (openParts(p, order) < 2 || (value.b || "").trim());
         total += 1;
-        if ((value.a || "").trim() && (value.b || "").trim()) {
-          done += 1;
-        } else {
-          missing.push(order);
-        }
+        if (filled) { done += 1; } else { missing.push(order); }
       }
     }
     return { done: done, total: total, missing: missing };
+  }
+
+  /* Ochiq javobni matn rejimidagi kalit satriga xavfsiz qo'shish. */
+  function cleanOpen(value) {
+    return String(value || "").replace(/\|/g, ",").trim();
   }
 
   /* Server kutayotgan kalit satrlari. */
@@ -204,7 +230,14 @@
     if (p.open) {
       for (order = p.open.from; order <= p.open.to; order += 1) {
         var value = keys.open[order] || {};
-        open.push((value.a || "").trim() + " ; " + (value.b || "").trim());
+        /* `|` — a) va b) ajratkichi. Yaratuvchi uni javob ichida
+           «yoki» ma'nosida yozib qo'ysa, javob ikkiga bo'linib ketardi;
+           shuning uchun u sinonim ajratkichiga (vergul) aylantiriladi. */
+        if (openParts(p, order) < 2) {
+          open.push(cleanOpen(value.a));           // bitta javobli savol
+        } else {
+          open.push(cleanOpen(value.a) + " | " + cleanOpen(value.b));
+        }
       }
     }
     return {
@@ -237,20 +270,14 @@
         var value = field.value.trim();
         if (!value) { fx.textContent = ""; fx.className = "fx"; return; }
 
-        /* Formulada bo'sh to'rtburchak bor — hali tugallanmagan. */
-        if (global.MathField && global.MathField.incomplete(field)) {
-          fx.textContent = "Formulani to‘ldiring";
-          fx.className = "fx";
-          return;
-        }
-
         handle.validate(value).then(function (data) {
           if (document.getElementById(id) !== field) { return; }
-          fx.textContent = data.pretty + (data.value ? " ≈ " + data.value : "");
+          var note = data.variants > 1 ? " · " + data.variants + " ta sinonim" : "";
+          fx.textContent = "Tekshiruvda: " + data.pretty + note;
           fx.className = "fx ok";
         }).catch(function (error) {
           if (document.getElementById(id) !== field) { return; }
-          fx.textContent = (error && error.message) || "Ifoda noto‘g‘ri";
+          fx.textContent = (error && error.message) || "Javob noto‘g‘ri";
           fx.className = "fx err";
         });
       }, 400);
@@ -272,8 +299,7 @@
       plan: options.plan || plan({ national: false, count: 20 }),
       keys: { letters: {}, open: {} },
       validate: options.validate || null,
-      onChange: options.onChange || null,
-      mathpad: options.mathpad !== false
+      onChange: options.onChange || null
     };
 
     if (options.keys) {
@@ -288,22 +314,13 @@
     }
 
     function bindFields() {
-      if (!handle.mathpad || !global.MathPad) { return; }
-      global.MathPad.reset();
       var inputs = container.querySelectorAll(".answer-field input[data-ks-order]");
       Array.prototype.forEach.call(inputs, function (input) {
-        global.MathPad.bind(input, {
-          label: input.dataset.ksOrder + "-savol · " +
-            input.dataset.ksPart + ") to‘g‘ri javob"
-        });
         if (input.value.trim()) { check(input); }
       });
     }
 
     function draw() {
-      if (handle.mathpad && global.MathPad && global.MathPad.close) {
-        global.MathPad.close();
-      }
       container.innerHTML = render(handle);
       bindFields();
       changed();
@@ -344,9 +361,9 @@
 
       var row = container.querySelector('[data-ks-row="' + order + '"]');
       if (row) {
-        row.classList.toggle(
-          "is-set", !!((value.a || "").trim() && (value.b || "").trim())
-        );
+        var ready = (value.a || "").trim() &&
+          (openParts(handle.plan, order) < 2 || (value.b || "").trim());
+        row.classList.toggle("is-set", !!ready);
       }
       check(input);
       changed();

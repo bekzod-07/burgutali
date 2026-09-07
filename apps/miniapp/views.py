@@ -2,9 +2,7 @@
 Telegram Mini App sahifalari.
 
   * `app_shell` — bir sahifali web ilova (barcha ekranlar JS orqali
-    chiziladi, ma'lumot `api.py` dan olinadi);
-  * `keyboard`  — faqat matematik klaviatura (bot reply-klaviaturasidan
-    ochilganda ishlatiladi va javobni `sendData()` orqali qaytaradi).
+    chiziladi, ma'lumot `api.py` dan olinadi).
 """
 
 from __future__ import annotations
@@ -21,7 +19,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from core import constants as C
-from core.math_expr import MAX_INPUT_LENGTH, normalize_expression, parse_expression
+from core.answer_check import (
+    MAX_INPUT_LENGTH,
+    alternatives,
+    display_answer,
+    normalize_answer,
+)
 
 from .auth import SESSION_KEY, validate_init_data, validate_login_widget
 
@@ -35,16 +38,13 @@ def asset_version() -> str:
     yangi nusxani oladi.
     """
     static_dir = Path(__file__).resolve().parent / "static" / "miniapp"
-    shared_dir = Path(settings.BASE_DIR) / "static" / "mathpad"
+    shared_dir = Path(settings.BASE_DIR) / "static" / "keysheet"
     assets = [
         static_dir / "css/app.css",
         static_dir / "js/app.js",
-        static_dir / "css/keyboard.css",
-        static_dir / "js/keyboard.js",
-        # Umumiy matematik klaviatura ham shu versiya bilan yangilanadi.
-        shared_dir / "mathpad.css",
-        shared_dir / "mathpad.js",
-        shared_dir / "mathfield.js",
+        # Umumiy javoblar varaqasi ham shu versiya bilan yangilanadi.
+        shared_dir / "keysheet.css",
+        shared_dir / "keysheet.js",
     ]
     stamps: list[float] = []
     for path in assets:
@@ -121,27 +121,18 @@ def logout_page(request):
     return HttpResponseRedirect(reverse("miniapp:login"))
 
 
-def keyboard(request):
-    """Matematik klaviatura sahifasi (bot uchun alohida ko'rinish)."""
-    context = {
-        "question_order": request.GET.get("q", ""),
-        "exam_code": request.GET.get("exam", ""),
-        "parts": request.GET.get("parts", "2"),
-        "prefill_a": request.GET.get("a", ""),
-        "prefill_b": request.GET.get("b", ""),
-        "question_text": request.GET.get("text", ""),
-        "asset_version": asset_version(),
-    }
-    return render(request, "miniapp/keyboard.html", context)
-
-
 @csrf_exempt
 @require_POST
 def api_validate(request):
     """
-    Kiritilgan ifodani tekshiradi (klaviatura sahifasi uchun).
+    Kiritilgan javobni tekshiruvga tayyor ko'rinishda qaytaradi.
 
-    So'rov tanasi: {"expr": "1/2 + sqrt(3)", "initData": "..."}
+    Javoblar varaqasi maydonlari ostidagi izoh uchun ishlatiladi.
+    So'rov tanasi: {"expr": "osmon; samo", "as_key": true, "initData": "..."}
+
+    `as_key` — yozilayotgani **kalit** ekanini bildiradi: bunda sinonimlar
+    ajratib ko'rsatiladi («osmon yoki samo»). Panelda kalit yoziladi,
+    shuning uchun u doim shu bayroq bilan keladi.
     """
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")
@@ -154,33 +145,22 @@ def api_validate(request):
     verified = bool(validate_init_data(init_data)) if init_data else False
 
     if not expression.strip():
-        return JsonResponse({"ok": False, "error": "Ifoda bo'sh.", "verified": verified})
+        return JsonResponse({"ok": False, "error": "Javob bo'sh.", "verified": verified})
 
-    normalized = normalize_expression(expression)
-    parsed = parse_expression(expression)
-    if parsed is None:
-        return JsonResponse(
-            {
-                "ok": False,
-                "error": "Ifodani tahlil qilib bo'lmadi.",
-                "normalized": normalized,
-                "verified": verified,
-            }
-        )
-
-    value = ""
-    try:
-        if not parsed.free_symbols:
-            value = f"{float(parsed.evalf()):.6g}"
-    except Exception:
-        value = ""
+    if payload.get("as_key"):
+        options = alternatives(expression)
+        pretty = " yoki ".join(display_answer(item) for item in options)
+    else:
+        options = [expression]
+        pretty = display_answer(expression)
 
     return JsonResponse(
         {
             "ok": True,
-            "normalized": normalized,
-            "pretty": str(parsed),
-            "value": value,
+            "normalized": normalize_answer(expression),
+            "pretty": pretty,
+            "value": "",
+            "variants": len(options),
             "verified": verified,
         }
     )

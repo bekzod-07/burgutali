@@ -76,17 +76,6 @@ async def send_question(
         except Exception:  # pragma: no cover - xabar o'zgarmagan bo'lishi mumkin
             pass
 
-    # Ochiq savol uchun matematik klaviaturani bir marta yuboramiz.
-    if question.kind == "open" and not data.get("math_kb_sent"):
-        config = get_config()
-        if config.miniapp_available:
-            await state.update_data(math_kb_sent=True)
-            await message.answer(
-                "Ochiq javoblar uchun maxsus matematik klaviaturadan "
-                "foydalanishingiz mumkin.",
-                reply_markup=reply.math_keyboard(config.math_keyboard_url),
-            )
-
     await message.answer(text, reply_markup=markup)
 
 
@@ -241,7 +230,7 @@ async def confirm_multi(
 
 @router.message(StateFilter(TakingStates.answering), F.web_app_data)
 async def receive_web_app_answer(message: Message, state: FSMContext) -> None:
-    """Mini App (matematik klaviatura) yuborgan javob."""
+    """Web ilova yuborgan javob."""
     raw = message.web_app_data.data if message.web_app_data else ""
     try:
         payload = json.loads(raw)

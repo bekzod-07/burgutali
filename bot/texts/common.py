@@ -45,7 +45,6 @@ BTN_SKIP = "O'tkazib yuborish"
 BTN_MAIN_MENU = "Asosiy menyu"
 BTN_CONFIRM = "Tasdiqlash"
 BTN_SHARE_PHONE = "Telefon raqamni yuborish"
-BTN_MATH_KEYBOARD = "Matematik klaviatura"
 BTN_OPEN_APP = "Web ilovada ochish"
 
 # ==========================================================================
@@ -118,10 +117,10 @@ HELP = (
 ).format(bullet=BULLET)
 
 BOT_DESCRIPTION = (
-    "Assalomu alaykum! Matematika testlarini tez va qulay tekshiruvchi "
+    "Assalomu alaykum! Ona tili testlarini tez va qulay tekshiruvchi "
     "botga xush kelibsiz.\n"
     "Test javoblaringizni yuboring va natijangizni bilib oling.\n"
-    "Telegram kanalimiz: @Burgutali"
+    "Telegram kanalimiz: @Oybek_ustoz_MS"
 )
 
 

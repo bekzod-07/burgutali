@@ -67,28 +67,9 @@ def cancel_only() -> ReplyKeyboardMarkup:
     )
 
 
-def math_keyboard(url: str, *, with_cancel: bool = True) -> ReplyKeyboardMarkup:
-    """
-    Matematik klaviatura (Mini App) tugmasi.
-
-    Telegram `sendData()` faqat reply-klaviaturadagi `web_app` tugmasi bilan
-    ishlaydi, shuning uchun ochiq savollar uchun aynan shu klaviatura beriladi.
-    """
-    rows: list[list[KeyboardButton]] = [
-        [KeyboardButton(text=T.BTN_MATH_KEYBOARD, web_app=WebAppInfo(url=url))]
-    ]
-    if with_cancel:
-        rows.append([KeyboardButton(text=T.BTN_MAIN_MENU)])
-    return ReplyKeyboardMarkup(
-        keyboard=rows,
-        resize_keyboard=True,
-        input_field_placeholder="Javobni yozing yoki klaviaturani oching",
-    )
-
-
 def remove() -> ReplyKeyboardRemove:
     """Klaviaturani olib tashlaydi."""
     return ReplyKeyboardRemove()
 
 
-__all__ = ["main_menu", "phone_request", "cancel_only", "math_keyboard", "remove"]
+__all__ = ["main_menu", "phone_request", "cancel_only", "remove"]

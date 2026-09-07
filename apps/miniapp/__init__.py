@@ -1,1 +1,1 @@
-"""Telegram Mini App ilovasi: matematik formulalar klaviaturasi."""
+"""Telegram Mini App ilovasi: test topshirish va boshqarish uchun web ilova."""

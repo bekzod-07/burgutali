@@ -12,7 +12,7 @@ from __future__ import annotations
 
 WELCOME = (
     "Assalomu alaykum!\n"
-    "Matematika testlarini o‘tkazish va tekshirish platformasiga xush kelibsiz.\n\n"
+    "Ona tili testlarini o‘tkazish va tekshirish platformasiga xush kelibsiz.\n\n"
     "Bu bot orqali siz:\n"
     "• testlarda qatnashishingiz;\n"
     "• natijalaringizni bilishingiz;\n"
@@ -58,12 +58,12 @@ BTN_CHECK_SUBSCRIPTION = "A’zolikni tekshirish"
 ASK_FULL_NAME = (
     "<b>Ro‘yxatdan o‘tish</b>\n\n"
     "Ism va familiyangizni kiriting.\n"
-    "Masalan: <i>Burgutali Eshquvvatov</i>"
+    "Masalan: <i>Alisher Rahimov</i>"
 )
 
 INVALID_FULL_NAME = (
     "Ism va familiyani to‘liq kiriting.\n\n"
-    "Kamida ikkita so‘z bo‘lishi kerak. Masalan: <i>Burgutali Eshquvvatov</i>"
+    "Kamida ikkita so‘z bo‘lishi kerak. Masalan: <i>Alisher Rahimov</i>"
 )
 
 ASK_PHONE = (

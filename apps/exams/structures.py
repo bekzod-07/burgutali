@@ -6,10 +6,11 @@ Ikki xil tuzilma qo'llab-quvvatlanadi:
   1. **Oddiy tuzilma** — barcha savollar bir xil turdagi (odatda A/B/C/D).
      Savollar sonini test yaratuvchi belgilaydi (10, 20, 30, 45, 50, 100 ...).
 
-  2. **Milliy sertifikat shabloni** (SRS 3-bo'lim) — 45 ta savol:
-       * 1–32  — A, B, C, D (bitta javob);
-       * 33–35 — A, B, C, D, E, F (moslashtirish, faqat bitta javob);
-       * 36–45 — variantsiz, a) va b) javob maydonlari.
+  2. **Milliy sertifikat shabloni** (SRS 3-bo'lim) — 45 ta savol, 51 ball:
+       * 1–32  — A, B, C, D (bitta javob), 32 ball;
+       * 33–35 — A, B, C, D, E, F (moslashtirish, faqat bitta javob), 3 ball;
+       * 36–39 — variantsiz, **bitta** javob, 4 ball;
+       * 40–45 — variantsiz, a) va b) javob maydonlari, 12 ball.
 """
 
 from __future__ import annotations
@@ -52,8 +53,9 @@ def national_specs() -> list[QuestionSpec]:
         specs.append(
             QuestionSpec(order, Question.Kind.MULTI, len(C.MULTI_CHOICES), 1, "2-qism")
         )
-    for order in range(open_start, open_end + 1):
-        specs.append(QuestionSpec(order, Question.Kind.OPEN, 0, 2, "3-qism"))
+    # 36–39 — bitta javob, 40–45 — a) va b) (jami 4 + 12 = 16 ball).
+    for order, parts in zip(range(open_start, open_end + 1), C.national_open_parts()):
+        specs.append(QuestionSpec(order, Question.Kind.OPEN, 0, parts, "3-qism"))
     return specs
 
 

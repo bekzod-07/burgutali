@@ -164,9 +164,9 @@ def answer_exam(user: BotUser, exam: Exam, ability: float, rng: random.Random) -
             save_answer(
                 attempt,
                 question,
-                text_a=question.answer_a if correct else "0",
+                text_a=question.answer_a if correct else "noto‘g‘ri javob",
                 text_b=question.answer_b if (correct and question.parts > 1) else (
-                    "0" if question.parts > 1 else ""
+                    "boshqa javob" if question.parts > 1 else ""
                 ),
             )
         else:
@@ -189,7 +189,7 @@ def build_simple(owner: BotUser, users: list[BotUser], rng: random.Random) -> Ex
     print("\n[1/3] Oddiy test (1-tur)")
     exam = create_exam(
         owner=owner,
-        title=f"{DEMO_PREFIX} — Algebra: kvadrat tenglamalar",
+        title=f"{DEMO_PREFIX} — So'z turkumlari",
         exam_type=Exam.Type.SIMPLE,
         question_count=20,
         description="20 ta savol, A/B/C/D. Natija to'g'ri javoblar soni bo'yicha.",
@@ -226,8 +226,11 @@ def build_rasch_free(owner: BotUser, users: list[BotUser], rng: random.Random) -
     apply_open_keys(
         exam,
         [
-            "12||3/4", "1/2||0.25", "sqrt(2)||pi/6", "5||-3", "0||1",
-            "2^3||9", "sin(pi/2)||cos(0)", "10||100", "1/3||2/3", "7||8",
+            "ot||fe’l", "ega||kesim", "sifat||son",
+            "olmosh||ravish", "unli||undosh",
+            "sodda gap||qo‘shma gap", "sinonim||antonim",
+            "o‘zak||qo‘shimcha", "bosh kelishik||qaratqich kelishik",
+            "ko‘chma ma’no||o‘z ma’nosi",
         ],
     )
     activate_exam(exam)
@@ -265,7 +268,7 @@ def build_rasch_paid(owner: BotUser, users: list[BotUser], rng: random.Random) -
     )
     apply_single_keys(exam, ["ABCD"[i % 4] for i in range(30)])
 
-    batch = create_codes(exam, 500, created_by=owner, note="Video dars uchun demo")
+    batch = create_codes(exam, 500, created_by=owner, note="Namoyish uchun demo")
     log(f"{batch.quantity} ta ID kod yaratildi (partiya #{batch.id})")
 
     activate_exam(exam)

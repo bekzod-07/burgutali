@@ -233,68 +233,123 @@ def test_text_utils() -> None:
 
 
 # ==========================================================================
-#  3. Matematik ekvivalentlik (SymPy)
+#  3. Ochiq javob normalizatsiyasi (ona tili)
 # ==========================================================================
 
 
-def test_math_expr() -> None:
-    from core.math_expr import is_equivalent, normalize_expression, parse_expression
+def test_answer_check() -> None:
+    from core.answer_check import (
+        alternatives,
+        compare_answer,
+        display_answer,
+        fold_answer,
+        normalize_answer,
+    )
 
-    R.head("3. Matematik ekvivalentlik (SRS 4-bo'lim)")
+    R.head("3. Ochiq javoblarni tekshirish")
 
-    cases_true = [
-        ("1/2", "0.5"),
-        ("0,5", "1/2"),
-        ("2^-1", "0.5"),
-        ("sin(pi/6)", "0.5"),
-        ("√2", "sqrt(2)"),
-        ("2^3", "8"),
-        ("x²+2x", "x**2+2*x"),
-        ("|-5|", "5"),
-        ("tg(pi/4)", "1"),
-        ("ctg(pi/4)", "1"),
-        ("ln(e)", "1"),
-        ("log(100)/log(10)", "2"),
-        ("30°", "pi/6"),
-        ("3/4", "0.75"),
-        ("2x", "x*2"),
-        ("0.5", "1/2;0.5"),
-        ("(1+2)*3", "9"),
-        ("sqrt(9)", "3"),
-    ]
-    for user, key in cases_true:
-        R.check(f"«{user}» = «{key}»", is_equivalent(user, key))
+    # --- Normalizatsiya ---
+    R.equal("Katta harf pastga tushadi", normalize_answer("EGA"), "ega")
+    R.equal("Ortiqcha probel yig'iladi", normalize_answer("  bosh   gap "), "bosh gap")
+    R.equal("Nuqta olib tashlanadi", normalize_answer("kesim."), "kesim")
+    R.equal("Vergul olib tashlanadi", normalize_answer("kesim,"), "kesim")
+    R.equal("Qo'shtirnoq olib tashlanadi", normalize_answer('"ot"'), "ot")
+    R.equal(
+        "Apostroflar bir xillashadi",
+        normalize_answer("o‘zbek tili"),
+        normalize_answer("oʻzbek tili"),
+    )
+    R.equal("Bo'sh qiymat bo'sh qoladi", normalize_answer("   "), "")
+    R.equal("None bo'sh qoladi", normalize_answer(None), "")
 
-    cases_false = [
-        ("1/3", "0.33"),
-        ("4", "5"),
-        ("x+1", "x+2"),
-        ("sin(pi/3)", "0.5"),
-        ("", "5"),
-    ]
-    for user, key in cases_false:
-        R.check(f"«{user}» ≠ «{key}»", not is_equivalent(user, key))
+    # --- Taqqoslash ---
+    for given, key, expected in [
+        ("ega", "ega", True),
+        ("Ega.", "ega", True),
+        ("  EGA  ", "ega", True),
+        ("o‘zak", "oʻzak", True),
+        ("kesim", "ega", False),
+        ("egalik", "ega", False),
+        ("", "ega", False),
+        ("ega", "", False),
+    ]:
+        R.equal(
+            f"Taqqoslash: {given!r} ~ {key!r}",
+            bool(compare_answer(given, key)),
+            expected,
+        )
 
-    R.check("Tengsizlik taqqoslanadi", is_equivalent("x>=2", "x >= 2"))
-    R.check("Normalizatsiya ishlaydi", "**" in normalize_expression("2^3"))
-    R.check("Juda uzun ifoda rad etiladi", parse_expression("1+" * 300 + "1") is None)
+    # --- Muqobil javoblar ---
+    R.equal("Muqobillar ajratiladi", alternatives("ot; ism"), ["ot", "ism"])
+    R.equal("Ajratkichsiz kalit bitta muqobil", alternatives("ot"), ["ot"])
+    R.check("Birinchi muqobil to'g'ri", bool(compare_answer("ot", "ot; ism")))
+    R.check("Ikkinchi muqobil to'g'ri", bool(compare_answer("ISM.", "ot; ism")))
+    R.check("Ro'yxatdan tashqarisi rad etiladi",
+            not compare_answer("fe’l", "ot; ism"))
 
-    # --- Xavfsizlik: SymPy `parse_expr` ichida `eval` ishlatadi ---
-    attacks = [
-        "__import__('os')",
-        '__import__("os").system("calc")',
-        "open('x')",
-        "exit()",
-        "eval('1+1')",
-        "().__class__",
-        "().__class__.__bases__",
-        "globals()",
-        "lambda: 1",
-        "[1,2,3]",
-        "{1:2}",
-    ]
-    for attack in attacks:
-        R.check(f"Hujum bloklandi: {attack[:26]}", parse_expression(attack) is None)
+    # --- Sinonimlar: «,», «;» va «/» bir xil ajratkich ---
+    R.equal(
+        "Vergulli sinonimlar ajratiladi",
+        alternatives("osmon, samo, fazo"),
+        ["osmon", "samo", "fazo"],
+    )
+    R.equal(
+        "«/» bilan yozilgan sinonimlar ajratiladi",
+        alternatives("osmon / samo"),
+        ["osmon", "samo"],
+    )
+    R.equal(
+        "Aralash ajratkich ham ishlaydi",
+        alternatives("osmon; samo, fazo"),
+        ["osmon", "samo", "fazo"],
+    )
+    R.equal(
+        "Takrorlangan sinonim bir marta qoladi",
+        alternatives("osmon, Osmon., osmon"),
+        ["osmon"],
+    )
+    for given in ("osmon", "Samo.", "  FAZO  ", "fazo"):
+        R.check(
+            f"Sinonim qabul qilinadi: {given!r}",
+            bool(compare_answer(given, "osmon, samo, fazo")),
+        )
+    R.check(
+        "Sinonimlar ro'yxatida yo'q javob rad etiladi",
+        not compare_answer("yer", "osmon, samo, fazo"),
+    )
+
+    # --- Apostrofning bor-yo'qligi javobni xato qilmaydi ---
+    R.equal("Apostrofsiz shakl", fold_answer("oʻrta"), "orta")
+    R.equal("Tutuq belgisi ham tushadi", fold_answer("ma’no"), "mano")
+    for given in ("O‘rta", "O`rta", "oʻrta", "o’rta", "o'rta", "Orta", "orta", "O‘RTA"):
+        R.check(
+            f"Apostrofga befarq: {given!r}",
+            bool(compare_answer(given, "o‘rta")),
+        )
+    R.check(
+        "Kalit apostrofsiz bo'lsa ham mos keladi",
+        bool(compare_answer("o‘rta", "orta")),
+    )
+    R.check("Boshqa so'z baribir rad etiladi", not compare_answer("orqa", "o‘rta"))
+    R.equal(
+        "Aynan moslik «text» deb belgilanadi",
+        compare_answer("o‘rta", "oʻrta").method,
+        "text",
+    )
+    R.equal(
+        "Apostrofsiz moslik alohida belgilanadi",
+        compare_answer("orta", "o‘rta").method,
+        "apostrophe",
+    )
+
+    # --- Ko'rsatish ---
+    R.equal("Ko'rsatishda harflar saqlanadi", display_answer(" Bosh  Gap "), "Bosh Gap")
+
+    # --- Matematik ekvivalentlik endi qo'llanmaydi ---
+    R.check("«0.5» va «1/2» boshqa javob", not compare_answer("0.5", "1/2"))
+
+    # --- Uzun javob kesiladi, xato bermaydi ---
+    R.check("Juda uzun javob rad etiladi", not compare_answer("a" * 5000, "ega"))
 
 
 # ==========================================================================
@@ -459,24 +514,28 @@ def test_keys() -> None:
     result = keys.parse_multi_key("A C", 3)
     R.check("Javob soni mos kelmasa xato", not result.ok)
 
-    result = keys.parse_open_key("12 ; 3/4\nsqrt(2) ; pi/6", 2)
+    result = keys.parse_open_key("ot | fe’l\nega | kesim", 2)
     R.check("Ochiq kalit o'qiladi", result.ok)
-    R.equal("Ochiq kalit ajratiladi", keys.split_open_key(result.keys[0]), ("12", "3/4"))
-    R.equal("Ikkinchi qator", keys.split_open_key(result.keys[1]), ("sqrt(2)", "pi/6"))
+    R.equal("Ochiq kalit ajratiladi", keys.split_open_key(result.keys[0]), ("ot", "fe’l"))
+    R.equal("Ikkinchi qator", keys.split_open_key(result.keys[1]), ("ega", "kesim"))
 
-    result = keys.parse_open_key("12 ; 3/4", 3)
+    result = keys.parse_open_key("ot | fe’l", 3)
     R.check("Qator soni mos kelmasa xato", not result.ok)
 
-    # O'nlik kasr savol raqami deb kesilmasligi kerak: «0.5» -> «5» emas.
-    result = keys.parse_open_key("0.5 ; -2\n12-3 ; 1.25", 2)
-    R.check("O'nlik kasrli kalit o'qiladi", result.ok)
-    R.equal("O'nlik kasr butunligicha qoladi", keys.split_open_key(result.keys[0]), ("0.5", "-2"))
-    R.equal("Ayirma ifodasi kesilmaydi", keys.split_open_key(result.keys[1]), ("12-3", "1.25"))
+    # Muqobil javoblar «;» bilan beriladi va bir bo'lak bo'lib qoladi.
+    result = keys.parse_open_key("ot; ism | fe’l\nsifat | son; miqdor", 2)
+    R.check("Muqobil javobli kalit o'qiladi", result.ok)
+    R.equal("Muqobillar a) qismida qoladi",
+            keys.split_open_key(result.keys[0]), ("ot; ism", "fe’l"))
+    R.equal("Muqobillar b) qismida qoladi",
+            keys.split_open_key(result.keys[1]), ("sifat", "son; miqdor"))
 
-    result = keys.parse_open_key("36) 12 ; 3/4\n37. 5 ; 6", 2)
+    result = keys.parse_open_key("36) ot | fe’l\n37. ega | kesim", 2)
     R.check("Raqamlangan ochiq kalit o'qiladi", result.ok)
-    R.equal("Savol raqami olib tashlanadi", keys.split_open_key(result.keys[0]), ("12", "3/4"))
-    R.equal("Nuqtali raqam ham olib tashlanadi", keys.split_open_key(result.keys[1]), ("5", "6"))
+    R.equal("Savol raqami olib tashlanadi",
+            keys.split_open_key(result.keys[0]), ("ot", "fe’l"))
+    R.equal("Nuqtali raqam ham olib tashlanadi",
+            keys.split_open_key(result.keys[1]), ("ega", "kesim"))
 
     R.check("Kalit ko'rinishi shakllanadi", "1-A" in keys.format_key_preview(["A", "B"]))
 
@@ -560,6 +619,12 @@ def test_rasch_free_flow() -> dict:
     from apps.rasch.services import calculate_exam
     from apps.users.models import BotUser
     from core import constants as C
+    from core.answer_check import alternatives
+
+    def correct_text(key: str) -> str:
+        """Kalitdagi birinchi sinonim — «to'g'ri javob» sifatida yoziladi."""
+        options = alternatives(key)
+        return options[0] if options else ""
 
     R.head("8. To'liq oqim: milliy shablon (45 savol) + RASH")
 
@@ -578,7 +643,26 @@ def test_rasch_free_flow() -> dict:
     R.equal("Bitta javobli savollar", exam.questions.filter(kind="single").count(), 32)
     R.equal("Ko'p javobli savollar", exam.questions.filter(kind="multi").count(), 3)
     R.equal("Ochiq savollar", exam.questions.filter(kind="open").count(), 10)
-    R.equal("Maksimal xom ball 55", exam.max_raw_score, 55.0)
+    # 36–39 bitta javobdan, 40–45 esa a) va b) dan iborat.
+    R.equal(
+        "36–39 bitta javobli",
+        list(
+            exam.questions.filter(kind="open", order__lte=39)
+            .order_by("order")
+            .values_list("parts", flat=True)
+        ),
+        [1, 1, 1, 1],
+    )
+    R.equal(
+        "40–45 ikkita javobli",
+        list(
+            exam.questions.filter(kind="open", order__gte=40)
+            .order_by("order")
+            .values_list("parts", flat=True)
+        ),
+        [2, 2, 2, 2, 2, 2],
+    )
+    R.equal("Maksimal xom ball 51", exam.max_raw_score, float(C.NATIONAL_MAX_RAW_SCORE))
     # Kod ishtirokchi uchun qulay bo'lishi kerak — oddiy 2–3 xonali son.
     R.check(
         f"Test kodi oddiy son ({exam.code})",
@@ -589,9 +673,14 @@ def test_rasch_free_flow() -> dict:
     single_keys = ["ABCD"[i % 4] for i in range(32)]
     apply_single_keys(exam, single_keys)
     apply_multi_keys(exam, ["A", "C", "E"])
+    # 36–39 — bitta javobdan, 40–45 — a) va b) dan.
+    # 45-savol kaliti ataylab sinonimlar bilan yozilgan — qatnashchi
+    # «o‘zak» ham, «negiz» ham yozsa to'g'ri hisoblanishi kerak.
     open_keys = [
-        "12||3/4", "1/2||0.25", "sqrt(2)||pi/6", "5||-3", "0||1",
-        "2^3||9", "sin(pi/2)||cos(0)", "10||100", "1/3||2/3", "7||8",
+        "ot", "ega", "sifat", "olmosh",
+        "bosh kelishik||qaratqich kelishik", "undosh||unli",
+        "sodda gap||qo‘shma gap", "ko‘chma ma’no||o‘z ma’nosi",
+        "sinonim||antonim", "o‘zak, negiz||qo‘shimcha, affiks",
     ]
     apply_open_keys(exam, open_keys)
 
@@ -638,8 +727,8 @@ def test_rasch_free_flow() -> dict:
                 save_answer(
                     attempt,
                     question,
-                    text_a=question.answer_a if good_a else "999",
-                    text_b=question.answer_b if good_b else "888",
+                    text_a=correct_text(question.answer_a) if good_a else "noto‘g‘ri javob",
+                    text_b=correct_text(question.answer_b) if good_b else "boshqa javob",
                 )
         submit_attempt(attempt)
 
@@ -669,7 +758,7 @@ def test_rasch_free_flow() -> dict:
             attempts[0].raw_score >= attempts[-1].raw_score)
     R.check("Darajalar belgilandi", all(a.grade for a in attempts))
 
-    # --- Shkala «C» darajasiga moslashgan: 32% (55 dan 18 ta) -> 46.00 ball ---
+    # --- Shkala «C» darajasiga moslashgan: 32% (51 dan 17 ta) -> 46.00 ball ---
     exam.refresh_from_db()
     R.check("Shkala moslashtirildi", exam.theta_min < C.THETA_MIN,
             f"theta_min = {exam.theta_min}")
@@ -678,19 +767,19 @@ def test_rasch_free_flow() -> dict:
     from apps.rasch.services import build_items as _items
 
     diffs = [i.difficulty for i in _items(exam)]
-    R.equal("55 ta ballanadigan birlik", len(diffs), 55)
-    ball18 = scoring.theta_to_ball(
-        _est.theta_for_raw_score(18, diffs),
-        max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
-    )
+    R.equal("51 ta ballanadigan birlik", len(diffs), C.NATIONAL_MAX_RAW_SCORE)
     ball17 = scoring.theta_to_ball(
         _est.theta_for_raw_score(17, diffs),
         max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
     )
-    R.close("18 ta to'g'ri javob -> 46.00 ball", ball18, 46.0, 0.05)
-    R.equal("18 ta to'g'ri javob -> C darajasi", C.grade_for_ball(ball18), "C")
-    R.check("17 ta to'g'ri javob -> daraja yo'q",
-            C.grade_for_ball(ball17) == C.NO_GRADE, f"{ball17:.2f} ball")
+    ball16 = scoring.theta_to_ball(
+        _est.theta_for_raw_score(16, diffs),
+        max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
+    )
+    R.close("17 ta to'g'ri javob -> 46.00 ball", ball17, 46.0, 0.05)
+    R.equal("17 ta to'g'ri javob -> C darajasi", C.grade_for_ball(ball17), "C")
+    R.check("16 ta to'g'ri javob -> daraja yo'q",
+            C.grade_for_ball(ball16) == C.NO_GRADE, f"{ball16:.2f} ball")
 
     # --- Baholash aniqligi: to'liq to'g'ri javob bergan ishtirokchi ---
     perfect_user, _ = BotUser.objects.get_or_create(
@@ -699,25 +788,72 @@ def test_rasch_free_flow() -> dict:
     perfect = start_attempt(perfect_user, exam)
     for question in questions:
         if question.kind == Question.Kind.OPEN:
-            save_answer(perfect, question, text_a=question.answer_a, text_b=question.answer_b)
+            save_answer(
+                perfect,
+                question,
+                text_a=correct_text(question.answer_a),
+                text_b=correct_text(question.answer_b),
+            )
         else:
             save_answer(perfect, question, selected=question.correct_key)
     submit_attempt(perfect)
     perfect.refresh_from_db()
-    R.equal("To'liq to'g'ri javob = 55 ball", perfect.raw_score, 55.0)
+    R.equal(
+        "To'liq to'g'ri javob = 51 ball",
+        perfect.raw_score,
+        float(C.NATIONAL_MAX_RAW_SCORE),
+    )
     R.close("Foiz = 100", perfect.percent, 100.0, 0.01)
 
-    # --- Matematik ekvivalentlik amalda ---
+    # --- Matn normalizatsiyasi amalda ---
+    # 37-savol (bitta javobli) kaliti «ega», 41-savol (a va b) kaliti
+    # «undosh | unli». Katta-kichik harf, ortiqcha probel va tinish
+    # belgilari e'tiborga olinmasligi kerak.
     equiv_user, _ = BotUser.objects.get_or_create(
         telegram_id=9998, defaults={"full_name": "Ekvivalent Ishtirokchi", "is_registered": True}
     )
     equiv = start_attempt(equiv_user, exam)
-    open_question = exam.questions.filter(kind="open", order=37).first()
-    save_answer(equiv, open_question, text_a="0.5", text_b="1/4")
+    single_open = exam.questions.filter(kind="open", order=37).first()
+    double_open = exam.questions.filter(kind="open", order=41).first()
+    save_answer(equiv, single_open, text_a="  EGA. ")
+    save_answer(equiv, double_open, text_a="Undosh.", text_b="  unli,")
     submit_attempt(equiv)
-    equiv_answer = equiv.answers.get(question=open_question)
-    R.check("«0.5» = «1/2» deb qabul qilindi", equiv_answer.is_correct_a is True)
-    R.check("«1/4» = «0.25» deb qabul qilindi", equiv_answer.is_correct_b is True)
+
+    single_answer = equiv.answers.get(question=single_open)
+    double_answer = equiv.answers.get(question=double_open)
+    R.check("«EGA.» = «ega» deb qabul qilindi", single_answer.is_correct_a is True)
+    R.check("Bitta javobli savolda b) baholanmaydi",
+            single_answer.is_correct_b is None)
+    R.equal("Bitta javobli savol = 1 ball", single_answer.score, 1.0)
+    R.check("«Undosh.» = «undosh» deb qabul qilindi", double_answer.is_correct_a is True)
+    R.check("«  unli,» = «unli» deb qabul qilindi", double_answer.is_correct_b is True)
+    R.equal("a) va b) li savol = 2 ball", double_answer.score, 2.0)
+
+    # --- Sinonim va apostrofsiz javob amalda ---
+    # 45-savol kaliti: a) «o‘zak, negiz», b) «qo‘shimcha, affiks».
+    # Qatnashchi ikkinchi sinonimni yozsa ham, apostrofni tushirib
+    # qoldirsa ham javob to'g'ri hisoblanishi kerak.
+    synonym_user, _ = BotUser.objects.get_or_create(
+        telegram_id=9997, defaults={"full_name": "Sinonim Ishtirokchi", "is_registered": True}
+    )
+    synonym = start_attempt(synonym_user, exam)
+    synonym_question = exam.questions.filter(kind="open", order=45).first()
+    save_answer(synonym, synonym_question, text_a="Negiz", text_b="affiks")
+    submit_attempt(synonym)
+    synonym_answer = synonym.answers.get(question=synonym_question)
+    R.check("«Negiz» sinonimi qabul qilindi", synonym_answer.is_correct_a is True)
+    R.check("«affiks» sinonimi qabul qilindi", synonym_answer.is_correct_b is True)
+
+    loose_user, _ = BotUser.objects.get_or_create(
+        telegram_id=9996, defaults={"full_name": "Apostrofsiz Ishtirokchi", "is_registered": True}
+    )
+    loose = start_attempt(loose_user, exam)
+    save_answer(loose, synonym_question, text_a="ozak", text_b="qoshimcha")
+    submit_attempt(loose)
+    loose_answer = loose.answers.get(question=synonym_question)
+    R.check("«ozak» = «o‘zak» deb qabul qilindi", loose_answer.is_correct_a is True)
+    R.check("«qoshimcha» = «qo‘shimcha» deb qabul qilindi",
+            loose_answer.is_correct_b is True)
 
     # --- Statistika ---
     calculate_exam(exam)
@@ -725,7 +861,10 @@ def test_rasch_free_flow() -> dict:
     statistics = exam.statistics
     R.check("Statistika yaratildi", statistics.participants > 0)
     R.check("Darajalar taqsimoti to'ldirildi", bool(statistics.grade_distribution))
-    R.check("Savollar statistikasi to'ldirildi", len(statistics.item_statistics) == 55)
+    R.check(
+        "Savollar statistikasi to'ldirildi",
+        len(statistics.item_statistics) == C.NATIONAL_MAX_RAW_SCORE,
+    )
 
     # --- Natijalarni e'lon qilish ---
     ok, message = publish_results(exam)
@@ -1401,15 +1540,29 @@ def test_web_pages() -> None:
     R.equal("Web ilova ochiladi", response.status_code, 200)
     R.check("Ilova skripti ulangan", b"app.js" in response.content)
 
-    response = client.get("/app/klaviatura/?q=36&parts=2")
-    R.equal("Matematik klaviatura sahifasi ochiladi", response.status_code, 200)
-    R.check("Klaviatura tugmalari bor", b"keyboard" in response.content)
+    response = client.get("/app/klaviatura/")
+    R.equal("Matematik klaviatura sahifasi olib tashlandi", response.status_code, 404)
 
     response = client.post(
-        "/app/api/tekshir/", data='{"expr": "1/2 + 1/2"}', content_type="application/json"
+        "/app/api/tekshir/", data='{"expr": "  Bosh  Gap. "}',
+        content_type="application/json",
     )
     R.equal("Mini App API javob beradi", response.status_code, 200)
-    R.check("Ifoda to'g'ri tahlil qilindi", response.json().get("ok") is True)
+    payload = response.json()
+    R.check("Javob tekshiruvga tayyorlandi", payload.get("ok") is True)
+    R.equal("Tekshiruv ko'rinishi", payload.get("normalized"), "bosh gap")
+
+    response = client.post(
+        "/app/api/tekshir/", data='{"expr": "osmon, samo, fazo", "as_key": true}',
+        content_type="application/json",
+    )
+    payload = response.json()
+    R.equal("Panelda sinonimlar sanaladi", payload.get("variants"), 3)
+    R.equal(
+        "Panelda sinonimlar ko'rsatiladi",
+        payload.get("pretty"),
+        "osmon yoki samo yoki fazo",
+    )
 
     response = client.get("/panel/")
     R.check("Panel himoyalangan (login talab qilinadi)",
@@ -1712,17 +1865,22 @@ def test_bot() -> None:
     ))
     R.check("Telefon tugmasi kontakt so'raydi",
             reply.phone_request().keyboard[0][0].request_contact is True)
-    R.check("Mini App tugmasi web_app bilan",
-            reply.math_keyboard("https://example.test/app/").keyboard[0][0].web_app is not None)
 
     R.check("Obuna klaviaturasi 2 ta tugma",
             len(inline.subscription("https://t.me/Burgutali").inline_keyboard) == 2)
 
-    # --- Majburiy obuna: @Burgutali, qat'iy rejim ---
-    R.check("Majburiy obuna yoqilgan", config.subscription_required is True)
-    R.equal("Majburiy kanal — @Burgutali", config.required_channel, "@Burgutali")
-    R.equal("Kanal havolasi to'g'ri",
-            config.required_channel_url, "https://t.me/Burgutali")
+    # --- Majburiy obuna ---
+    # Kanal `.env` da beriladi va o'chirilgan bo'lishi ham mumkin, shuning
+    # uchun bu yerda sozlamaning **izchilligi** tekshiriladi: obuna yoqilgan
+    # bo'lsa kanal ham, havolasi ham ko'rsatilgan bo'lishi shart.
+    if config.subscription_required:
+        R.check("Majburiy obuna yoqilgan — kanal ko'rsatilgan",
+                bool(config.required_channel))
+        R.check("Majburiy obuna yoqilgan — kanal havolasi bor",
+                config.required_channel_url.startswith("https://t.me/"))
+    else:
+        R.check("Majburiy obuna o'chirilgan (sozlamada shunday)",
+                config.subscription_required is False)
 
     from bot.middlewares.subscription_mw import EXEMPT_COMMANDS
     from bot.utils import subscription as sub_utils
@@ -1964,13 +2122,25 @@ def test_miniapp_api() -> None:
     R.check("Nusxa kod bo'yicha topiladi",
             exam_services.get_exam_by_code(copy_code).pk == copy_id)
 
-    # --- Ifodani tekshirish ---
-    response = call("/app/api/ifoda/", {"expr": "1/2 + 1/2"}, who=participant)
-    R.equal("Ifoda tekshirildi", response.status_code, 200)
-    R.equal("Natija 1", response.json()["value"], "1")
+    # --- Ochiq javobni tekshiruvga tayyorlash ---
+    response = call("/app/api/ifoda/", {"expr": "  Bosh  Gap. "}, who=participant)
+    R.equal("Javob tekshirildi", response.status_code, 200)
+    R.equal("Tekshiruv ko'rinishi", response.json()["normalized"], "bosh gap")
+    R.equal("Ekranda harflar saqlanadi", response.json()["pretty"], "Bosh Gap.")
 
-    response = call("/app/api/ifoda/", {"expr": "__import__('os')"}, who=participant)
-    R.equal("Xavfli ifoda rad etiladi", response.status_code, 400)
+    # Kalit yozilayotganda sinonimlar ajratib ko'rsatiladi...
+    response = call(
+        "/app/api/ifoda/", {"expr": "osmon, samo", "as_key": True}, who=participant
+    )
+    R.equal("Kalitdagi sinonimlar sanaladi", response.json()["variants"], 2)
+    R.equal("Sinonimlar ko'rsatiladi", response.json()["pretty"], "osmon yoki samo")
+
+    # ...qatnashchining javobi esa bitta butun javob bo'lib qoladi.
+    response = call("/app/api/ifoda/", {"expr": "osmon, samo"}, who=participant)
+    R.equal("Qatnashchi javobi bo'linmaydi", response.json()["variants"], 1)
+
+    response = call("/app/api/ifoda/", {"expr": "   "}, who=participant)
+    R.equal("Bo'sh javob rad etiladi", response.status_code, 400)
 
     # --- O'chirish ---
     response = call(f"/app/api/test/{copy_code}/ochirish-tekshiruv/", who=admin)
@@ -2404,194 +2574,164 @@ def test_charts() -> None:
 
 
 # ==========================================================================
-#  21. Matematik klaviatura (uchala joyda bir xil)
+#  21. Ochiq javoblar (36-45) — matn sifatida tekshiriladi
 # ==========================================================================
 
 
-def test_mathpad() -> None:
+def test_open_answers() -> None:
+    """
+    Ona tilida ochiq javob so'z yoki qisqa ibora bo'ladi.
+
+    Tekshiruv `core.answer_check` orqali matn bo'yicha bajariladi va
+    matematik klaviatura umuman ishlatilmaydi — shu ikkalasi tekshiriladi.
+    """
     from django.test import Client
 
-    from core.math_expr import parse_expression
+    from core.answer_check import (
+        alternatives,
+        compare_answer,
+        display_answer,
+        normalize_answer,
+    )
 
-    R.head("21. Matematik klaviatura (umumiy modul)")
+    R.head("21. Ochiq javoblar (matn tekshiruvi)")
 
-    shared = BASE_DIR / "static" / "mathpad"
-    css = shared / "mathpad.css"
-    js = shared / "mathpad.js"
-    field_js = shared / "mathfield.js"
+    # --- Normalizatsiya qoidalari ---
+    R.equal("Katta harf pastga tushadi", normalize_answer("EGA"), "ega")
+    R.equal("Ortiqcha probel yig'iladi", normalize_answer("  bosh   gap "), "bosh gap")
+    R.equal("Tinish belgilari olib tashlanadi", normalize_answer("kesim,"), "kesim")
+    R.equal(
+        "Apostroflar bir xillashadi",
+        normalize_answer("o‘zbek"),
+        normalize_answer("oʻzbek"),
+    )
+    R.equal("Chiziqcha bir xillashadi", normalize_answer("ko‘p–ma–ko‘p"),
+            normalize_answer("ko‘p-ma-ko‘p"))
 
-    R.check("Umumiy uslub fayli bor", css.is_file())
-    R.check("Umumiy modul fayli bor", js.is_file())
-    R.check("Formula maydoni fayli bor", field_js.is_file())
-    if not (css.is_file() and js.is_file() and field_js.is_file()):
-        return
+    # --- Taqqoslash ---
+    R.check("Bir xil javob qabul qilinadi", bool(compare_answer("Ega.", "ega")))
+    R.check("Apostrof ko'rinishi to'sqinlik qilmaydi",
+            bool(compare_answer("o‘zak", "oʻzak")))
+    R.check("Boshqa so'z rad etiladi", not compare_answer("kesim", "ega"))
+    R.check("Bo'sh javob rad etiladi", not compare_answer("", "ega"))
+    R.check("Bo'sh kalit rad etiladi", not compare_answer("ega", ""))
 
-    source = js.read_text(encoding="utf-8")
+    # --- Muqobil javoblar ---
+    R.equal("Muqobillar ajratiladi", alternatives("ot; ism"), ["ot", "ism"])
+    R.check("Birinchi muqobil to'g'ri", bool(compare_answer("ot", "ot; ism")))
+    R.check("Ikkinchi muqobil ham to'g'ri", bool(compare_answer("ISM", "ot; ism")))
+    R.check("Ro'yxatdan tashqarisi rad etiladi",
+            not compare_answer("fe’l", "ot; ism"))
 
-    # --- Tugmalar to'plami (rasmda ko'rsatilgan tartib) ---
-    rows = {
-        "raqamlar": [str(digit) for digit in range(10)],
-        "belgilar": ["pi", "e", "a", "b", "c", "x", "y", "z", "."],
-        "amallar": ["(", ")", "/", "sqrt()", "^()", "^(2)", "^(3)", "cbrt()", "root(,)"],
-        "trigonometriya": ["+", "-", "sin()", "cos()", "tan()", "cot()"],
-        "teskari trigonometriya": ["arcsin()", "arccos()", "arctan()", "arcctg()"],
-        "logarifmlar": ["ln()", "log10()", "log(,)", "exp()"],
-    }
-    for name, keys in rows.items():
-        missing = [key for key in keys if '"%s"' % key not in source]
-        R.check(f"Qator to'liq: {name} ({len(keys)} ta)", not missing, ", ".join(missing))
-
-    # --- Har bir funksiya SymPy da haqiqatan hisoblanadi ---
-    functions = [
-        ("sqrt(4)", 2), ("cbrt(8)", 2), ("root(8,3)", 2),
-        ("sin(0)", 0), ("cos(0)", 1), ("tan(0)", 0),
-        ("arcsin(0)", 0), ("arccos(1)", 0), ("arctan(0)", 0),
-        ("ln(1)", 0), ("log10(100)", 2), ("log(100,10)", 2), ("exp(0)", 1),
-        ("2^3", 8), ("cot(pi/4)", 1), ("arcctg(1)", None),
-        # Daraja qavs bilan yoziladi — keyingi son ko'rsatkichga qo'shilmaydi.
-        ("2^(3)", 8), ("2^(2)", 4), ("2^(3)4", 32), ("2^(2)5", 20), ("2^(-1)", 0.5),
-        # Ildiz darajasi — ixtiyoriy butun son.
-        ("root(32,5)", 2), ("root(16,4)", 2),
-        # Tayyor kasrdan keyin qo'yilgan yangi kasr — alohida ko'paytuvchi.
-        ("455/3*(2/5)", None), ("1/2*(3/4)", 0.375),
-        # Maxrajdan chiqqandan keyin davom ettirilgan ifoda.
-        ("5/(2)", 2.5), ("5/(2)3", 7.5), ("5/(2)+3", 5.5), ("2^(3)/(4)", 2),
-    ]
-    for expression, expected in functions:
-        parsed = parse_expression(expression)
-        ok = parsed is not None
-        if ok and expected is not None:
-            ok = abs(float(parsed) - expected) < 1e-9
-        R.check(f"Tugma ishlaydi: {expression}", ok, repr(parsed))
-
-    # --- Boshqaruv amallari ---
-    for action in ("undo", "redo", "paste", "left", "right", "enter", "del", "close"):
-        R.check(f"Amal mavjud: {action}", 'data-mp="%s"' % action in source)
-
-    # --- Klaviatura uchala joyda bir xil manbadan keladi ---
-    pages = {
-        "Web ilova": BASE_DIR / "apps/miniapp/templates/miniapp/app.html",
-        "Klaviatura sahifasi": BASE_DIR / "apps/miniapp/templates/miniapp/keyboard.html",
-        "Boshqaruv paneli": BASE_DIR / "apps/dashboard/templates/dashboard/base.html",
-    }
-    for name, path in pages.items():
-        markup = path.read_text(encoding="utf-8")
+    # --- Sinonimlar vergul bilan sanaladi ---
+    R.equal(
+        "Vergulli sinonimlar ajratiladi",
+        alternatives("osmon, samo, fazo"),
+        ["osmon", "samo", "fazo"],
+    )
+    for given in ("Osmon", "samo", "FAZO."):
         R.check(
-            f"{name} umumiy klaviaturani ulaydi",
-            "mathpad/mathpad.css" in markup and "mathpad/mathpad.js" in markup,
+            f"Sinonim to'g'ri hisoblanadi: {given!r}",
+            bool(compare_answer(given, "osmon, samo, fazo")),
         )
-        R.check(
-            f"{name} formula maydonini ulaydi",
-            "mathpad/mathfield.js" in markup,
-        )
+    R.check(
+        "Sinonim bo'lmagan javob rad etiladi",
+        not compare_answer("bulut", "osmon, samo, fazo"),
+    )
 
-    # --- Javob chizilgan formula ko'rinishida ko'rsatiladi ---
-    field_source = field_js.read_text(encoding="utf-8")
-    for part, marker in (
-        ("kasr", "mf-frac"),
-        ("daraja", "mf-sup"),
-        ("ildiz", "mf-root"),
-        ("indeks", "mf-sub"),
-        ("kursor", "mf-caret"),
-        ("bo'sh joy belgisi", "mf-box"),
+    # --- Apostrof bor-yo'qligi javobni xato qilmaydi ---
+    for given in ("O‘rta", "O`rta", "Orta", "orta"):
+        R.check(
+            f"Apostrofga befarq: {given!r}",
+            bool(compare_answer(given, "o‘rta")),
+        )
+    R.check("Tutuq belgisiz javob ham to'g'ri", bool(compare_answer("mano", "ma’no")))
+
+    # --- Baholash zanjiri: kalitdagi sinonim va apostrof (grading.py) ---
+    from apps.attempts.grading import grade_open
+    from apps.exams.models import Question
+
+    sample = Question(
+        kind=Question.Kind.OPEN,
+        parts=2,
+        answer_a="osmon, samo, fazo",
+        answer_b="o‘rta",
+    )
+    for text_a, text_b, first, second in (
+        ("osmon", "o‘rta", True, True),
+        ("Samo.", "orta", True, True),   # sinonim + apostrofsiz
+        ("FAZO", "O`rta", True, True),
+        ("bulut", "orta", False, True),
+        ("fazo", "orqa", True, False),
     ):
-        R.check(f"Formula qismi chiziladi: {part}", marker in field_source)
-
-    for name in ("sqrt", "cbrt", "root", "abs", "log10", "log"):
-        R.check(f"Funksiya chizilishi tavsiflangan: {name}",
-                '"%s"' % name in field_source)
-
-    R.check("Formula maydonida emoji yo'q", not _has_emoji(field_source))
-
-    styles = css.read_text(encoding="utf-8")
-    R.check("Formula uslublari umumiy faylda", ".mf-frac" in styles)
-
-    # --- To'ldirilmagan joy bo'sh to'rtburchak bo'lib chiziladi ---
-    R.check("Bo'sh joy to'rtburchagi tavsiflangan", "function slot(" in field_source)
-    R.check("Bo'sh joyda kursor ko'rinadi", 'classList.contains("mf-box")' in field_source)
-    R.check("Bo'sh to'rtburchak uslubi bor", ".mf-box.is-active" in styles)
-    R.check(
-        "Tugallanmagan formulada xato ko'rsatilmaydi",
-        "incomplete" in field_source,
-    )
-    R.check(
-        "Kasr tugmasi bo'sh kasr chizadi",
-        'data-mp="frac"' in source or '"frac"' in source,
-    )
-    R.check("Bo'sh kasr uchun maxsus amal bor", "function insertFraction(" in source)
-
-    # --- Darajadan chiqish: kursor pastga tushadi ---
-    R.check(
-        "Ko'rsatkich alohida o'qiladi (keyingi son darajaga qo'shilmaydi)",
-        "function parseExponent(" in field_source,
-    )
-    R.check("Tuzilma oxiri belgilanadi", "mf-tail" in field_source)
-    R.check("Tuzilma oxiri uslubi bor", ".mf-tail" in styles)
-    R.check(
-        "Bo'sh tuzilma butunlay o'chadi",
-        "function emptyShell(" in source,
+        score = grade_open(text_a, text_b, sample)
+        R.equal(
+            f"Baholash: a={text_a!r} b={text_b!r}",
+            (score.is_correct_a, score.is_correct_b),
+            (first, second),
+        )
+    R.equal(
+        "Ikkala qism to'g'ri bo'lsa 2 ball",
+        grade_open("samo", "orta", sample).score,
+        2.0,
     )
 
-    # --- Yangi kasr eskisining suratiga ko'tarilmaydi ---
-    R.check(
-        "Tayyor kasr ustiga yangi kasr chiqmaydi",
-        "function endsWithFraction(" in source,
-    )
-    R.check(
-        "Ko'paytmadagi ortiqcha qavslar chizilmaydi",
-        "function factor(" in field_source,
-    )
-    R.check(
-        "Ildiz darajasi bo'sh to'rtburchak bo'lib chiziladi",
-        '"root(,)"' in source and ".mf-deg.is-empty" in styles,
-    )
-    R.check(
-        "Maxrajdan chiqib yozishni davom ettirish mumkin",
-        "function openDenominator(" in source,
-    )
-    R.check(
-        "Tuzilma qavslari ustida kursor to'xtamaydi",
-        "function hiddenParen(" in source,
-    )
-    R.check(
-        "«Bo'sh joy» joriy bo'lakni tugatadi",
-        "function leaveSlot(" in source and "function slotEnd(" in source,
-    )
-    R.check(
-        "Matn ko'rinishidagi maydonlarda bo'sh joy odatdagidek yoziladi",
-        'input.dataset.mpadRaw === "1"' in source,
+    # --- Ko'rinish (varaqa ostidagi izoh uchun) ---
+    R.equal("Ko'rsatishda harflar saqlanadi", display_answer("  Bosh  Gap "), "Bosh Gap")
+
+    # --- Sonli javob ham matn: «0.5» va «1/2» endi bir xil emas ---
+    R.check("Matematik ekvivalentlik qo'llanmaydi",
+            not compare_answer("0.5", "1/2"))
+
+    # --- Klaviatura sahifasi olib tashlangan ---
+    client = Client()
+    R.equal(
+        "Matematik klaviatura sahifasi yo'q",
+        client.get("/app/klaviatura/").status_code,
+        404,
     )
 
-    # --- Kursor tugmalari yuqorida (telefon navigatsiyasi to'sib qo'ymasin) ---
+    # --- Kodda va sahifalarda klaviaturadan iz qolmagan ---
     R.check(
-        "Kursor tugmalari yuqori qismda quriladi",
-        "mpad-head" in source
-        and source.index("mpad-navwrap") < source.index("ROWS.forEach"),
+        "Umumiy klaviatura fayllari o'chirilgan",
+        not (BASE_DIR / "static" / "mathpad").exists(),
     )
-    pad_css = (BASE_DIR / "static/mathpad/mathpad.css").read_text(encoding="utf-8")
-    R.check("Yuqori qism uchun uslub bor", ".mpad-head {" in pad_css)
-    R.check(
-        "Yuqori qism aylantirilganda ham ko'rinadi",
-        "position: sticky" in pad_css,
-    )
-    R.check(
-        "Panel pastida telefon uchun bo'sh joy qoldiriladi",
-        "max(6px, var(--safe-bot, env(safe-area-inset-bottom" in pad_css,
-    )
-
-    # --- Eski (ikki sahifali) klaviaturadan iz qolmagan ---
     for path in (
         BASE_DIR / "apps/miniapp/static/miniapp/js/app.js",
-        BASE_DIR / "apps/miniapp/static/miniapp/js/keyboard.js",
-        BASE_DIR / "apps/dashboard/static/dashboard/js/mathpad.js",
+        BASE_DIR / "apps/dashboard/static/dashboard/js/keysheet.js",
+        BASE_DIR / "static/keysheet/keysheet.js",
     ):
         text = path.read_text(encoding="utf-8")
         R.check(
-            f"Eski klaviatura qoldig'i yo'q: {path.name}",
-            "mpage-num" not in text and "renderMathPad" not in text,
+            f"Klaviaturaga murojaat yo'q: {path.name}",
+            "MathPad." not in text and "MathField." not in text,
         )
 
-    R.check("Klaviaturada emoji yo'q", not _has_emoji(source))
+    for name, path in (
+        ("Web ilova", BASE_DIR / "apps/miniapp/templates/miniapp/app.html"),
+        ("Boshqaruv paneli", BASE_DIR / "apps/dashboard/templates/dashboard/base.html"),
+    ):
+        markup = path.read_text(encoding="utf-8")
+        R.check(f"{name} klaviaturani ulamaydi", "mathpad/" not in markup)
+
+    # --- Javob maydoni oddiy matn kiritishga ochiq ---
+    for name, path in (
+        ("varaqa", BASE_DIR / "static/keysheet/keysheet.js"),
+        ("web ilova", BASE_DIR / "apps/miniapp/static/miniapp/js/app.js"),
+        (
+            "panel — savollar",
+            BASE_DIR / "apps/dashboard/templates/dashboard/exam_questions.html",
+        ),
+        (
+            "panel — savolni tahrirlash",
+            BASE_DIR / "apps/dashboard/templates/dashboard/question_edit.html",
+        ),
+    ):
+        text = path.read_text(encoding="utf-8")
+        R.check(
+            f"Maydon telefon klaviaturasini ochadi: {name}",
+            'inputmode="none"' not in text,
+        )
 
     # --- Pastdagi bo'sh joy (telefon: panel kontentni yopib qo'ymasin) ---
     app_css = (BASE_DIR / "apps/miniapp/static/miniapp/css/app.css").read_text(
@@ -2630,18 +2770,6 @@ def test_mathpad() -> None:
         "Telegram hodisalariga ulangan",
         '"safeAreaChanged"' in app_js and '"viewportChanged"' in app_js,
     )
-    R.check(
-        "Klaviatura ham umumiy chekkani oladi",
-        "var(--safe-bot, env(safe-area-inset-bottom, 0px))" in pad_css,
-    )
-
-    # --- Sahifa haqiqatan ochiladi ---
-    client = Client()
-    response = client.get("/app/klaviatura/?q=36&parts=2")
-    R.equal("Klaviatura sahifasi ochiladi", response.status_code, 200)
-    body = response.content.decode("utf-8", "replace")
-    R.check("Sahifada umumiy modul ulangan", "mathpad/mathpad.js" in body)
-    R.check("Javob maydonlari bor", 'id="answer-a"' in body and 'id="answer-b"' in body)
 
 
 # ==========================================================================
@@ -2679,6 +2807,11 @@ def test_keysheet() -> None:
     R.check("Milliy reja 33-35 ni ajratadi",
             '"33"' not in js_text and "multi: { from: 33, to: 35 }" in js_text)
     R.check("Ochiq savollar 36-45", "open: { from: 36, to: 45 }" in js_text)
+    R.check(
+        "36-39 bitta javobli deb belgilangan",
+        "openSingle: { from: 36, to: 39 }" in js_text,
+    )
+    R.check("Varaqa qismlar sonini hisobga oladi", "function openParts" in js_text)
 
     # --- Ikkala qobiq ham shu modulni ulaydi ---
     app_html = (BASE_DIR / "apps/miniapp/templates/miniapp/app.html").read_text(encoding="utf-8")
@@ -2719,7 +2852,9 @@ def test_keysheet() -> None:
     )
     single = national.questions.filter(kind=Question.Kind.SINGLE).first()
     multi = national.questions.filter(kind=Question.Kind.MULTI).first()
-    open_q = national.questions.filter(kind=Question.Kind.OPEN).first()
+    # 36 — bitta javobli, 40 — a) va b) li ochiq savol.
+    open_q = national.questions.filter(kind=Question.Kind.OPEN, order=40).first()
+    open_single = national.questions.filter(kind=Question.Kind.OPEN, order=36).first()
     R.check("Milliy shablonda uchala tur bor",
             bool(single) and bool(multi) and bool(open_q))
 
@@ -2728,8 +2863,13 @@ def test_keysheet() -> None:
     )
     R.check("Jadvalda A-D tugmalari", 'data-letters="ABCD"' in rows)
     R.check("Jadvalda A-F tugmalari", 'data-letters="ABCDEF"' in rows)
-    R.check("Ochiq savolda ikkita maydon",
+    R.check("40–45 da ikkita maydon",
             f'name="key_{open_q.id}_a"' in rows and f'name="key_{open_q.id}_b"' in rows)
+    R.check(
+        "36–39 da faqat bitta maydon",
+        f'name="key_{open_single.id}_a"' in rows
+        and f'name="key_{open_single.id}_b"' not in rows,
+    )
 
     edit_multi = client.get(
         f"/panel/testlar/{national.pk}/savollar/{multi.pk}/"
@@ -3343,7 +3483,7 @@ def main() -> int:
     steps = [
         test_constants,
         test_text_utils,
-        test_math_expr,
+        test_answer_check,
         test_rasch,
         test_keys,
         test_code_generator,
@@ -3361,7 +3501,7 @@ def main() -> int:
         test_edge_cases,
         test_exam_codes,
         test_charts,
-        test_mathpad,
+        test_open_answers,
         test_keysheet,
         test_broadcast,
     ]

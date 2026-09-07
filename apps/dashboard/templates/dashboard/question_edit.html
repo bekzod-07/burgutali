@@ -64,8 +64,8 @@
       {% if question.kind == 'open' %}
         {#
            Ochiq savol — javoblar varaqasidagi maydonlarning aynan o‘zi
-           (`static/keysheet/`): maydonga bosilganda matematik klaviatura
-           ochiladi va ifoda darhol tekshiriladi.
+           (`static/keysheet/`): javob yozilishi bilan tekshiruvga tayyor
+           ko‘rinishi ostida ko‘rsatiladi.
         #}
         <div class="answer-fields">
           <div class="answer-field">
@@ -103,21 +103,14 @@
         <div hidden>{{ form.answer_a }}{{ form.answer_b }}</div>
       {% endif %}
 
-      <div class="form-grid mt">
-        <div class="form-row">
-          <label for="{{ form.numeric_tolerance.id_for_label }}">{{ form.numeric_tolerance.label }}</label>
-          {{ form.numeric_tolerance }}
-          {% if form.numeric_tolerance.errors %}
-            <div class="errors">{{ form.numeric_tolerance.errors|striptags }}</div>
-          {% endif %}
-        </div>
-      </div>
-
       <div class="message message-info small">
-        Ochiq javoblar SymPy orqali <b>matematik ekvivalentlikka</b> tekshiriladi:
-        <code>1/2</code>, <code>0.5</code>, <code>2^-1</code> — bir xil javob.
-        Bir nechta to‘g‘ri javob bo‘lsa, ularni <code>;</code> bilan ajrating
-        (masalan: <code>0.5;1/2</code>).
+        Ochiq javoblar <b>matn</b> sifatida tekshiriladi: katta-kichik harf,
+        apostrof ko‘rinishi va hatto uning yo‘qligi
+        (<code>orta</code> = <code>o‘rta</code>) hamda tinish belgilari
+        e’tiborga olinmaydi.
+        <br>
+        <b>Sinonimlarni vergul bilan sanang</b>:
+        <code>osmon, samo, fazo</code> — har biri to‘g‘ri javob hisoblanadi.
       </div>
     </div>
   </section>

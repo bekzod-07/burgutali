@@ -13,7 +13,7 @@ yozadi, shuning uchun matn yuborishdan **oldin** tozalanadi:
 
 Tugmalar oddiy matn ko'rinishida kiritiladi:
 
-    Kanalga o'tish | https://t.me/Burgutali
+    Kanalga o'tish | https://t.me/Oybek_ustoz_MS
     Sayt | https://burgutali.uz || Bot | https://t.me/misol_bot
 
 Har bir qator — klaviaturaning bir qatori; `||` bilan ajratilgan

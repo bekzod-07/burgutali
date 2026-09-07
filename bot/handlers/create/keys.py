@@ -18,6 +18,7 @@ from bot.keyboards import inline
 from bot.services import exams as exam_service
 from bot.states import CreateExamStates
 from bot.texts import exam as TE
+from core import constants as C
 from core.text_utils import esc
 
 router = Router(name="create.keys")
@@ -114,7 +115,11 @@ async def receive_open_keys(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     count = int(data.get("open_count", 0))
 
-    result = exam_service.parse_open_key(message.text or "", count)
+    # Ochiq savollar faqat milliy shablonda: 36–39 bitta javobdan,
+    # 40–45 esa a) va b) dan iborat.
+    result = exam_service.parse_open_key(
+        message.text or "", count, C.national_open_parts()
+    )
     if not result.ok:
         await message.answer(TE.KEY_ERRORS.format(errors=_format_errors(result.errors)))
         return

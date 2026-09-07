@@ -11,7 +11,7 @@
 ## 2. Muhitni tayyorlash
 
 ```bash
-cd rashmodel_matematikabot
+cd rashmodel_onatilibot
 
 python -m venv env
 env\Scripts\activate            # Windows
@@ -39,7 +39,7 @@ cp .env.example .env            # Linux / macOS
 | `BOT_TOKEN` | @BotFather bergan token |
 | `BOT_USERNAME` | bot username (`@` belgisisiz) — deep-link uchun |
 | `ADMIN_IDS` | asosiy adminlarning Telegram ID lari, vergul bilan |
-| `REQUIRED_CHANNEL` | majburiy obuna kanali (`@Burgutali`) |
+| `REQUIRED_CHANNEL` | majburiy obuna kanali (`@Oybek_ustoz_MS`) |
 | `REQUIRED_CHANNEL_URL` | kanalga havola |
 | `DJANGO_SECRET_KEY` | Django maxfiy kaliti (ishlab chiqarishda albatta o‘zgartiring) |
 
@@ -61,7 +61,7 @@ chiqarilgan, Telegram javob bermadi) foydalanuvchi kiritilmaydi. Faqat
 > **Diqqat:** shu sababli botni kanaldan chiqarish barcha foydalanuvchilarni
 > to‘sib qo‘yadi. Bot ishga tushganda kanalda administrator ekanini
 > tekshiradi va natijani logga yozadi:
-> `Majburiy obuna yoqilgan: @Burgutali (bot kanalda administrator).`
+> `Majburiy obuna yoqilgan: @Oybek_ustoz_MS (bot kanalda administrator).`
 > Muammo bo‘lsa log’da `MAJBURIY OBUNA ISHLAMAYDI` satri chiqadi.
 
 Majburiy obunani butunlay o‘chirish: `SUBSCRIPTION_REQUIRED=0`.
@@ -118,7 +118,7 @@ Manzillar:
 | `http://127.0.0.1:8000/panel/tg/` | panelga Telegram orqali kirish (Web App) |
 | `http://127.0.0.1:8000/verify/` | sertifikatni tekshirish |
 | `http://127.0.0.1:8000/app/` | web ilova (Mini App) |
-| `http://127.0.0.1:8000/app/klaviatura/` | faqat matematik klaviatura |
+| `http://127.0.0.1:8000/app/klaviatura/` | faqat ochiq javob maydonlari |
 
 ---
 
@@ -224,7 +224,7 @@ sertifikat baribir yaratiladi.
 
 ```bash
 python manage.py check      # Django tizim tekshiruvi
-python selftest.py          # 820 ta tekshiruv (alohida sinov bazasida)
+python selftest.py          # 737 ta tekshiruv (alohida sinov bazasida)
 python simulate.py          # 157 ta tekshiruv (bot oqimi simulyatsiyasi)
 ```
 

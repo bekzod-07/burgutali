@@ -400,7 +400,14 @@ def _apply_keys(request, exam: Exam, data: dict) -> None:
             applied += exam_services.apply_multi_keys(exam, result.keys)
 
     if data.get("open_keys") and open_count:
-        result = key_parser.parse_open_key(data["open_keys"], open_count)
+        # Har bir ochiq savol nechta javobdan iboratligi testning o'zidan
+        # olinadi (milliy shablonda 36–39 bitta, 40–45 ikkita).
+        open_parts = list(
+            exam.questions.filter(kind=Question.Kind.OPEN, is_active=True)
+            .order_by("order")
+            .values_list("parts", flat=True)
+        )
+        result = key_parser.parse_open_key(data["open_keys"], open_count, open_parts)
         errors.extend(result.errors)
         if result.ok:
             applied += exam_services.apply_open_keys(exam, result.keys)

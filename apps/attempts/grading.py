@@ -6,8 +6,9 @@ Uchta savol turi qo'llab-quvvatlanadi:
   * SINGLE — A/B/C/D dan bittasi. Tanlangan harf kalitga to'liq mos kelsa 1 ball.
   * MULTI  — A..F dan bittasi (moslashtirish). Tanlov kalitga **aynan** mos
              kelgandagina 1 ball (qisman ball berilmaydi).
-  * OPEN   — a) va b) javob maydonlari. Har biri SymPy orqali matematik
-             ekvivalentlikka tekshiriladi va har biri 1 balldan.
+  * OPEN   — a) va b) javob maydonlari. Har biri matn sifatida (katta-kichik
+             harf, apostrof va tinish belgilariga befarq) tekshiriladi va
+             har biri 1 balldan.
 
 Baholash natijasi `Answer` obyektiga yoziladi, urinishning umumiy xom balli
 esa `Attempt` ga.
@@ -17,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.math_expr import compare_answer
+from core.answer_check import compare_answer
 
 from apps.exams.models import Question
 
@@ -76,7 +77,8 @@ def grade_open(text_a: str, text_b: str, question: Question) -> AnswerScore:
     """
     Ochiq javobli savolni (36–45) baholaydi.
 
-    Har bir qism (a va b) alohida 1 balldan baholanadi.
+    Har bir qism (a va b) alohida 1 balldan baholanadi. Javob matn
+    sifatida solishtiriladi (`core.answer_check`).
     """
     tolerance = float(question.numeric_tolerance or 1e-6)
     parts = int(question.parts or 1)

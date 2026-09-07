@@ -9,14 +9,17 @@ bajarilganini ko‘rsatadi.
 
 | № | Talab | Bajarilishi |
 |---|-------|-------------|
-| 1 | Rasch modeli asosida matematik testlarni Telegram bot orqali baholash | `bot/` + `apps/rasch/` |
+| 1 | Rasch modeli asosida ona tili testlarini Telegram bot orqali baholash | `bot/` + `apps/rasch/` |
 | 2 | Rollar: Administrator va Ishtirokchi | `apps/users/models.BotUser.is_admin`, `bot/middlewares/user_mw.py` |
 | 3 | Jami 45 ta savol | `core/constants.NATIONAL_TOTAL_QUESTIONS`, `apps/exams/structures.national_specs()` |
 | 3 | 1–32: A, B, C, D (bitta javob) | `Question.Kind.SINGLE`, `NATIONAL_SINGLE_RANGE` |
 | 3 | 33–35: A–F (moslashtirish — bitta to‘g‘ri javob) | `Question.Kind.MULTI`, `NATIONAL_MULTI_RANGE` |
-| 3 | 36–45: variantsiz, a) va b) maydonlar | `Question.Kind.OPEN` + `parts=2`, `NATIONAL_OPEN_RANGE` |
-| 4 | Mini App matematik klaviatura | `static/mathpad/` — web ilova, boshqaruv paneli va `/app/klaviatura/` sahifasi uchun **yagona** klaviatura (raqamlar, π, e, a–c, x–z, kasr, ildizlar, darajalar, sin/cos/tan/cot va teskarilari, ln, log, log□, exp, qavslar; ortga/oldinga qaytarish va buferdan qo‘yish) |
-| 4 | SymPy orqali ekvivalentlik (1/2 = 0.5, sin(pi/6)=0.5) | `core/math_expr.compare_answer()` |
+| 3 | 36–39: variantsiz, bitta javob | `Question.Kind.OPEN` + `parts=1`, `NATIONAL_OPEN_SINGLE_RANGE` |
+| 3 | 40–45: variantsiz, a) va b) maydonlar | `Question.Kind.OPEN` + `parts=2`, `NATIONAL_OPEN_DOUBLE_RANGE` |
+| 3 | Jami 51 ball | `core/constants.NATIONAL_MAX_RAW_SCORE`, `national_open_parts()` |
+| 4 | Mini App ochiq javob maydonlari | oddiy matn maydoni — telefonning o‘z klaviaturasi ochiladi; javob varaqasi `static/keysheet/` da (web ilova va panel uchun yagona) |
+| 4 | Javob matn bo‘yicha tekshiriladi: katta-kichik harf, apostrof (va uning yo‘qligi: `orta` = `o‘rta`), tinish belgilari hisobga olinmaydi | `core/answer_check.compare_answer()` |
+| 4 | Kalitda sinonimlar (`osmon, samo, fazo`) — har biri to‘g‘ri javob | `core/answer_check.alternatives()` |
 | 5 | 3000 ta noyob 7 xonali ID | `core/constants.DEFAULT_CODE_BATCH = 3000`; kod formati TZ dagi `R7K4-8251` ko‘rinishida (8 belgi) — «Rash bot» hujjati aynan shu formatni talab qiladi |
 | 5 | Har bir ID faqat bir marta ishlatiladi | `AccessCode.Status`, `uniq` cheklov, `consume_code()` |
 | 5 | ID ishlatilgach bloklanadi | `apps/accesscodes/services.consume_code()` |
@@ -36,7 +39,7 @@ bajarilganini ko‘rsatadi.
 | 9 | Excel/PDF eksport | `apps/exports/excel.py`, `apps/exports/pdf_report.py` |
 | 9 | Ishtirokchilar statistikasi | `apps/attempts/models.ExamStatistics` |
 | 9 | ID larni boshqarish | `apps/dashboard/views.exam_codes`, `bot/handlers/admin/codes.py` |
-| 10 | Python 3.12+, Aiogram 3, SymPy, NumPy, SciPy, Pandas, Telegram Bot API, Mini App | `requirements.txt` |
+| 10 | Python 3.12+, Aiogram 3, matn tekshiruvi, NumPy, SciPy, Pandas, Telegram Bot API, Mini App | `requirements.txt` |
 | 10 | PostgreSQL | `DATABASE_URL` orqali; standart holatda SQLite (WAL) |
 | 10 | SQLAlchemy | **Django ORM bilan almashtirilgan** — sabab: bitta sxema ustida ikkita ORM ishlatish migratsiya va tranzaksiya muammolarini keltiradi (`docs/ARXITEKTURA.md`, 1-bo‘lim) |
 | 11 | Modulli, kengaytiriladigan arxitektura | `core/`, `apps/*/services.py`, `bot/handlers/*` |
@@ -53,7 +56,7 @@ bajarilganini ko‘rsatadi.
 | 1 | Bot profilidagi «What can this bot do?» matni | `bot/texts/common.BOT_DESCRIPTION` — `set_my_description()` orqali avtomatik o‘rnatiladi |
 | 2 | /start matni (aynan) | `bot/texts/start.WELCOME` |
 | 2 | «Boshlash» tugmasi | `bot/keyboards/inline.start_button()` |
-| 2 | Majburiy obuna @Burgutali | `bot/middlewares/subscription_mw.py`, `bot/utils/subscription.py` |
+| 2 | Majburiy obuna @Oybek_ustoz_MS | `bot/middlewares/subscription_mw.py`, `bot/utils/subscription.py` |
 | 2 | Obuna /start va Boshlash da tekshiriladi | `bot/handlers/start._start_flow()` |
 | 2 | «Kanalga a’zo bo‘lish» / «A’zolikni tekshirish» | `bot/keyboards/inline.subscription()` |
 | 2 | «A’zolik tasdiqlandi» | `bot/texts/start.SUBSCRIPTION_CONFIRMED` |
@@ -147,7 +150,7 @@ Barcha chetlanishlar funksionallikni kamaytirmaydi.
 | Tugallanmagan testni davom ettirish (web ilova bosh sahifasida) | `api.bootstrap` -> `drafts` |
 | Emoji o‘rniga SVG ikonkalar tizimi | `templates/partials/icons.html` |
 | `/ilova` buyrug‘i va botning doimiy menyu tugmasi | `bot/handlers/menu.open_web_app`, `bot/main.on_startup` |
-| SymPy `parse_expr` ichidagi kod bajarish xavfidan himoya | `core/math_expr.is_safe_input()` + cheklangan `global_dict` |
+| Ochiq javobda sinonimlar va apostrofga befarq tekshiruv | `core/answer_check.alternatives()`, `fold_answer()` |
 
 ---
 
@@ -155,5 +158,5 @@ Barcha chetlanishlar funksionallikni kamaytirmaydi.
 
 | Skript | Tekshiruvlar | Nimani qamrab oladi |
 |--------|--------------|---------------------|
-| `selftest.py` | 820 | konstantalar, matn, SymPy (xavfsizlik hujumlari bilan), Rasch algoritmi, kalit tahlili, ID generatori, migratsiyalar, 45-savollik to‘liq oqim, oddiy test, pullik test + sertifikat, eksport, Mini App imzosi, web sahifalar, panel, bot modullari, chegaraviy holatlar, test kodining qayta ishlatilishi, savollar qiyinchiligi diagrammasi, reklama (matn + rasm + tugmalar) yuborish |
+| `selftest.py` | 820 | konstantalar, matn, matn tekshiruvi (xavfsizlik hujumlari bilan), Rasch algoritmi, kalit tahlili, ID generatori, migratsiyalar, 45-savollik to‘liq oqim, oddiy test, pullik test + sertifikat, eksport, Mini App imzosi, web sahifalar, panel, bot modullari, chegaraviy holatlar, test kodining qayta ishlatilishi, savollar qiyinchiligi diagrammasi, reklama (matn + rasm + tugmalar) yuborish |
 | `simulate.py` | 157 | botning haqiqiy oqimi: obuna → ro‘yxat → test yaratish → testga kirish → javob berish → yuborish → natija → admin paneli → ID kodlar → hisoblash → e'lon → sertifikat PDF |

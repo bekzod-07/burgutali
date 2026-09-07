@@ -85,7 +85,7 @@
          Javoblar varaqasi — qatnashchi ko‘radigan varaqaning aynan o‘zi
          (`static/keysheet/`). Web ilovadagi bilan bir xil: 1–32 uchun A–D,
          33–35 uchun A–F, har birida faqat bitta javob; ochiq savollarda
-         matematik klaviatura.
+         javob maydonlari.
       #}
       <div class="ks-seg" id="key-mode">
         <button type="button" data-keymode="sheet"
@@ -112,9 +112,17 @@
       </div>
 
       <div class="message message-info small">
-        <b>Ochiq javoblar</b> SymPy orqali matematik ekvivalentlikka tekshiriladi:
-        <code>1/2</code>, <code>0.5</code>, <code>2^-1</code> — bir xil javob.
-        Muqobil javoblarni <code>;</code> emas, alohida maydonda ko‘rsating.
+        <b>Ochiq javoblar</b> matn sifatida tekshiriladi: katta-kichik harf,
+        apostrof ko‘rinishi (<code>o‘</code>, <code>oʻ</code>, <code>o'</code>,
+        <code>o`</code>) va hatto uning <b>yo‘qligi</b> ham
+        (<code>orta</code> = <code>o‘rta</code>), shuningdek tinish
+        belgilari e’tiborga olinmaydi.
+        <br>
+        <b>Sinonimlarni vergul bilan sanang</b>:
+        <code>osmon, samo, fazo</code> — qatnashchi qaysi birini yozsa ham
+        javob to‘g‘ri hisoblanadi (<code>;</code> va <code>/</code> ham
+        ajratkich sifatida ishlaydi).
+        Matn rejimida a) va b) javoblari <code>|</code> bilan ajratiladi.
       </div>
 
     </div>

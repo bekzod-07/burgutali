@@ -3,12 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>Rasch Math</title>
+  <title>Ona tili — RASH platformasi</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  {# Matematik klaviatura va javoblar varaqasi — uchala joy uchun umumiy. #}
+  {# Javoblar varaqasi — ilova va panel uchun umumiy. #}
   {# Belgi — brauzer va Telegram uni har sahifada so'raydi. #}
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
-  <link rel="stylesheet" href="{% static 'mathpad/mathpad.css' %}?v={{ asset_version }}">
   <link rel="stylesheet" href="{% static 'keysheet/keysheet.css' %}?v={{ asset_version }}">
   <link rel="stylesheet" href="{% static 'miniapp/css/app.css' %}?v={{ asset_version }}">
 </head>
@@ -27,7 +26,7 @@
     <svg class="icon"><use href="#i-chevron-left"></use></svg>
   </button>
   <div class="app-bar-title">
-    <h1 id="app-title">Rasch Math</h1>
+    <h1 id="app-title">Ona tili</h1>
     <p id="app-subtitle"></p>
   </div>
   <button class="app-bar-action" id="btn-refresh" aria-label="Yangilash">
@@ -80,8 +79,6 @@
   </div>
 </div>
 
-<script src="{% static 'mathpad/mathpad.js' %}?v={{ asset_version }}"></script>
-<script src="{% static 'mathpad/mathfield.js' %}?v={{ asset_version }}"></script>
 <script src="{% static 'keysheet/keysheet.js' %}?v={{ asset_version }}"></script>
 <script src="{% static 'miniapp/js/app.js' %}?v={{ asset_version }}"></script>
 </body>

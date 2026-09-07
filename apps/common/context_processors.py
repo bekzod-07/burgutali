@@ -9,17 +9,11 @@ from django.conf import settings
 #: Panel uslubi va skriptlari — versiya belgisini shu fayllar bo'yicha olamiz.
 _PANEL_STATIC = Path(__file__).resolve().parent.parent / "dashboard" / "static" / "dashboard"
 _STATIC_ROOT = Path(__file__).resolve().parent.parent.parent / "static"
-_SHARED_STATIC = _STATIC_ROOT / "mathpad"
 _KEYSHEET_STATIC = _STATIC_ROOT / "keysheet"
 _PANEL_ASSETS = (
     _PANEL_STATIC / "css" / "dashboard.css",
-    _PANEL_STATIC / "js" / "mathpad.js",
     _PANEL_STATIC / "js" / "keysheet.js",
     _PANEL_STATIC / "js" / "broadcast.js",
-    # Umumiy matematik klaviatura ham shu versiya bilan yangilanadi.
-    _SHARED_STATIC / "mathpad.css",
-    _SHARED_STATIC / "mathpad.js",
-    _SHARED_STATIC / "mathfield.js",
     # Javoblar varaqasi — web ilova bilan umumiy.
     _KEYSHEET_STATIC / "keysheet.css",
     _KEYSHEET_STATIC / "keysheet.js",
@@ -46,7 +40,7 @@ def site_info(request) -> dict:  # noqa: ANN001
     """Sayt nomi, bot havolasi va shu kabi umumiy qiymatlar."""
     bot_username = getattr(settings, "BOT_USERNAME", "")
     return {
-        "SITE_NAME": getattr(settings, "CERT_PLATFORM_NAME", "Rasch Math Platform"),
+        "SITE_NAME": getattr(settings, "CERT_PLATFORM_NAME", "Ona tili RASH platformasi"),
         "ORGANIZATION": getattr(settings, "CERT_ORGANIZATION", ""),
         "BOT_USERNAME": bot_username,
         "BOT_URL": f"https://t.me/{bot_username}" if bot_username else "",

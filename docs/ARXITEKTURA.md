@@ -45,13 +45,15 @@ bilan o‘raladi.
 | `constants.py` | TZ dagi barcha raqamli talablar: 90.14, daraja jadvali, savol turlari, ID kod alifbosi |
 | `env.py` | `.env` bilan ishlash (Django va bot uchun yagona manba) |
 | `text_utils.py` | apostroflar, ism-familiya, telefon, HTML ekranlash |
-| `math_expr.py` | SymPy ekvivalentligi va **xavfsiz** ifoda tahlilchisi |
+| `answer_check.py` | ochiq javoblarni matn bo‘yicha tekshirish (sinonimlar, apostrof, tinish belgilari) |
 | `django_setup.py` | bot jarayonida Django ni ishga tushirish |
 
-`math_expr.py` alohida e'tibor talab qiladi: SymPy ning `parse_expr`
-funksiyasi ichida `eval` ishlatadi. Shuning uchun ikki qatlamli himoya
-qo‘llanilgan — shubhali belgilar bloklanadi va `eval` uchun berilgan
-global lug‘atda `__builtins__` bo‘sh qilinadi.
+`answer_check.py` — ochiq javoblarni baholashning **yagona** manbasi: bot,
+web ilova va boshqaruv paneli aynan shu moduldan foydalanadi. Javob matn
+sifatida solishtiriladi: katta-kichik harf, apostrof ko‘rinishi va hatto
+uning yo‘qligi (`orta` = `o‘rta`), tinish belgilari va ortiqcha probellar
+e’tiborga olinmaydi. Kalitdagi sinonimlar `,`, `;` yoki `/` bilan sanaladi
+(`osmon, samo, fazo`) va har biri to‘g‘ri javob hisoblanadi.
 
 ### 2.2. `apps/` — Django ilovalari
 
@@ -121,7 +123,7 @@ BotUser ──1:N──► Exam ──1:N──► Question
 ```
 1. Answer.selected / text_a / text_b        ← foydalanuvchi javobi
         │
-2. attempts/grading.py                       ← kalit yoki SymPy ekvivalentligi
+2. attempts/grading.py                       ← kalit yoki matn tekshiruvi ekvivalentligi
         │   grade_attempt() -> responses[0/1]
         ▼
 3. rasch/services.py: build_items()          ← savollarni "item" larga yoyish
@@ -243,7 +245,7 @@ apps/miniapp/
 ├── templates/miniapp/app.html        qobiq (header + ekran + tabbar)
 └── static/miniapp/
     ├── css/app.css    Telegram mavzusiga moslashuvchi uslub
-    └── js/app.js      router, ekranlar, matematik klaviatura
+    └── js/app.js      router, ekranlar, ochiq javob maydonlari
 ```
 
 **Autentifikatsiya.** Har bir API so‘rovi `X-Telegram-Init-Data`
@@ -271,7 +273,7 @@ boshqaruv · reyting.
 | `POST api/test-yaratish/` | yangi test (kalitlar bilan) |
 | `POST api/test/<kod>/amal/` | faollashtirish / yopish / hisoblash / e'lon / nusxa |
 | `POST api/test/<kod>/ochirish/` | testni o‘chirish (tasdiq bilan) |
-| `POST api/ifoda/` | matematik ifodani SymPy orqali tekshirish |
+| `POST api/ifoda/` | ochiq javobni tekshiruvga tayyor ko‘rinishga keltirish |
 
 ---
 
@@ -284,7 +286,7 @@ Bot                                 Mini App (Django)
  │                                        │  foydalanuvchi ifoda kiritadi
  │                                        │
  │                                        ├─ POST /app/api/tekshir/
- │                                        │  (SymPy orqali jonli tekshiruv)
+ │                                        │  (matn tekshiruvi orqali jonli tekshiruv)
  │                                        │
  │◄─── Telegram.WebApp.sendData(JSON) ────┤
  │     {"q": 36, "a": "12", "b": "3/4"}   │
@@ -304,7 +306,7 @@ sifatida (`12 ; 3/4`) qabul qilinaveradi — funksionallik yo‘qolmaydi.
 
 | Chora | Qayerda |
 |-------|---------|
-| Matematik ifoda tahlilchisida `eval` himoyasi | `core/math_expr.py` |
+| Ochiq javob uzunligi cheklanadi (`MAX_INPUT_LENGTH`) | `core/answer_check.py` |
 | Mini App `initData` HMAC-SHA256 imzosi | `apps/miniapp/auth.py` |
 | Sertifikat QR havolasida taxmin qilib bo‘lmaydigan token | `Certificate.verify_token` |
 | ID kodlar `secrets` moduli bilan yaratiladi | `apps/accesscodes/generator.py` |

@@ -51,7 +51,7 @@ os.environ["DJANGO_ENV"] = "dev"
 os.environ["BOT_TOKEN"] = "123456789:SIMULATION-TOKEN-PLACEHOLDER-000"
 os.environ["BOT_USERNAME"] = "rasch_sim_bot"
 os.environ["ADMIN_IDS"] = "500001"
-os.environ["REQUIRED_CHANNEL"] = "@Burgutali"
+os.environ["REQUIRED_CHANNEL"] = "@Oybek_ustoz_MS"
 os.environ["SUBSCRIPTION_REQUIRED"] = "1"
 os.environ["BOT_THROTTLE_RATE"] = "0"
 os.environ["PUBLIC_BASE_URL"] = "https://example.test"
@@ -389,7 +389,7 @@ async def scenario_registration(sim: Simulator) -> None:
     index = await sim.send(USER_ID, "/start")
     text = sim.joined_texts(index)
     R.check("Obunasiz foydalanuvchiga a'zolik so'raladi", "a’zo bo‘ling" in text)
-    R.check("Kanal nomi ko'rsatiladi", "@Burgutali" in text)
+    R.check("Kanal nomi ko'rsatiladi", "@Oybek_ustoz_MS" in text)
 
     check_cb = sim.find_callback(index, lambda b: b.callback_data.startswith("sub:"))
     R.check("«A'zolikni tekshirish» tugmasi bor", check_cb is not None)

@@ -1,6 +1,6 @@
-# Rasch Telegram Bot — matematik testlarni baholash platformasi
+# Ona tili RASH platformasi — testlarni baholash tizimi
 
-Matematika fanidan Milliy sertifikat formatidagi testlarni **Telegram bot**
+Ona tili fanidan Milliy sertifikat formatidagi testlarni **Telegram bot**
 orqali o‘tkazish va **Rasch (IRT-1PL)** modeli asosida baholash uchun to‘liq
 platforma.
 
@@ -38,7 +38,7 @@ yuklab olish — barchasi **web ilovada**, tugmalar orqali:
   variant bosilsa, birinchisi o‘chadi) — bu 1–32 (A–D) va 33–35
   (moslashtirish, A–F) savollarining ikkalasiga ham tegishli: har bir
   savolda **faqat bitta** javob belgilanadi. Ochiq savollar uchun
-  **matematik klaviatura** va jonli SymPy tekshiruvi. Har bir javob darhol serverga
+  oddiy matn maydoni va jonli ko‘rinish tekshiruvi. Har bir javob darhol serverga
   saqlanadi. Testni javobsiz savollar bilan ham yakunlash mumkin — bot
   qaysi savollar qolganini ogohlantirib aytadi;
 * **Natija** — RASH balli, daraja, reyting, har bir savol bo‘yicha
@@ -61,11 +61,14 @@ imzosi bilan autentifikatsiya qilinadi.
 
 ### Test tuzilmasi
 
-Milliy sertifikat shabloni — **45 ta savol**:
+Milliy sertifikat shabloni — **45 ta savol, jami 51 ball**:
 
-* **1–32** — A, B, C, D (bitta to‘g‘ri javob);
-* **33–35** — A, B, C, D, E, F (moslashtirish: faqat bitta to‘g‘ri javob);
-* **36–45** — variantsiz, har birida **a)** va **b)** javob maydoni.
+| Savollar | Turi | Ball |
+|----------|------|------|
+| **1–32** | A, B, C, D (bitta to‘g‘ri javob) | 32 |
+| **33–35** | A, B, C, D, E, F (moslashtirish: bitta to‘g‘ri javob) | 3 |
+| **36–39** | variantsiz, **bitta** javob | 4 |
+| **40–45** | variantsiz, **a)** va **b)** javob maydoni | 12 |
 
 Yoki ixtiyoriy tuzilma: 10, 20, 30, 45, 50, 100 … savol (A/B/C/D).
 
@@ -129,8 +132,8 @@ Maksimal standartlashtirilgan ball — **90.14**.
 **Shkala daraja chegarasiga moslashadi.** Rasch `theta` si ballga chiziqli
 o'tkaziladi, lekin shkalaning quyi uchi har bir test hisoblanganda
 avtomatik sozlanadi: savollarning **32% ini** topgan qatnashchi aynan
-**46.00 ball = «C»** oladi. Milliy shablonda jami 55 ball bor, ya'ni
-**18 ta to'g'ri javob — C darajasi**; undan yuqorisi savollarning
+**46.00 ball = «C»** oladi. Milliy shablonda jami 51 ball bor, ya'ni
+**17 ta to'g'ri javob — C darajasi**; undan yuqorisi savollarning
 qiyinligiga qarab taqsimlanadi. Shkalaning yuqori uchi tegilmaydi
 (`theta_max` -> 90.14). Sozlamani test darajasida o'chirish mumkin —
 «Ball shkalasi darajaga moslansin».
@@ -208,136 +211,60 @@ adminlarga yuboriladigan xabarda (PNG) va «Natijalar (PDF)» hisobotida.
 Botda esa test egasi «Savollar qiyinchiligi» tugmasi orqali istalgan
 paytda oladi.
 
-### Matematik formulalar klaviaturasi (Telegram Mini App)
+### Ochiq javoblar (36–45-savollar)
 
-Ochiq javob maydoni bosilganda ekran pastidan **bitta oynali** klaviatura
-chiqadi — barcha belgilar bir joyda, sahifalar orasida o‘tish shart emas:
+Ona tilida ochiq savolning javobi — so‘z, so‘z birikmasi yoki qisqa ibora.
+Shuning uchun javob maydoni oddiy matn maydoni bo‘lib, telefonning o‘z
+klaviaturasi ochiladi; hech qanday maxsus panel kerak emas.
 
-```
-[yopish]  36-savol · a) javob            [ortga] [oldinga] [qo‘yish]
-                    ‹   ›   ⏎   ⌫
+Javob **matn sifatida** solishtiriladi va tekshiruvda quyidagilar
+e’tiborga olinmaydi:
 
-  1  2  3  4  5  6  7  8  9  0
-  π  e  a  b  c  x  y  z  .
-  (  )  □/□  √□  □^□  □²  □³  ³√□  ⁿ√□
-  +  −  sin□  cos□  tan□  cot□
-  arcsin□  arccos□  arctan□  arcctg□
-  ln□  log□  log□□  exp□
-```
+| Nima | Misol |
+|------|-------|
+| katta-kichik harf | `Ot` = `ot` |
+| apostrof ko‘rinishi | `o‘zak` = `oʻzak` = `o'zak` = `o\`zak` |
+| **apostrofning yo‘qligi** | `o‘rta` = `orta`, `ma'no` = `mano` |
+| tinish belgilari | `kesim,` = `kesim` |
+| ortiqcha probel | `bosh  gap` = `bosh gap` |
+| chiziqcha turi | `ko‘p–ma–ko‘p` = `ko‘p-ma-ko‘p` |
 
-Yuqorida uchta amal bor: **ortga qaytarish**, **oldinga qaytarish** va
-**buferdan qo‘yish**. Ostidagi yo‘lakda kursorni siljitish (`‹ ›`),
-keyingi maydonga o‘tish (`⏎`) va o‘chirish (`⌫`).
+Apostrof telefon klaviaturasida qiyin teriladi va ko‘pchilik uni umuman
+qo‘ymaydi, shuning uchun javobning to‘g‘riligi unga bog‘lab qo‘yilmagan:
+`O‘rta`, `O\`rta`, `Orta`, `orta` — hammasi bir xil qabul qilinadi.
 
-Bu yo‘lak **yuqorida** turadi va panel aylantirilganda ham joyida qoladi:
-pastda u telefonning tizim navigatsiya paneli (jest chizig‘i yoki uch
-tugma) ostida qolib, ba’zi qurilmalarda bosilmasdi.
-
-Klaviatura **bitta manbadan** keladi (`static/mathpad/`), shuning uchun u
-uchala joyda aynan bir xil: web ilovada test topshirishda, test yaratishdagi
-javob kalitlari varaqasida va botning `/app/klaviatura/` sahifasida.
-
-### Javob maydoni — chizilgan formula
-
-Javob maydonining o‘zi kiritilgan ifodani **haqiqiy formula ko‘rinishida**
-ko‘rsatadi: kasr ustma-ust, ildiz chiziq ostida, daraja yuqorida.
+**Sinonimlar (bir nechta to‘g‘ri javob).** Kalitda muqobil javoblar
+sanab yoziladi va ularning har biri to‘liq to‘g‘ri hisoblanadi. Ajratkich —
+`,` (vergul), `;` yoki `/`; uchalasi bir xil ishlaydi:
 
 ```
-455        ______
-───  ·  ⁵⁴√ 5666
-4566
+osmon, samo, fazo
+osmon; samo; fazo
+osmon / samo / fazo
 ```
 
-Maydonning qiymati ilgarigidek oddiy matn bo‘lib qoladi (`455/4566 sqrt(...)`) —
-baholash, saqlash va SymPy tekshiruvi shu matn bilan ishlaydi, o‘zgargani
-faqat ko‘rinish. Kursor formulaning ichida ko‘rinadi; uni `‹ ›` tugmalari
-bilan yoki formulani bosib siljitish mumkin.
+Qatnashchi `Samo.` deb yozsa ham, `FAZO` deb yozsa ham javob to‘g‘ri.
 
-To‘ldirilmagan joy **bo‘sh to‘rtburchak** bo‘lib turadi. Masalan, hech
-narsa yozmasdan kasr tugmasi bosilsa, darhol ustma-ust ikkita to‘rtburchak
-va ular orasida chiziq chiziladi, kursor esa yuqoridagi to‘rtburchakning
-ichida turadi:
+Qoidalar `core/answer_check.py` da jamlangan — bot ham, web ilova ham,
+boshqaruv paneli ham aynan shu moduldan foydalanadi, shuning uchun javob
+uch joyda bir xil baholanadi.
 
-```
-□          ⌐‾‾¬          □
-─          |□|          □
-□                       (daraja)
-kasr       ildiz
-```
-
-Xuddi shunday: `√`, `□^□`, `log□(□)` va boshqa tugmalar ham bosilishi
-bilan bo‘sh to‘rtburchaklarini ko‘rsatadi. Formula to‘liq to‘ldirilmaguncha
-jonli tekshiruv xato haqida ogohlantirmaydi.
-
-**Darajadan chiqish.** Daraja tugmalari ko‘rsatkichni qavs bilan yozadi
-(`2^(3)`), shuning uchun uning chegarasi aniq: `›` tugmasi bosilishi bilan
-kursor darajadan **pastga tushadi** va keyingi son ko‘rsatkichga qo‘shilib
-ketmaydi — `2³·4` bo‘ladi, `2³⁴` emas. Qavslar ekranda ko‘rsatilmaydi
-(faqat `2³` ko‘rinadi), qiymat esa SymPy uchun to‘g‘ri matn bo‘lib qoladi.
-Xuddi shu qoida ildiz, kasr, modul va logarifmga ham tegishli.
-
-Bo‘sh tuzilma ustida `⌫` bosilsa (masalan `√□` yoki `□^□` xato bosilgan
-bo‘lsa), bitta belgi emas — butun tuzilma o‘chadi, ekranda yolg‘iz qavs
-qolib ketmaydi.
-
-**Ildiz darajasi.** `ⁿ√□` tugmasida daraja ham bo‘sh to‘rtburchak bo‘lib
-turadi — unga istalgan butun son yoziladi (`⁵√32`, `⁴√16`). Kursor avval
-ildiz ostidagi katakka tushadi, `›` bilan daraja katagiga o‘tiladi.
-
-**Kasr tugmasi** to‘rt xil ishlaydi — hech qachon yozilganini o‘ziga
-tortib olmaydi:
-
-| Kursordan oldin | Natija |
-|-----------------|--------|
-| hech narsa, `+`, `−` yoki ochiq qavs (`2+`) | bo‘sh kasr chiziladi, son o‘z joyida qoladi: `2 + □/□` |
-| kasr chizig‘i yoki daraja belgisi (`5/`) | yangi kasr qavs ichida, ikkala katagi ham bo‘sh: `5 / (□/□)` |
-| son yoki ifoda (`455`) | u surat bo‘ladi, kursor maxrajga tushadi: `455/□` |
-| tayyor kasr (`455/3`) | eski kasr suratga **ko‘tarilmaydi**, yangisi yonida chiziladi: `455/3 · □/□` |
-
-**Maxrajdan chiqish.** Maxrajni to‘ldirgandan keyin `›` bosilsa, kursor
-kasrdan tashqariga chiqadi va yozishni davom ettirish mumkin: `5/2` dan
-keyin `3` yozilsa `5/2 · 3` bo‘ladi, `5/23` emas. Buning uchun maxraj
-sezdirmasdan qavsga olinadi (`5/(2)`) — ko‘rinish o‘zgarmaydi, `‹` bilan
-maxrajga qaytish ham ishlayveradi. Tuzilma qavslari ustida kursor
-to‘xtamaydi — `‹ ›` ularni sakrab o‘tadi.
-
-**«Bo‘sh joy» — bo‘lakni tugatish.** Oddiy klaviaturadagi bo‘sh joy
-tugmasi matnga hech narsa yozmaydi, balki joriy bo‘lakni tugatadi:
-suratdan maxrajga, maxrajdan esa kasrdan tashqariga olib chiqadi. Xuddi
-shu tarzda ildiz, daraja va logarifm asosidan ham chiqiladi:
-
-```
-455/3 [bo‘sh joy] 2   ->   455        (455/3 · 2)
-                            ─── · 2
-                             3
-
-√2   [bo‘sh joy] 3    ->   √2 · 3
-2³   [bo‘sh joy] 4    ->   2³ · 4
-log(100 [bo‘sh joy] 10 ->  log₁₀(100)
-```
-
-Matn ko‘rinishiga o‘tkazilgan maydonlarda va kalitlar varaqasidagi
-`a ; b` maydonlarida bo‘sh joy odatdagidek yoziladi.
-
-Har bir maydonning o‘ng chetida ikkita tugma bor: **klaviatura** belgisi
-matematik klaviaturani ochadi/yopadi, **ro‘yxat** belgisi esa maydonni
-matn ko‘rinishiga o‘tkazadi (nusxa ko‘chirish yoki oddiy klaviatura bilan
-tuzatish uchun).
-
-Javoblar **SymPy** yordamida *matematik ekvivalentlik* bo‘yicha tekshiriladi:
-`1/2` = `0.5` = `2^-1`, `sin(pi/6)` = `0.5`, `30°` = `pi/6`.
+Javob yozilayotganda maydon ostida uning tekshiruvga tayyor ko‘rinishi
+darhol ko‘rsatiladi, shunda test yaratuvchi kalit qanday qabul qilinishini
+oldindan ko‘radi: `Tekshiruvda: osmon yoki samo yoki fazo · 3 ta sinonim`.
 
 ### Javob kalitlari — varaqa ko‘rinishida
 
 Test yaratuvchi to‘g‘ri javoblarni **qatnashchi ko‘radigan varaqaning aynan
 o‘zida** belgilaydi: har bir savol uchun A–D (33–35 da A–F) tugmalari, ochiq
-savollar uchun esa a) va b) maydonlari va matematik klaviatura. Yuqorida
-`belgilangan / jami` hisoblagichi turadi; to‘ldirilmagan savollar yuborishdan
-oldin ro‘yxat qilib ko‘rsatiladi.
+savollar uchun esa javob maydonlari — 36–39 da **bitta**, 40–45 da esa
+**a)** va **b)**. Yuqorida `belgilangan / jami` hisoblagichi turadi;
+to‘ldirilmagan savollar yuborishdan oldin ro‘yxat qilib ko‘rsatiladi.
 
 Uzun kalitni bir marta joylashtirish uchun **«Matn ko‘rinishida»** rejimi
 qoldirilgan: `ABCDABCD…` yoki `1-A 2-B`, moslashtirish uchun `A, C, E`,
-ochiq javoblar uchun har bir qatorda `12 ; 3/4`.
+ochiq javoblar uchun har bir qatorda bitta savol — 36–39 uchun `osmon, samo`,
+40–45 uchun `osmon, samo | fe’l` (a va b `|` bilan, sinonimlar vergul bilan).
 
 Varaqaning o‘zi **umumiy modulda** (`static/keysheet/`), shuning uchun u
 uchala joyda bir xil ko‘rinadi va bir xil ishlaydi:
@@ -351,8 +278,8 @@ uchala joyda bir xil ko‘rinadi va bir xil ishlaydi:
 **Tanlov qoidasi hamma joyda bir xil:** har bir savolda **faqat bitta**
 variant belgilanadi — A–D (1–32) da ham, A–F (33–35, moslashtirish) da ham.
 Belgilangan variant qayta bosilsa, tanlov bekor qilinadi. Ochiq savollarda
-esa a) va b) maydonlari matematik klaviatura bilan to‘ldiriladi va ifoda
-darhol SymPy orqali tekshirilib, maydon ostida ko‘rsatiladi.
+esa a) va b) maydonlari to‘ldiriladi va javobning tekshiruvga tayyor
+ko‘rinishi maydon ostida darhol ko‘rsatiladi.
 
 ### Bir martalik ID kodlar (pullik test)
 
@@ -542,7 +469,7 @@ python run_bot.py
 
 Batafsil: [docs/ORNATISH.md](docs/ORNATISH.md)
 
-### Serverga o‘rnatish (production — burgutali.uz)
+### Serverga o‘rnatish (production — oybek-onatili.uz)
 
 Ubuntu 22.04/24.04 serverda **bitta skript** hammasini ko‘taradi:
 nginx + SSL (Let's Encrypt) + Django web (gunicorn) + Telegram bot —
@@ -550,9 +477,8 @@ ikkalasi ham systemd xizmati sifatida, server qayta yonganda avtomatik
 ishga tushadi.
 
 ```bash
-# 1. Loyihani yuklab olish
-git clone https://github.com/bekzod-07/burgutali.git
-cd burgutali
+# 1. Loyiha papkasiga o‘tish (kod serverga yuklangan bo‘lsin)
+cd /opt/onatili
 
 # 2. Skriptga ruxsat berish va ishga tushirish
 chmod +x deploy.sh
@@ -564,7 +490,7 @@ sudo ./deploy.sh
 sudo ./deploy.sh
 ```
 
-> **Eslatma:** SSL olishdan oldin `burgutali.uz` (va ixtiyoriy `www`)
+> **Eslatma:** SSL olishdan oldin `oybek-onatili.uz` (va ixtiyoriy `www`)
 > DNS **A-yozuvi** server IP siga qaratilgan bo‘lishi kerak.
 
 Yangilash (kod o‘zgarganda):
@@ -576,9 +502,9 @@ git pull && sudo ./deploy.sh
 Foydali buyruqlar:
 
 ```bash
-systemctl status burgutali-web      # web holati
-systemctl status burgutali-bot      # bot holati
-journalctl -u burgutali-bot -f      # bot loglari (jonli)
+systemctl status onatili-web        # web holati
+systemctl status onatili-bot        # bot holati
+journalctl -u onatili-bot -f        # bot loglari (jonli)
 tail -f logs/gunicorn-error.log     # web xato loglari
 ```
 
@@ -587,7 +513,7 @@ tail -f logs/gunicorn-error.log     # web xato loglari
 ## Loyiha tuzilmasi
 
 ```
-rashmodel_matematikabot/
+rashmodel_onatilibot/
 ├── manage.py                  Django boshqaruvi
 ├── run_bot.py                 Botni ishga tushirish
 ├── ishga_tushirish.ps1        Tunnel + server + bot — bitta buyruqda
@@ -596,7 +522,7 @@ rashmodel_matematikabot/
 │   ├── cloudflared.exe        HTTPS tunnel (avtomatik yuklanadi)
 │   ├── ngrok.exe              muqobil tunnel
 │   └── set_public_url.py      .env dagi PUBLIC_BASE_URL ni yangilaydi
-├── selftest.py                O'z-o'zini tekshiruv (820 ta tekshiruv)
+├── selftest.py                O'z-o'zini tekshiruv (737 ta tekshiruv)
 ├── simulate.py                Bot oqimi simulyatsiyasi (157 ta tekshiruv)
 │
 ├── config/                    Django loyihasi
@@ -609,7 +535,7 @@ rashmodel_matematikabot/
 │   ├── constants.py           TZ dagi barcha raqamli talablar
 │   ├── env.py                 .env bilan ishlash
 │   ├── text_utils.py          matn normalizatsiyasi
-│   ├── math_expr.py           SymPy ekvivalentligi (xavfsiz parser)
+│   ├── answer_check.py        ochiq javoblarni matn bo‘yicha tekshirish
 │   └── django_setup.py        bot uchun django.setup()
 │
 ├── apps/                      Django ilovalari
@@ -663,9 +589,6 @@ rashmodel_matematikabot/
 │   └── partials/icons.html    SVG ikonkalar to'plami (emoji o'rniga)
 ├── static/
 │   ├── css/site.css           ommaviy sahifalar uslubi
-│   ├── mathpad/               matematik klaviatura — uchala joy uchun
-│   │   ├── mathpad.css        yagona ko'rinish
-│   │   └── mathpad.js         yagona mantiq
 │   └── keysheet/              javoblar varaqasi — ilova va panel uchun
 │       ├── keysheet.css       yagona ko'rinish
 │       └── keysheet.js        yagona mantiq
@@ -677,12 +600,12 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 820 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 737 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 157 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```
 
-Tekshiruvlar orasida: SymPy parseriga qarshi 11 ta hujum urinishi, Mini App
+Tekshiruvlar orasida: ochiq javob normalizatsiyasi, Mini App
 API ning autentifikatsiya va huquq chegaralari, test o‘chirish/nusxalash
 xavfsizligi, ikonkalar butunligi va **emoji ishlatilmaganligi**.
 
@@ -694,7 +617,7 @@ ma'lumotlarga tegmaydi.
 ## Texnologiyalar
 
 Python 3.12+ · aiogram 3.29 · Django 4.2 · SQLite/PostgreSQL ·
-SymPy · NumPy · SciPy · openpyxl · pandas · ReportLab · qrcode · Pillow
+NumPy · SciPy · openpyxl · pandas · ReportLab · qrcode · Pillow
 
 ---
 

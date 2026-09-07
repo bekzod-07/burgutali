@@ -201,7 +201,7 @@
   var TABS = ["home", "exams", "results", "certificates", "my-exams"];
 
   var TITLES = {
-    "home": ["Rasch Math", "Matematik testlar platformasi"],
+    "home": ["Ona tili", "Ona tili testlari platformasi"],
     "exams": ["Testlar", "Test kodi orqali kirish"],
     "exam": ["Test", ""],
     "attempt": ["Test topshirish", ""],
@@ -592,10 +592,9 @@
       html += renderChoices(question);
     } else {
       html += renderOpenFields(question);
-      html += '<p class="q-hint">Maydonni bosing — matematik klaviatura ochiladi. ' +
-        '<span class="mono">1/2</span>, <span class="mono">0.5</span>, ' +
-        '<span class="mono">sqrt(2)</span>, <span class="mono">pi/6</span> ' +
-        "ko‘rinishlari qabul qilinadi.</p>";
+      html += '<p class="q-hint">Javobni yozing. Katta-kichik harf, ' +
+        "apostrof ko‘rinishi va tinish belgilari tekshiruvda " +
+        "e’tiborga olinmaydi.</p>";
     }
     html += "</section>";
     return html;
@@ -634,73 +633,62 @@
     var id = order + "-" + key;
     return '<div class="answer-field" data-field="' + id + '">' +
       "<label>" + label + "</label>" +
-      '<input type="text" inputmode="none" autocomplete="off" spellcheck="false" ' +
+      '<input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" ' +
       'data-order="' + order + '" data-part="' + key + '" ' +
-      'id="ans-' + id + '" value="' + esc(value || "") + '" placeholder="masalan: 1/2">' +
+      'id="ans-' + id + '" value="' + esc(value || "") + '" placeholder="javobni yozing">' +
       '<div class="fx" id="fx-' + id + '"></div></div>';
   }
 
   /* =====================================================================
-     Matematik klaviatura
+     Ochiq javob maydonlari
 
-     Klaviatura umumiy modulda (`static/mathpad/mathpad.js`) — web ilova,
-     boshqaruv paneli va botning alohida klaviatura sahifasi bir xil
-     klaviaturani ishlatadi.
-
-     Bu yerda faqat ilovaga xos qism qoladi: maydonlarni klaviaturaga
-     ulash va kiritilgan ifodani serverda jonli tekshirish.
+     Ona tilida javob — so'z yoki qisqa ibora, shuning uchun oddiy matn
+     maydoni ishlatiladi va telefonning o'z klaviaturasi ochiladi.
      ===================================================================== */
-
-  MathPad.mount({
-    onEnter: function (input) {
-      /* Ochiq savolda a) dan b) ga o'tamiz; oxirgi maydonda — yopamiz. */
-      var fields = Array.prototype.slice.call(
-        el.screen.querySelectorAll(".answer-field input")
-      );
-      var index = fields.indexOf(input);
-      if (index !== -1 && index + 1 < fields.length) {
-        var next = fields[index + 1];
-        MathPad.open(next);
-        var wrap = padWrap(next);
-        if (wrap) { wrap.scrollIntoView({ behavior: "smooth", block: "center" }); }
-        return true;
-      }
-      MathPad.close();
-      return true;
-    }
-  });
 
   function padWrap(input) {
     return input && input.closest ? input.closest(".answer-field") : null;
   }
 
-  function closeMathPad() {
-    MathPad.close();
-  }
+  /* Ilgari maxsus klaviatura yopilardi — endi hech narsa qilmaydi. */
+  function closeMathPad() {}
 
   var checkTimers = {};
 
   /*
-     Javob maydonlarini klaviaturaga bog'laydi.
+     Javob maydonlariga hodisa tinglagichlarini ulaydi.
        scope    — qidiriladigan bo'lim (ekran yoki uning bir qismi);
-       labelFn  — klaviatura sarlavhasi matni;
+       labelFn  — moslik uchun qabul qilinadi, ishlatilmaydi;
        changeFn — qiymat o'zgarganda chaqiriladi.
+
+     Enter bosilganda keyingi maydonga o'tiladi — bu javob varaqasida
+     qulay: a) dan b) ga, undan keyingi savolga.
   */
   function bindPadFields(scope, labelFn, changeFn) {
-    MathPad.reset();
     var box = scope || el.screen;
-
-    Array.prototype.forEach.call(
-      box.querySelectorAll(".answer-field input"),
-      function (input) {
-        MathPad.bind(input, { label: labelFn ? labelFn(input) : "" });
-        input.addEventListener("input", function () {
-          scheduleCheck(input);
-          if (changeFn) { changeFn(input); }
-        });
-        if (input.value.trim()) { scheduleCheck(input); }
-      }
+    var fields = Array.prototype.slice.call(
+      box.querySelectorAll(".answer-field input")
     );
+
+    fields.forEach(function (input, index) {
+      input.addEventListener("input", function () {
+        scheduleCheck(input);
+        if (changeFn) { changeFn(input); }
+      });
+      input.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter") { return; }
+        event.preventDefault();
+        var next = fields[index + 1];
+        if (next) {
+          next.focus();
+          var wrap = padWrap(next);
+          if (wrap) { wrap.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        } else {
+          input.blur();
+        }
+      });
+      if (input.value.trim()) { scheduleCheck(input); }
+    });
   }
 
   function scheduleCheck(input) {
@@ -718,16 +706,11 @@
     var value = input.value.trim();
     if (!value) { fx.textContent = ""; fx.className = "fx"; return; }
 
-    /* Formulada bo'sh to'rtburchak bor — hali tugallanmagan, xato demaymiz. */
-    if (window.MathField && MathField.incomplete(input)) {
-      fx.textContent = "Formulani to‘ldiring";
-      fx.className = "fx";
-      return;
-    }
-
+    /* Bu — qatnashchining javobi (kalit emas), shuning uchun `as_key`
+       yuborilmaydi: vergul qo'yilgan javob ikkiga bo'lib ko'rsatilmaydi. */
     api("ifoda/", { method: "POST", body: { expr: value } }).then(function (data) {
       if (document.getElementById(id) !== input) { return; }   // ekran almashgan
-      fx.textContent = data.pretty + (data.value ? " ≈ " + data.value : "");
+      fx.textContent = "Tekshiruvda: " + data.pretty;
       fx.className = "fx ok";
     }).catch(function (error) {
       if (document.getElementById(id) !== input) { return; }
@@ -1163,9 +1146,15 @@
       '<textarea class="input" id="f-multi" placeholder="A, C, E"></textarea>' +
       '<div class="hint">Har bir savolga bitta harf — vergul bilan ajrating.</div></div>' +
 
-      '<div class="field" id="wrap-open" hidden><label>Ochiq javoblar (a ; b)</label>' +
-      '<textarea class="input" id="f-open" rows="6" placeholder="12 ; 3/4&#10;sqrt(2) ; pi/6"></textarea>' +
-      '<div class="hint">Har bir savol uchun alohida qator.</div></div>' +
+      '<div class="field" id="wrap-open" hidden><label>Ochiq javoblar</label>' +
+      '<textarea class="input" id="f-open" rows="6" ' +
+      'placeholder="ot&#10;sifat&#10;olmosh&#10;undosh&#10;ega | kesim&#10;sodda gap | qo‘shma gap"></textarea>' +
+      '<p class="hint">Har bir savol uchun alohida qator. ' +
+      '<b>36–39</b> bitta javobdan, <b>40–45</b> esa a) va b) dan iborat — ' +
+      'ularni <span class="mono">|</span> bilan ajrating. Bitta javobning ' +
+      'sinonimlari vergul bilan yoziladi: ' +
+      '<span class="mono">osmon, samo, fazo</span> — qatnashchi qaysi birini ' +
+      'yozsa ham to‘g‘ri hisoblanadi.</p></div>' +
       "</div></div>";
 
     html += '<div class="card"><div class="card-head">' + ic("settings") + "<h2>Sozlamalar</h2></div>" +
@@ -1209,8 +1198,13 @@
     });
   }
 
+  /*
+     Varaqada **kalit** yoziladi, shuning uchun `as_key` yuboriladi —
+     server sinonimlarni ajratib qaytaradi («osmon yoki samo yoki fazo»).
+     Qatnashchining javobi esa (`runCheck`) bunday ajratilmaydi.
+  */
   function checkExpression(expr) {
-    return api("ifoda/", { method: "POST", body: { expr: expr } });
+    return api("ifoda/", { method: "POST", body: { expr: expr, as_key: true } });
   }
 
   function updateKeyProgress() {

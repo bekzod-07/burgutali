@@ -35,8 +35,8 @@ NO_GRADE: Final[str] = "Daraja olinmadi"
 
 #: Ball shkalasi shu darajaga «anchor» qilinadi: savollarning
 #: `CERT_MIN_PERCENT` ulushini topgan qatnashchi aynan shu darajaning quyi
-#: chegarasini oladi. 55 ballik shablonda 18 ta to'g'ri javob -> 46.0 ball
-#: -> «C». Undan yuqorisi savollar qiyinligiga qarab taqsimlanadi.
+#: chegarasini oladi. 51 ballik milliy shablonda 17 ta to'g'ri javob ->
+#: 46.0 ball -> «C». Undan yuqorisi savollar qiyinligiga qarab taqsimlanadi.
 SCALE_ANCHOR_GRADE: Final[str] = "C"
 
 #: Sertifikat beriladigan eng past daraja. Undan pastda (0-45.9 ball)
@@ -44,8 +44,8 @@ SCALE_ANCHOR_GRADE: Final[str] = "C"
 CERT_MIN_GRADE: Final[str] = "C"
 
 #: Sertifikat uchun talab qilinadigan standart foiz — to'g'ri javoblarning
-#: ulushi. 55 ballik milliy shablonda 18 ta to'g'ri javob shu chegaraga
-#: to'g'ri keladi (18/55 = 32.7%). Yangi testlar shu chegara bilan
+#: ulushi. 51 ballik milliy shablonda 17 ta to'g'ri javob shu chegaraga
+#: to'g'ri keladi (17/51 = 33.3%). Yangi testlar shu chegara bilan
 #: yaratiladi, admin uni har bir test uchun alohida o'zgartirishi mumkin
 #: (`Exam.certificate_min_percent`). Chegara qatnashchiga ko'rsatilmaydi.
 CERT_MIN_PERCENT: Final[float] = 32.0
@@ -145,8 +145,33 @@ NATIONAL_SINGLE_RANGE: Final[tuple[int, int]] = (1, 32)
 #: 33–35-savollar (moslashtirish): A, B, C, D, E, F — faqat bitta to'g'ri javob.
 NATIONAL_MULTI_RANGE: Final[tuple[int, int]] = (33, 35)
 
-#: 36–45-savollar: variantsiz, har birida a) va b) javob maydoni.
+#: 36–45-savollar: variantsiz, ochiq javob.
 NATIONAL_OPEN_RANGE: Final[tuple[int, int]] = (36, 45)
+
+#: 36–39-savollar: ochiq, **bitta** javob (a) va b) ga bo'linmaydi).
+NATIONAL_OPEN_SINGLE_RANGE: Final[tuple[int, int]] = (36, 39)
+
+#: 40–45-savollar: ochiq, har birida a) va b) javob maydoni (2 ball).
+NATIONAL_OPEN_DOUBLE_RANGE: Final[tuple[int, int]] = (40, 45)
+
+#: Milliy shablondagi jami ballanadigan birliklar soni:
+#: 32 (1–32) + 3 (33–35) + 4 (36–39) + 12 (40–45 × 2) = 51.
+NATIONAL_MAX_RAW_SCORE: Final[int] = 51
+
+
+def national_open_parts() -> tuple[int, ...]:
+    """
+    Ochiq savollarning ballanadigan qismlari soni (36-savoldan boshlab).
+
+    Natija: ``(1, 1, 1, 1, 2, 2, 2, 2, 2, 2)`` — 36–39 bitta javobdan,
+    40–45 esa a) va b) dan iborat.
+    """
+    parts: list[int] = []
+    for order in range(NATIONAL_OPEN_RANGE[0], NATIONAL_OPEN_RANGE[1] + 1):
+        single = NATIONAL_OPEN_SINGLE_RANGE[0] <= order <= NATIONAL_OPEN_SINGLE_RANGE[1]
+        parts.append(1 if single else 2)
+    return tuple(parts)
+
 
 #: Bitta javobli savollar uchun variant harflari.
 SINGLE_CHOICES: Final[tuple[str, ...]] = ("A", "B", "C", "D")
@@ -238,6 +263,10 @@ __all__ = [
     "NATIONAL_SINGLE_RANGE",
     "NATIONAL_MULTI_RANGE",
     "NATIONAL_OPEN_RANGE",
+    "NATIONAL_OPEN_SINGLE_RANGE",
+    "NATIONAL_OPEN_DOUBLE_RANGE",
+    "NATIONAL_MAX_RAW_SCORE",
+    "national_open_parts",
     "SINGLE_CHOICES",
     "MULTI_CHOICES",
     "OPEN_PARTS",

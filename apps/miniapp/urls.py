@@ -2,7 +2,6 @@
 Mini App URL xaritasi.
 
   /app/                     — web ilova (bir sahifali)
-  /app/klaviatura/          — faqat matematik klaviatura (bot uchun)
   /app/api/...              — JSON API
 """
 
@@ -15,7 +14,6 @@ app_name = "miniapp"
 urlpatterns = [
     # --- Sahifalar ---
     path("", views.app_shell, name="app"),
-    path("klaviatura/", views.keyboard, name="keyboard"),
 
     # --- Brauzerdan kirish (Telegram Login Widget) ---
     path("kirish/", views.login_page, name="login"),

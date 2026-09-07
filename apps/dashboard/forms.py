@@ -80,7 +80,7 @@ class QuestionForm(forms.ModelForm):
         fields = [
             "text", "section", "kind", "choices_count", "correct_key",
             "answer_a", "answer_b", "parts", "difficulty", "difficulty_b",
-            "difficulty_locked", "numeric_tolerance", "is_active",
+            "difficulty_locked", "is_active",
         ]
         widgets = {
             "text": forms.Textarea(attrs={"class": "input", "rows": 3}),
@@ -89,18 +89,17 @@ class QuestionForm(forms.ModelForm):
             "choices_count": forms.NumberInput(attrs={"class": "input", "min": 2, "max": 6}),
             "parts": forms.NumberInput(attrs={"class": "input", "min": 1, "max": 2}),
             "correct_key": forms.TextInput(attrs={"class": "input"}),
-            # Ochiq javob maydonlari varaqadagidek ko'rinadi va matematik
-            # klaviaturaga `dashboard/js/keysheet.js` orqali ulanadi.
+            # Ochiq javob maydonlari varaqadagidek ko'rinadi; javob matn
+            # sifatida tekshiriladi (`dashboard/js/keysheet.js`).
             "answer_a": forms.TextInput(
-                attrs={"inputmode": "none", "placeholder": "masalan: sqrt(2)",
+                attrs={"placeholder": "masalan: osmon, samo, fazo",
+                       "autocapitalize": "off",
                        "data-ks-check": "a) to‘g‘ri javob"}
             ),
             "answer_b": forms.TextInput(
-                attrs={"inputmode": "none", "placeholder": "masalan: pi/6",
+                attrs={"placeholder": "masalan: fe’l, harakat",
+                       "autocapitalize": "off",
                        "data-ks-check": "b) to‘g‘ri javob"}
-            ),
-            "numeric_tolerance": forms.NumberInput(
-                attrs={"class": "input", "step": "0.000001"}
             ),
             "difficulty": forms.NumberInput(attrs={"class": "input", "step": "0.01"}),
             "difficulty_b": forms.NumberInput(attrs={"class": "input", "step": "0.01"}),
@@ -114,7 +113,6 @@ class QuestionForm(forms.ModelForm):
             "correct_key": "To'g'ri javob",
             "answer_a": "a) javob",
             "answer_b": "b) javob",
-            "numeric_tolerance": "Sonli xatolik chegarasi",
             "difficulty": "Qiyinlik b (1-qism)",
             "difficulty_b": "Qiyinlik b (2-qism)",
             "difficulty_locked": "Qiyinlik qulflangan (kalibrlashda o'zgarmasin)",
@@ -230,15 +228,13 @@ class ExamCreateForm(forms.Form):
         widget=forms.Textarea(attrs={"class": "input", "rows": 2, "placeholder": "A, C, E"}),
     )
     open_keys = forms.CharField(
-        label="Ochiq javoblar kaliti (a ; b)",
+        label="Ochiq javoblar kaliti (a | b)",
         required=False,
         widget=forms.Textarea(
             attrs={
                 "class": "input",
                 "rows": 6,
-                "placeholder": "12 ; 3/4\nsqrt(2) ; pi/6",
-                # Maydonga bosilganda matematik klaviatura ochiladi.
-                "data-mathpad": "lines",
+                "placeholder": "osmon, samo, fazo | fe’l, harakat\nsifat, belgi | son",
             }
         ),
     )
@@ -307,7 +303,10 @@ class ExamCreateForm(forms.Form):
                 self.add_error("multi_keys", " ".join(parsed.errors[:5]))
             data["parsed_multi"] = parsed.keys
         if open_count:
-            parsed = key_parser.parse_open_key(data.get("open_keys", ""), open_count)
+            # 36–39 bitta javobdan, 40–45 esa a) va b) dan iborat.
+            parsed = key_parser.parse_open_key(
+                data.get("open_keys", ""), open_count, C.national_open_parts()
+            )
             if not parsed.ok:
                 self.add_error("open_keys", " ".join(parsed.errors[:5]))
             data["parsed_open"] = parsed.keys
@@ -354,14 +353,13 @@ class KeyImportForm(forms.Form):
         ),
     )
     open_keys = forms.CharField(
-        label="Ochiq javoblar kaliti (har bir qatorda: a ; b)",
+        label="Ochiq javoblar kaliti (har bir qatorda: a | b)",
         required=False,
         widget=forms.Textarea(
             attrs={
                 "class": "input",
                 "rows": 5,
-                "placeholder": "12 ; 3/4\nsqrt(2) ; pi/6",
-                "data-mathpad": "lines",
+                "placeholder": "osmon, samo, fazo | fe’l, harakat\nsifat, belgi | son",
             }
         ),
     )
@@ -388,7 +386,7 @@ class BroadcastForm(forms.ModelForm):
                 "class": "input",
                 "rows": 4,
                 "placeholder": (
-                    "Kanalga o'tish | https://t.me/Burgutali\n"
+                    "Kanalga o'tish | https://t.me/Oybek_ustoz_MS\n"
                     "Sayt | https://burgutali.uz || Bot | https://t.me/bot"
                 ),
             }

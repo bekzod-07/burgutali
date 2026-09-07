@@ -347,12 +347,16 @@ class Question(TimeStampedModel):
     # --- Ochiq javoblar (36–45) ---
     answer_a = models.CharField(
         "a) javob", max_length=255, blank=True, default="",
-        help_text="Matematik ifoda; SymPy orqali ekvivalentlikka tekshiriladi.",
+        help_text="Javob matni. Sinonimlarni vergul bilan sanang "
+                  "(masalan: osmon, samo, fazo) — har biri to'g'ri "
+                  "hisoblanadi. Tekshiruvda katta-kichik harf, apostrof "
+                  "(hatto uning yo'qligi: orta = o‘rta) va tinish "
+                  "belgilari e'tiborga olinmaydi.",
     )
     answer_b = models.CharField("b) javob", max_length=255, blank=True, default="")
     numeric_tolerance = models.FloatField(
         "Sonli xatolik chegarasi", default=1e-6,
-        help_text="Sonli javoblarni taqqoslashda ruxsat etilgan farq.",
+        help_text="Eski maydon — ona tili testlarida ishlatilmaydi.",
     )
 
     # --- Rasch parametrlari (TZ 7- va 9-bo'limlar) ---

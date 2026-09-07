@@ -42,10 +42,11 @@ INVALID_TITLE = "Test nomi kamida 3 ta belgidan iborat bo‘lishi kerak."
 
 ASK_STRUCTURE = (
     "<b>Test tuzilmasini tanlang</b>\n\n"
-    "<b>Milliy sertifikat shabloni</b> — 45 ta savol:\n"
+    "<b>Milliy sertifikat shabloni</b> — 45 ta savol, jami 51 ball:\n"
     "• 1–32 — A, B, C, D (bitta javob)\n"
     "• 33–35 — A, B, C, D, E, F (moslashtirish, bitta javob)\n"
-    "• 36–45 — variantsiz, a) va b) javob maydonlari\n\n"
+    "• 36–39 — variantsiz, bitta javob\n"
+    "• 40–45 — variantsiz, a) va b) javob maydonlari\n\n"
     "Yoki oddiy tuzilmani tanlab, savollar sonini o‘zingiz belgilang."
 )
 
@@ -79,13 +80,22 @@ ASK_MULTI_KEYS = (
 
 ASK_OPEN_KEYS = (
     "<b>Ochiq javobli savollar kaliti</b> ({count} ta savol)\n\n"
-    "Har bir savol uchun alohida qator yozing, a) va b) javoblarni "
-    "<code>;</code> bilan ajrating:\n\n"
-    "<code>12 ; 3/4\n"
-    "sqrt(2) ; pi/6\n"
-    "0.5 ; -2</code>\n\n"
-    "Javoblar matematik ekvivalentlik bo‘yicha tekshiriladi: "
-    "<code>1/2</code> va <code>0.5</code> bir xil hisoblanadi."
+    "Har bir savol uchun <b>alohida qator</b> yozing.\n"
+    "<b>36–39</b> — bitta javobdan, <b>40–45</b> — a) va b) dan iborat "
+    "(ularni <code>|</code> bilan ajrating):\n\n"
+    "<code>ot\n"
+    "sifat\n"
+    "olmosh\n"
+    "undosh\n"
+    "ega | kesim\n"
+    "sodda gap | qo‘shma gap\n"
+    "...</code>\n\n"
+    "<b>Sinonimlarni vergul bilan sanang</b> — har biri to‘g‘ri javob "
+    "hisoblanadi:\n"
+    "<code>osmon, samo, fazo | yer, zamin</code>\n\n"
+    "Tekshiruvda katta-kichik harf, apostrof ko‘rinishi va hatto uning "
+    "yo‘qligi (<code>orta</code> = <code>o‘rta</code>) hamda tinish "
+    "belgilari e’tiborga olinmaydi."
 )
 
 KEYS_SAVED = "Javob kaliti saqlandi."
@@ -233,9 +243,9 @@ QUESTION_OPEN = (
     "{text}"
     "\n<b>a)</b> va <b>b)</b> javoblarni bitta xabarda, <code>;</code> bilan "
     "ajratib yuboring.\n\n"
-    "Masalan: <code>12 ; 3/4</code>\n\n"
-    "<code>1/2</code>, <code>0.5</code>, <code>sqrt(2)</code>, "
-    "<code>pi/6</code> kabi ko‘rinishlar qabul qilinadi."
+    "Masalan: <code>ot ; fe’l</code>\n\n"
+    "Katta-kichik harf, apostrof va tinish belgilari tekshiruvda "
+    "e’tiborga olinmaydi."
 )
 
 QUESTION_OPEN_SINGLE_PART = (
@@ -243,7 +253,7 @@ QUESTION_OPEN_SINGLE_PART = (
     "{progress}\n"
     "{text}"
     "\nJavobingizni yuboring.\n\n"
-    "Masalan: <code>12</code> yoki <code>sqrt(3)/2</code>"
+    "Masalan: <code>kesim</code>"
 )
 
 ANSWER_SAVED = "Javob saqlandi: <b>{value}</b>"

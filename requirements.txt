@@ -1,5 +1,5 @@
 # ==========================================================================
-#  Rasch Telegram Bot — bog'liqliklar
+#  Ona tili RASH platformasi — bog'liqliklar
 #  Python 3.12+
 # ==========================================================================
 
@@ -16,8 +16,7 @@ asgiref==3.11.1
 # PostgreSQL uchun DATABASE_URL o'rnatiladi:
 psycopg2-binary==2.9.9
 
-# --- Matematika / Rasch modeli ---
-sympy==1.14.0
+# --- Rasch modeli ---
 numpy==2.3.5
 scipy==1.17.1
 

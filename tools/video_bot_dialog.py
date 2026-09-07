@@ -122,7 +122,7 @@ class RecordingSession:
                 id=123456789,
                 is_bot=True,
                 first_name="Rasch Math Bot",
-                username="matematika_rashbot",
+                username="rashonatilibot",
             )
 
         if name.startswith(("Set", "Delete", "Close", "Log", "Pin", "Unpin")):

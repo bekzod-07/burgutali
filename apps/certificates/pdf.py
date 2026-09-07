@@ -66,7 +66,7 @@ class CertificateData:
     sections: list[tuple[str, str]] = field(default_factory=list)
     organization: str = ""
     organizer_name: str = ""
-    platform_name: str = "RASCH MATH PLATFORM"
+    platform_name: str = "Ona tili RASH platformasi"
     issued_at: date | None = None
     verify_url: str = ""
 

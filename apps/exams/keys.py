@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Sequence
 
 from core import constants as C
 
@@ -170,15 +171,30 @@ def parse_multi_key(raw: str, count: int, allowed: tuple[str, ...] = C.MULTI_CHO
     return result
 
 
-def parse_open_key(raw: str, count: int, parts: int = 2) -> KeyParseResult:
+def parse_open_key(
+    raw: str,
+    count: int,
+    parts: int | Sequence[int] = 2,
+) -> KeyParseResult:
     """
     Ochiq javobli savollar (36–45) uchun kalitni tahlil qiladi.
 
-    Har bir qatorda bitta savolning javoblari bo'ladi:
-        ``36) 12 ; 3/4``   yoki   ``12 | 3/4``   yoki   ``12; 3/4``
+    `parts` — nechta javob kutilishi. Bitta son berilsa barcha savollarga
+    bir xil qo'llanadi; ro'yxat berilsa har bir savolga o'ziniki
+    (milliy shablonda ``(1, 1, 1, 1, 2, 2, 2, 2, 2, 2)`` — 36–39 bitta
+    javobdan, 40–45 a) va b) dan).
 
-    a) va b) javoblari ``;`` yoki ``|`` belgisi bilan ajratiladi.
-    Natija ``["12||3/4", ...]`` ko'rinishida saqlanadi (ichki ajratkich ``||``).
+    Har bir qatorda bitta savolning javoblari bo'ladi:
+        ``36) ot | fe'l``   yoki   ``ot | fe'l``
+
+    a) va b) javoblari ``|`` belgisi bilan ajratiladi. Bitta javobning
+    sinonimlari esa vergul (yoki ``;``, ``/``) bilan sanaladi va ular
+    baholashda barchasi to'g'ri hisoblanadi:
+
+        osmon, samo, fazo | yer, zamin
+
+    Natija ``["osmon, samo, fazo||yer, zamin", ...]`` ko'rinishida
+    saqlanadi (a va b orasidagi ichki ajratkich — ``||``).
     """
     raw = _clean(raw)
     result = KeyParseResult()
@@ -193,21 +209,24 @@ def parse_open_key(raw: str, count: int, parts: int = 2) -> KeyParseResult:
             "Har bir savol uchun alohida qator yozing."
         )
 
+    expected_parts = _parts_per_question(parts, count)
+
     keys: list[str] = []
     for index, line in enumerate(lines[:count], start=1):
-        # Boshidagi savol raqamini olib tashlaymiz («36) 12 ; 3/4»).
+        needed = expected_parts[index - 1]
+        # Boshidagi savol raqamini olib tashlaymiz («36) ot | fe'l»).
         line = _LEADING_NUMBER_RE.sub("", line)
-        pieces = [p.strip() for p in re.split(r"[;|]", line) if p.strip()]
+        pieces = [p.strip() for p in line.split("|") if p.strip()]
         if not pieces:
             result.errors.append(f"{index}-qatorda javob topilmadi.")
             keys.append("")
             continue
-        if parts >= 2 and len(pieces) < 2:
+        if needed >= 2 and len(pieces) < 2:
             result.errors.append(
                 f"{index}-qatorda ikkita javob kutilgan (a va b). "
-                "Ularni «;» bilan ajrating."
+                "Ularni «|» bilan ajrating."
             )
-        keys.append("||".join(pieces[:parts]))
+        keys.append("||".join(pieces[:needed]))
 
     while len(keys) < count:
         keys.append("")
@@ -215,8 +234,18 @@ def parse_open_key(raw: str, count: int, parts: int = 2) -> KeyParseResult:
     return result
 
 
+def _parts_per_question(parts: int | Sequence[int], count: int) -> list[int]:
+    """`parts` ni har bir savol uchun alohida songa yoyadi."""
+    if isinstance(parts, int):
+        return [max(1, min(parts, 2))] * count
+    values = [max(1, min(int(item), 2)) for item in parts]
+    if len(values) < count:
+        values += [values[-1] if values else 2] * (count - len(values))
+    return values[:count]
+
+
 def split_open_key(value: str) -> tuple[str, str]:
-    """`"12||3/4"` -> `("12", "3/4")`."""
+    """`"ot||fe'l"` -> `("ot", "fe'l")`."""
     if not value:
         return "", ""
     pieces = value.split("||")

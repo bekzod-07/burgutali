@@ -31,7 +31,12 @@ from apps.exams.models import Exam, Question
 from apps.rasch.services import calculate_exam
 from apps.users import services as user_services
 from core import constants as C
-from core.math_expr import MAX_INPUT_LENGTH, normalize_expression, parse_expression
+from core.answer_check import (
+    MAX_INPUT_LENGTH,
+    alternatives,
+    display_answer,
+    normalize_answer,
+)
 from core.text_utils import is_valid_full_name, normalize_phone
 
 from . import serializers as S
@@ -556,7 +561,11 @@ def exam_create(request, user):
         errors.extend(parsed.errors)
         multi_keys = parsed.keys
     if open_count:
-        parsed = key_parser.parse_open_key(str(data.get("open_keys", "")), open_count)
+        # Ochiq savollar faqat milliy shablonda bo'ladi: 36–39 bitta
+        # javobdan, 40–45 esa a) va b) dan iborat.
+        parsed = key_parser.parse_open_key(
+            str(data.get("open_keys", "")), open_count, C.national_open_parts()
+        )
         errors.extend(parsed.errors)
         open_keys = parsed.keys
 
@@ -752,30 +761,43 @@ def exam_codes(request, user, code: str):
 
 
 # ==========================================================================
-#  6. Matematik ifodani tekshirish
+#  6. Ochiq javobni ko'rib chiqish
 # ==========================================================================
 
 
 @api_view("POST")
 def check_expression(request, user):
-    """Kiritilgan matematik ifodani tekshiradi (jonli tekshiruv)."""
-    expression = str(body(request).get("expr", ""))[: MAX_INPUT_LENGTH + 20]
-    if not expression.strip():
-        raise ApiError("Ifoda bo'sh.")
+    """
+    Kiritilgan ochiq javobni tekshiruvga tayyor ko'rinishda qaytaradi.
 
-    normalized = normalize_expression(expression)
-    parsed = parse_expression(expression)
-    if parsed is None:
-        raise ApiError("Ifodani tahlil qilib bo'lmadi.")
+    Ona tilida javob matn sifatida solishtiriladi: katta-kichik harf,
+    apostrof ko'rinishi (hatto uning yo'qligi) va tinish belgilari
+    e'tiborga olinmaydi (`core.answer_check`).
 
-    value = ""
-    try:
-        if not parsed.free_symbols:
-            value = f"{float(parsed.evalf()):.6g}"
-    except Exception:
-        value = ""
+    So'rovda `as_key` bo'lsa — bu **kalit** (test yaratuvchi yozmoqda):
+    sinonimlar ajratib ko'rsatiladi («osmon yoki samo yoki fazo»).
+    Aks holda bu qatnashchining javobi — u bitta butun javob sifatida
+    ko'rsatiladi, aks holda vergul qo'ygan qatnashchi javobim ikkiga
+    bo'lindi deb o'ylab qolardi.
+    """
+    data = body(request)
+    raw = str(data.get("expr", ""))[: MAX_INPUT_LENGTH + 20]
+    if not raw.strip():
+        raise ApiError("Javob bo'sh.")
 
-    return {"normalized": normalized, "pretty": str(parsed), "value": value}
+    if data.get("as_key"):
+        options = alternatives(raw)
+        pretty = " yoki ".join(display_answer(item) for item in options)
+    else:
+        options = [raw]
+        pretty = display_answer(raw)
+
+    return {
+        "normalized": normalize_answer(raw),
+        "pretty": pretty,
+        "value": "",
+        "variants": len(options),
+    }
 
 
 # ==========================================================================

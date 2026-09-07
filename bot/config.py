@@ -58,18 +58,6 @@ class BotConfig:
         return self.panel_url.startswith("https://")
 
     @property
-    def math_keyboard_url(self) -> str:
-        """
-        Faqat matematik klaviaturadan iborat sahifa.
-
-        Bot reply-klaviaturasidan ochiladi va javobni `sendData()` orqali
-        qaytaradi (to'liq ilova esa o'z API si bilan ishlaydi).
-        """
-        if not self.public_base_url:
-            return ""
-        return f"{self.public_base_url.rstrip('/')}/app/klaviatura/"
-
-    @property
     def miniapp_available(self) -> bool:
         """Telegram Mini App ni ochish mumkinmi (HTTPS talab qilinadi)."""
         return self.miniapp_url.startswith("https://")
@@ -96,8 +84,8 @@ def get_config() -> BotConfig:
         token=get_str("BOT_TOKEN", ""),
         username=get_str("BOT_USERNAME", "").lstrip("@"),
         admin_ids=frozenset(get_int_list("ADMIN_IDS", [])),
-        required_channel=get_str("REQUIRED_CHANNEL", "@Burgutali"),
-        required_channel_url=get_str("REQUIRED_CHANNEL_URL", "https://t.me/Burgutali"),
+        required_channel=get_str("REQUIRED_CHANNEL", "@Oybek_ustoz_MS"),
+        required_channel_url=get_str("REQUIRED_CHANNEL_URL", "https://t.me/Oybek_ustoz_MS"),
         subscription_required=get_bool("SUBSCRIPTION_REQUIRED", True),
         public_base_url=get_str("PUBLIC_BASE_URL", "").rstrip("/"),
         throttle_rate=float(get_str("BOT_THROTTLE_RATE", "0.4") or 0.4),

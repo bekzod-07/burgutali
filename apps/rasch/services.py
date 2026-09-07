@@ -3,7 +3,7 @@ Test natijalarini to'liq hisoblash xizmati.
 
 Bosqichlar (TZ 7-bo'lim):
   1. Testdagi barcha yakunlangan urinishlar olinadi.
-  2. Har bir javob qayta tekshiriladi (kalit yoki SymPy ekvivalentligi).
+  2. Har bir javob qayta tekshiriladi (harfli kalit yoki matn taqqoslash).
   3. Rasch testlarida savol qiyinliklari JMLE bilan kalibrlanadi
      (agar `Exam.auto_calibrate` yoqilgan bo'lsa).
   4. Har bir ishtirokchi uchun `theta` MLE orqali topiladi.

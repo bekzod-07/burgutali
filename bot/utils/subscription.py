@@ -1,7 +1,7 @@
 """
 Majburiy obunani tekshirish.
 
-TZ talabi: botdan foydalanish uchun @Burgutali kanaliga a'zo bo'lish shart.
+TZ talabi: botdan foydalanish uchun @Oybek_ustoz_MS kanaliga a'zo bo'lish shart.
 Bu qoida barcha foydalanuvchilarga tegishli — test ishlaydiganlarga ham,
 test yaratadiganlarga ham. Asosiy adminlar bundan mustasno.
 """
