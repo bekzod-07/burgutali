@@ -88,6 +88,17 @@ def _name_key(value: str) -> str:
     return "".join(ch for ch in text if ch.isalnum() or ch.isspace()).strip()
 
 
+def _all_combinations() -> list[tuple[str, str, bool]]:
+    """Barcha (familiya o'zagi, ism, ayolmi) juftliklari."""
+    combos: list[tuple[str, str, bool]] = []
+    for female in (False, True):
+        names = FEMALE_NAMES if female else MALE_NAMES
+        for stem in SURNAME_STEMS:
+            for given in names:
+                combos.append((stem, given, female))
+    return combos
+
+
 def unique_names(
     count: int,
     taken: set[str] | None = None,
@@ -99,34 +110,42 @@ def unique_names(
 
     `taken` — band nomlar (haqiqiy qatnashchilar va avval yaratilgan
     qatorlar). Taqqoslash registr va apostrofga befarq bajariladi.
+
+    Nomlar tasodifiy **urinish** bilan emas, aralashtirilgan to'liq
+    kombinatsiyalar ro'yxatidan olinadi — shuning uchun 10 000 ta nom ham
+    bir tekis va tez chiqadi. Kombinatsiyalar (~4 200 ta) tugasa, nomga
+    otasining ismi harfi qo'shiladi («Karimov Alisher A.») va ro'yxat
+    yana bir necha o'n barobar kengayadi.
     """
     rng = rng or random.Random()
     used = {_name_key(name) for name in (taken or set())}
     result: list[str] = []
+    if count <= 0:
+        return result
 
-    # Kombinatsiyalar soni cheklangan (~4000), shuning uchun urinishlar
-    # soni ham cheklanadi — zaxira sifatida otasining ismi qo'shiladi.
-    attempts = 0
-    limit = max(count * 60, 400)
-    while len(result) < count and attempts < limit:
-        attempts += 1
-        name = random_full_name(rng)
+    combos = _all_combinations()
+    rng.shuffle(combos)
+
+    def take(stem: str, given: str, female: bool, suffix: str = "") -> bool:
+        name = f"{_surname(stem, female)} {given}{suffix}"
         key = _name_key(name)
         if key in used:
-            continue
+            return False
         used.add(key)
         result.append(name)
+        return len(result) >= count
 
-    while len(result) < count:
-        # Zaxira: «Familiya Ism O.» ko'rinishi — takrorlanish ehtimoli yo'q.
-        base = random_full_name(rng)
-        initial = rng.choice(MALE_NAMES + FEMALE_NAMES)[0]
-        name = f"{base} {initial}."
-        key = _name_key(name)
-        if key in used:
-            continue
-        used.add(key)
-        result.append(name)
+    for stem, given, female in combos:
+        if take(stem, given, female):
+            return result
+
+    # Kombinatsiyalar tugadi — otasining ismi harfi bilan kengaytiramiz.
+    initials = sorted({name[0] for name in MALE_NAMES + FEMALE_NAMES})
+    rng.shuffle(initials)
+    for initial in initials:
+        for stem, given, female in combos:
+            if take(stem, given, female, f" {initial}."):
+                return result
 
     return result
 
@@ -199,5 +218,6 @@ __all__ = [
     "DEFAULT_BALL_RANGE",
     "random_full_name",
     "unique_names",
+    "_all_combinations",
     "blended_balls",
 ]

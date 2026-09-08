@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+from datetime import timedelta
 
 from django.db import models, transaction
 from django.db.models import Count, Q
@@ -594,6 +595,85 @@ def auto_close_expired() -> int:
 
 
 # --------------------------------------------------------------------------
+#  Eskirgan testlarni avtomatik o'chirish
+# --------------------------------------------------------------------------
+
+#: Shu holatlardagi test belgilangan muddat o'tgach butunlay o'chiriladi.
+#:
+#: `active` va `closed` ro'yxatda yo'q — test hali jarayonda yoki natijasi
+#: hisoblanmagan. `archived` ham yo'q: arxiv ataylab saqlanadi.
+STALE_STATUSES: tuple[str, ...] = (
+    Exam.Status.DRAFT,
+    Exam.Status.CALCULATED,
+    Exam.Status.PUBLISHED,
+)
+
+#: Standart saqlash muddati (soat). `.env` da `EXAM_RETENTION_HOURS` bilan
+#: o'zgartiriladi; 0 yoki manfiy qiymat tozalashni butunlay o'chiradi.
+DEFAULT_RETENTION_HOURS: int = 48
+
+
+def retention_hours() -> int:
+    """Test shu holatlarda necha soat saqlanadi (0 — o'chirilmaydi)."""
+    from core.env import get_int
+
+    return get_int("EXAM_RETENTION_HOURS", DEFAULT_RETENTION_HOURS)
+
+
+def stale_exams(hours: int | None = None, limit: int = 50) -> list[Exam]:
+    """
+    Muddati o'tgan testlar ro'yxati.
+
+    Hisob `updated_at` bo'yicha: test holatga o'tganda ham, keyin
+    tahrirlanganda ham bu vaqt yangilanadi. Shuning uchun ustida ish
+    ketayotgan qoralama o'chib ketmaydi — soat oxirgi o'zgarishdan
+    boshlab sanaladi.
+    """
+    window = retention_hours() if hours is None else int(hours)
+    if window <= 0:
+        return []
+    cutoff = timezone.now() - timedelta(hours=window)
+    return list(
+        Exam.objects.filter(status__in=STALE_STATUSES, updated_at__lte=cutoff)
+        .order_by("id")[:limit]
+    )
+
+
+def delete_stale_exams(hours: int | None = None, limit: int = 50) -> list[dict]:
+    """
+    Muddati o'tgan testlarni butunlay o'chiradi.
+
+    Test bilan birga uning savollari, urinishlari, javoblari, ID kodlari,
+    statistikasi va **sertifikatlari** ham o'chadi (`delete_exam`).
+    Shu sababli o'chirilgan har bir test logga yoziladi.
+
+    Bot fon vazifasi (`bot/tasks/scheduler.py`) tomonidan chaqiriladi.
+    Qaytaradi: o'chirilgan testlar haqidagi qisqa ma'lumot ro'yxati.
+    """
+    removed: list[dict] = []
+    for exam in stale_exams(hours, limit):
+        summary = deletion_summary(exam)
+        record = {
+            "code": exam.code,
+            "title": exam.title,
+            "status": exam.get_status_display(),
+            "participants": summary["submitted"],
+            "certificates": summary["certificates"],
+        }
+        ok, _message, _summary = delete_exam(exam, force=True)
+        if not ok:  # pragma: no cover - `force=True` da yuz bermaydi
+            continue
+        removed.append(record)
+        logger.info(
+            "Muddati o'tgan test o'chirildi: %s «%s» (%s) — "
+            "%s ta natija, %s ta sertifikat bilan birga.",
+            record["code"], record["title"], record["status"],
+            record["participants"], record["certificates"],
+        )
+    return removed
+
+
+# --------------------------------------------------------------------------
 #  Avtomatik hisobotlar (adminga PDF yuborish)
 # --------------------------------------------------------------------------
 
@@ -800,6 +880,11 @@ __all__ = [
     "delete_exam",
     "can_manage",
     "auto_close_expired",
+    "STALE_STATUSES",
+    "DEFAULT_RETENTION_HOURS",
+    "retention_hours",
+    "stale_exams",
+    "delete_stale_exams",
     "REPORT_EXAM_TYPES",
     "exams_awaiting_report",
     "mark_report_sent",

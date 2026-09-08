@@ -27,7 +27,6 @@ urlpatterns = [
     path("testlar/yangi/", views.exam_create, name="exam_create"),
     path("testlar/<int:pk>/", views.exam_detail, name="exam_detail"),
     path("testlar/<int:pk>/ochirish/", views.exam_delete, name="exam_delete"),
-    path("testlar/<int:pk>/nusxa/", views.exam_duplicate, name="exam_duplicate"),
     path("testlar/<int:pk>/savollar/", views.exam_questions, name="exam_questions"),
     path(
         "testlar/<int:pk>/savollar/<int:question_id>/",

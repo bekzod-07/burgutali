@@ -271,7 +271,7 @@ boshqaruv · reyting.
 | `GET  api/urinish/<id>/natija/` | natija, javoblar tahlili, sertifikat holati |
 | `POST api/urinish/<id>/sertifikat/` | sertifikat yaratish va havolasini olish |
 | `POST api/test-yaratish/` | yangi test (kalitlar bilan) |
-| `POST api/test/<kod>/amal/` | faollashtirish / yopish / hisoblash / e'lon / nusxa |
+| `POST api/test/<kod>/amal/` | hisoblash / e'lon / sertifikatlar / arxivlash |
 | `POST api/test/<kod>/ochirish/` | testni o‘chirish (tasdiq bilan) |
 | `POST api/ifoda/` | ochiq javobni tekshiruvga tayyor ko‘rinishga keltirish |
 
@@ -371,3 +371,21 @@ taqsimlaydi. Uni uch joy ishlatadi: e'lon PDF si
 
 Statistika, Rasch kalibrlash, sertifikat va admin hisoboti esa doim
 `ranked_attempts` bilan — ya'ni faqat haqiqiy ma'lumot bilan ishlaydi.
+
+
+## Testlarni avtomatik tozalash
+
+`apps.exams.services.delete_stale_exams()` — qoralama, hisoblangan va
+e'lon qilingan testlarni `EXAM_RETENTION_HOURS` (standart 48) soatdan
+keyin `delete_exam(force=True)` orqali butunlay o'chiradi.
+
+Muddat `Exam.updated_at` bo'yicha sanaladi: holat o'zgarganda ham,
+test tahrirlanganda ham bu vaqt yangilanadi, shuning uchun ustida ish
+ketayotgan qoralama o'chib ketmaydi.
+
+Vazifani bot ishga tushiradi: `bot.tasks.scheduler.cleanup_loop`, oralig'i
+`CLEANUP_INTERVAL` (3600 s). Har bir o'chirish `logger.info` bilan
+`logs/bot.log` ga yoziladi — test kodi, nomi, holati, nechta natija va
+sertifikat bilan birga ketgani ko'rinadi.
+
+`STALE_STATUSES` ro'yxatiga `active`, `closed` va `archived` **kirmaydi**.

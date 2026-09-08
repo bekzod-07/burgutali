@@ -25,12 +25,6 @@
   </div>
   <div class="card-body">
     <div class="chip-row">
-      <a class="btn btn-green" href="{% url 'dashboard:exam_action' exam.pk 'faollashtirish' %}">
-        <svg class="icon"><use href="#i-play"></use></svg> Faollashtirish
-      </a>
-      <a class="btn btn-outline" href="{% url 'dashboard:exam_action' exam.pk 'yopish' %}">
-        <svg class="icon"><use href="#i-stop"></use></svg> Yopish
-      </a>
       <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">
         <svg class="icon"><use href="#i-sigma"></use></svg> Natijalarni hisoblash
       </a>
@@ -50,9 +44,6 @@
       </a>
       <a class="btn btn-outline" href="{% url 'dashboard:export_participants' exam.pk %}">
         <svg class="icon"><use href="#i-users"></use></svg> Ishtirokchilar
-      </a>
-      <a class="btn btn-outline" href="{% url 'dashboard:exam_duplicate' exam.pk %}">
-        <svg class="icon"><use href="#i-copy"></use></svg> Nusxa yaratish
       </a>
       <a class="btn btn-red" href="{% url 'dashboard:exam_delete' exam.pk %}">
         <svg class="icon"><use href="#i-trash"></use></svg> Testni o‘chirish

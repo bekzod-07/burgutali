@@ -25,6 +25,8 @@ duplicate_exam = sync_db_call(exam_services.duplicate_exam)
 deletion_summary = sync_to_async(exam_services.deletion_summary, thread_sensitive=True)
 delete_exam = sync_db_call(exam_services.delete_exam)
 auto_close_expired = sync_db_call(exam_services.auto_close_expired)
+#: Muddati o'tgan testlarni butunlay o'chiradi (48 soat).
+delete_stale_exams = sync_db_call(exam_services.delete_stale_exams)
 get_exam_by_code = sync_to_async(exam_services.get_exam_by_code, thread_sensitive=True)
 list_available_exams = sync_to_async(exam_services.list_available_exams, thread_sensitive=True)
 list_owned_exams = sync_to_async(exam_services.list_owned_exams, thread_sensitive=True)

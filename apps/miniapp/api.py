@@ -615,9 +615,11 @@ def exam_create(request, user):
     if open_keys:
         exam_services.apply_open_keys(exam, open_keys)
 
+    # Test yaratilishi bilan o'zi faollashadi. Pullik testda avval ID
+    # kodlar kerak, shuning uchun u `exam_codes` da faollashtiriladi.
     activated = False
     message = ""
-    if bool(data.get("activate", True)) and exam_type != Exam.Type.RASCH_PAID:
+    if exam_type != Exam.Type.RASCH_PAID:
         activated, message = exam_services.activate_exam(exam)
         exam.refresh_from_db()
 

@@ -518,7 +518,7 @@ def _row_from_phantom(phantom) -> RankRow:
 
 
 #: Bir marta qo'shish mumkin bo'lgan soxta qatorlarning eng ko'p soni.
-MAX_PHANTOMS: int = 200
+MAX_PHANTOMS: int = 10_000
 
 
 def phantom_count(exam: Exam) -> int:

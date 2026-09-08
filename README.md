@@ -44,8 +44,8 @@ yuklab olish — barchasi **web ilovada**, tugmalar orqali:
 * **Natija** — RASH balli, daraja, reyting, har bir savol bo‘yicha
   to‘g‘ri/xato tahlili;
 * **Sertifikatlar** — bitta tugma bilan PDF yuklab olish va QR tekshiruvi;
-* **Testlarim** — test **yaratish**, boshqarish (faollashtirish, yopish,
-  hisoblash, e’lon qilish), ID kodlar, nusxalash va **o‘chirish**.
+* **Testlarim** — test **yaratish**, boshqarish (hisoblash, e’lon qilish),
+  ID kodlar va **o‘chirish**. Test yaratilishi bilan o‘zi faollashadi.
 
 Ilova botning menyu tugmasidan, asosiy menyudagi «Ilovani ochish» tugmasidan
 yoki `/ilova` buyrug‘idan ochiladi. Barcha so‘rovlar Telegram `initData`
@@ -71,6 +71,42 @@ Milliy sertifikat shabloni — **45 ta savol, jami 51 ball**:
 | **40–45** | variantsiz, **a)** va **b)** javob maydoni | 12 |
 
 Yoki ixtiyoriy tuzilma: 10, 20, 30, 45, 50, 100 … savol (A/B/C/D).
+
+### Test hayot sikli — avtomatik
+
+Testni qo‘lda faollashtirish yoki yopish shart emas, shuning uchun bunday
+tugmalar ham yo‘q:
+
+| Bosqich | Qachon ro‘y beradi |
+|---------|-------------------|
+| **Faol** | test yaratilishi bilan — javob kalitlari to‘liq bo‘lsa darhol. Pullik RASH testi bundan mustasno: u ID kodlar yaratilgach faollashadi |
+| **Yopilgan** | tugash vaqti (`ends_at`) kelganda bot avtomatik yopadi |
+| **Hisoblangan** | «Natijalarni hisoblash» bosilganda (test hali faol bo‘lsa ham) |
+| **E’lon qilingan** | «Natijalarni e’lon qilish» bosilganda |
+
+### Ma’lumotlarni avtomatik tozalash
+
+**Qoralama**, **hisoblangan** va **e’lon qilingan** testlar shu holatda
+**48 soat** turgach bazadan **butunlay o‘chiriladi** — savollari,
+urinishlari, javoblari, ID kodlari, statistikasi va **sertifikatlari**
+bilan birga.
+
+> **Diqqat:** e’lon qilingan test o‘chganda uning sertifikatlari ham
+> yo‘qoladi, ya’ni QR-kod orqali tekshirish havolalari ishlamay qoladi.
+> Kerakli natijalarni oldindan Excel yoki PDF ko‘rinishida yuklab oling.
+
+Soat **oxirgi o‘zgarishdan** boshlab sanaladi — ustida ish ketayotgan
+qoralama o‘chib ketmaydi. **Faol**, **yopilgan** va **arxivlangan**
+testlarga tegilmaydi.
+
+Muddat `.env` da o‘zgartiriladi:
+
+```env
+EXAM_RETENTION_HOURS=48   # 0 — hech qachon o‘chirilmaydi
+```
+
+Tozalash bot fon vazifasi sifatida soatiga bir marta ishlaydi, har bir
+o‘chirish `logs/bot.log` ga yoziladi.
 
 ### Test kodi — oddiy son va qayta ishlatiladi
 
@@ -397,9 +433,6 @@ O‘chirish — himoyalangan amal:
 * sertifikat va Excel fayllari diskdan ham tozalanadi;
 * o‘chirishdan oldin natijalarni Excel/PDF ko‘rinishida saqlash taklif etiladi.
 
-Shuningdek testning to‘liq **nusxasini** yaratish mumkin — savollar va javob
-kalitlari ko‘chiriladi, natijalar esa ko‘chirilmaydi.
-
 ### Boshqaruv paneli (Django + o‘z CSS dizayni)
 
 > **Django ning standart admin paneli ishlatilmaydi** — u butunlay olib
@@ -415,7 +448,7 @@ Panelga **ikki xil** kirish mumkin:
 Imkoniyatlari:
 
 * test **yaratish** (tur, tuzilma, kalitlar, sozlamalar bir sahifada);
-* testlarni faollashtirish, yopish, hisoblash, e'lon qilish, nusxalash va
+* testlarni hisoblash, e'lon qilish va
   **o‘chirish** (tasdiqlash bilan);
 * savollarni **to‘liq tahrirlash**: matn, turi, variantlar, kalit, ochiq
   javoblar, Rasch qiyinligi va «qulflash»;

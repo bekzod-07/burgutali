@@ -1492,12 +1492,8 @@
 
       html += '<div class="section-title">' + ic("settings", "icon-sm") + "Amallar</div>";
 
-      if (exam.status === "draft" || exam.status === "closed") {
-        html += actionButton("activate", "play", "Faollashtirish", "btn-green");
-      }
-      if (exam.status === "active") {
-        html += actionButton("close", "stop", "Testni yopish", "btn-ghost");
-      }
+      /* Test yaratilishi bilan o'zi faollashadi, natijalar hisoblanganda
+         esa o'zi yopiladi — «Faollashtirish» va «Yopish» tugmalari yo'q. */
       if (["active", "closed", "calculated", "published"].indexOf(exam.status) !== -1) {
         html += actionButton("calculate", "sigma", "Natijalarni hisoblash", "btn");
       }
@@ -1516,7 +1512,6 @@
       html += '<a class="btn btn-ghost" href="' + esc(data.exports.results_pdf) + '" target="_blank" rel="noopener">' +
         ic("file") + "Natijalar (PDF)</a>";
 
-      html += actionButton("duplicate", "copy", "Nusxa yaratish", "btn-ghost");
       html += actionButton("archive", "save", "Arxivlash", "btn-ghost");
 
       html += '<button class="btn btn-danger" data-act="delete-exam" data-code="' + esc(exam.code) + '">' +

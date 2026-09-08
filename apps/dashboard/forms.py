@@ -255,10 +255,6 @@ class ExamCreateForm(forms.Form):
     certificate = forms.BooleanField(
         label="Sertifikat berilsin (faqat pullik test)", required=False
     )
-    activate = forms.BooleanField(
-        label="Yaratilgach darhol faollashtirilsin", required=False, initial=True
-    )
-
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user

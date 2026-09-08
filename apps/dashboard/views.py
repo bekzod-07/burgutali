@@ -237,9 +237,14 @@ def exam_create(request):
 
             messages.success(request, f"«{exam.title}» testi yaratildi (kod: {exam.code}).")
 
-            if data.get("activate"):
-                ok, message = exam_services.activate_exam(exam)
-                messages.success(request, message) if ok else messages.warning(request, message)
+            # Test yaratilishi bilan o'zi faollashadi — alohida tugma yo'q.
+            # Pullik testda ID kodlar yaratilgunicha faollashmaydi, shuning
+            # uchun sabab ogohlantirish sifatida ko'rsatiladi.
+            ok, message = exam_services.activate_exam(exam)
+            if ok:
+                messages.success(request, message)
+            else:
+                messages.warning(request, message)
 
             return redirect("dashboard:exam_detail", pk=exam.pk)
         messages.error(request, "Formada xatolar bor — quyida ko'rsatilgan.")
@@ -331,15 +336,6 @@ def exam_delete(request, pk: int):
         "dashboard/exam_delete.html",
         {"section": "exams", "exam": exam, "summary": summary, "form": form},
     )
-
-
-@staff_required
-def exam_duplicate(request, pk: int):
-    """Testning nusxasini yaratadi."""
-    exam = get_object_or_404(Exam, pk=pk)
-    copy = exam_services.duplicate_exam(exam, exam.owner)
-    messages.success(request, f"Nusxa yaratildi: {copy.title} ({copy.code}).")
-    return redirect("dashboard:exam_detail", pk=copy.pk)
 
 
 @staff_required
@@ -646,14 +642,12 @@ def exam_codes(request, pk: int):
 
 @staff_required
 def exam_action(request, pk: int, action: str):
-    """Test ustidagi amallar: faollashtirish, yopish, hisoblash, e'lon qilish."""
+    """Test ustidagi amallar: hisoblash, sertifikatlar, arxivlash."""
     exam = get_object_or_404(Exam, pk=pk)
 
-    if action == "faollashtirish":
-        ok, message = exam_services.activate_exam(exam)
-    elif action == "yopish":
-        ok, message = exam_services.close_exam(exam)
-    elif action == "hisoblash":
+    # «Faollashtirish» va «Yopish» amallari yo'q: test yaratilishi bilan
+    # o'zi faollashadi, natijalar hisoblanganda esa o'zi yopiladi.
+    if action == "hisoblash":
         report = calculate_exam(exam)
         ok, message = True, (
             f"Hisoblandi: {report.participants} ta qatnashchi, "

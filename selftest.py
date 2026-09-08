@@ -3909,6 +3909,256 @@ def test_essay_and_phantoms() -> None:
     R.check("Xabarda emoji yo'q", not _has_emoji(message))
 
 
+# ==========================================================================
+#  25. Avto-faollashtirish, soddalashtirilgan panel va 48 soatlik tozalash
+# ==========================================================================
+
+
+def test_autoflow_and_cleanup() -> None:
+    from datetime import timedelta
+
+    from django.contrib.auth.models import User
+    from django.test import Client
+    from django.utils import timezone as dj_timezone
+
+    from apps.attempts.models import Attempt
+    from apps.attempts.phantoms import unique_names
+    from apps.attempts.services import MAX_PHANTOMS, create_phantoms
+    from apps.certificates.models import Certificate
+    from apps.exams.models import Exam
+    from apps.exams.services import (
+        DEFAULT_RETENTION_HOURS,
+        STALE_STATUSES,
+        create_exam,
+        delete_stale_exams,
+        retention_hours,
+        stale_exams,
+    )
+    from apps.users.models import BotUser
+
+    R.head("25. Avto-faollashtirish, soddalashtirilgan panel va tozalash")
+
+    owner, _ = BotUser.objects.get_or_create(
+        telegram_id=5100, defaults={"full_name": "Avto Yaratuvchi", "is_registered": True}
+    )
+
+    # ------------------------------------------------------------------
+    #  25.1. Panelda test yaratilishi bilan faollashadi
+    # ------------------------------------------------------------------
+    User.objects.filter(username="selftest_auto").delete()
+    User.objects.create_superuser("selftest_auto", "auto@test.local", "SelfTest12345!")
+    client = Client()
+    R.check(
+        "Admin panelga kirdi",
+        client.login(username="selftest_auto", password="SelfTest12345!"),
+    )
+
+    create_page = client.get("/panel/testlar/yangi/").content.decode("utf-8", "replace")
+    R.check(
+        "Yaratish formasida «darhol faollashtirilsin» katagi yo'q",
+        "faollashtirilsin" not in create_page,
+    )
+    R.check("O'rniga avto-faollashish izohi bor", "o‘zi faollashadi" in create_page)
+
+    before = set(Exam.objects.values_list("id", flat=True))
+    response = client.post(
+        "/panel/testlar/yangi/",
+        {
+            "title": "AVTO FAOLLASHISH SINOVI",
+            "exam_type": Exam.Type.SIMPLE,
+            "structure": "custom",
+            "question_count": "5",
+            "duration_hours": "0",
+            "description": "",
+            "single_keys": "ABCDA",
+            "multi_keys": "",
+            "open_keys": "",
+            "show_results": "on",
+        },
+    )
+    R.equal("Test yaratildi", response.status_code, 302)
+    created = Exam.objects.exclude(id__in=before).order_by("-id").first()
+    R.check("Yangi test topildi", created is not None)
+    if created is not None:
+        R.equal(
+            "Yaratilishi bilan faol holatga o'tdi",
+            created.status,
+            Exam.Status.ACTIVE,
+        )
+        R.check("Javoblar darhol qabul qilinadi", created.accepts_answers)
+
+    # ------------------------------------------------------------------
+    #  25.2. Panelda olib tashlangan tugmalar yo'q
+    # ------------------------------------------------------------------
+    detail = client.get(
+        f"/panel/testlar/{created.pk}/"
+    ).content.decode("utf-8", "replace")
+    R.check("«Faollashtirish» tugmasi yo'q", "Faollashtirish" not in detail)
+    R.check("«Yopish» tugmasi yo'q", ">Yopish" not in detail and "Yopish\n" not in detail)
+    R.check("«Nusxa yaratish» tugmasi yo'q", "Nusxa yaratish" not in detail)
+    R.check("«Natijalarni hisoblash» qoldi", "Natijalarni hisoblash" in detail)
+    R.check("«Natijalarni e’lon qilish» qoldi", "e’lon qilish" in detail)
+
+    listing = client.get("/panel/testlar/").content.decode("utf-8", "replace")
+    R.check("Ro'yxatda ham nusxa tugmasi yo'q", "Nusxa yaratish" not in listing)
+
+    R.equal(
+        "Nusxa manzili umuman yo'q",
+        client.get(f"/panel/testlar/{created.pk}/nusxa/").status_code,
+        404,
+    )
+    # Olib tashlangan amallar endi «noma'lum amal» sifatida qaytariladi.
+    R.equal(
+        "«faollashtirish» amali ishlamaydi",
+        client.get(f"/panel/testlar/{created.pk}/amal/faollashtirish/").status_code,
+        302,
+    )
+    created.refresh_from_db()
+    R.equal("Holat o'zgarmadi", created.status, Exam.Status.ACTIVE)
+
+    # ------------------------------------------------------------------
+    #  25.3. Mini App orqali yaratilgan test ham o'zi faollashadi
+    # ------------------------------------------------------------------
+    import json as _json
+
+    app_user, _ = BotUser.objects.get_or_create(
+        telegram_id=5101,
+        defaults={"full_name": "Ilova Yaratuvchi", "phone": "+998901112233",
+                  "is_registered": True},
+    )
+    api_client = Client()
+    response = api_client.post(
+        "/app/api/test-yaratish/",
+        data=_json.dumps({
+            "title": "ILOVA AVTO FAOLLASHISH",
+            "type": Exam.Type.SIMPLE,
+            "question_count": 4,
+            "single_keys": "ABCD",
+        }),
+        content_type="application/json",
+        HTTP_X_DEBUG_USER=str(app_user.telegram_id),
+    )
+    payload = response.json()
+    R.check("Ilova testni yaratdi", payload.get("ok"))
+    R.check("Ilovada ham avto-faollashdi", payload.get("activated") is True)
+    R.equal("Holat = faol", payload["exam"]["status"], Exam.Status.ACTIVE)
+
+    # ------------------------------------------------------------------
+    #  25.4. Soxta qatorlar chegarasi — 10 000
+    # ------------------------------------------------------------------
+    R.equal("Chegara 10 000 ta", MAX_PHANTOMS, 10_000)
+
+    publish_page = client.get(
+        f"/panel/testlar/{created.pk}/elon/"
+    ).content.decode("utf-8", "replace")
+    R.check("E'lon sahifasida yangi chegara ko'rinadi", "10000" in publish_page)
+
+    names = unique_names(10_000)
+    R.equal("10 000 ta nom yaratildi", len(names), 10_000)
+    R.equal("Hammasi takrorlanmaydi", len(set(names)), 10_000)
+    R.check("Nomlar bo'sh emas", all(name.strip() for name in names))
+
+    # Band nomlar chetlab o'tiladi.
+    busy = {names[0], names[1]}
+    fresh = unique_names(50, busy)
+    R.check("Band nomlar qayta berilmaydi", not (set(fresh) & busy))
+
+    # ------------------------------------------------------------------
+    #  25.5. 48 soatlik tozalash
+    # ------------------------------------------------------------------
+    R.equal("Standart muddat 48 soat", DEFAULT_RETENTION_HOURS, 48)
+    R.equal("Sozlamadan o'qiladi", retention_hours(), 48)
+    R.equal(
+        "Faqat uch holat tozalanadi",
+        set(STALE_STATUSES),
+        {Exam.Status.DRAFT, Exam.Status.CALCULATED, Exam.Status.PUBLISHED},
+    )
+
+    old = dj_timezone.now() - timedelta(hours=72)
+    fresh_time = dj_timezone.now() - timedelta(hours=2)
+
+    def make(title: str, status: str, moment) -> Exam:
+        item = create_exam(
+            owner=owner, title=title, exam_type=Exam.Type.SIMPLE, question_count=2
+        )
+        Exam.objects.filter(pk=item.pk).update(status=status, updated_at=moment)
+        item.refresh_from_db()
+        return item
+
+    stale_draft = make("ESKI QORALAMA", Exam.Status.DRAFT, old)
+    stale_calc = make("ESKI HISOBLANGAN", Exam.Status.CALCULATED, old)
+    stale_pub = make("ESKI E'LON", Exam.Status.PUBLISHED, old)
+    keep_active = make("FAOL TEST", Exam.Status.ACTIVE, old)
+    keep_closed = make("YOPILGAN TEST", Exam.Status.CLOSED, old)
+    keep_archived = make("ARXIV TEST", Exam.Status.ARCHIVED, old)
+    keep_new = make("YANGI QORALAMA", Exam.Status.DRAFT, fresh_time)
+
+    pending = {item.code for item in stale_exams()}
+    R.check("Eski qoralama ro'yxatda", stale_draft.code in pending)
+    R.check("Eski hisoblangan ro'yxatda", stale_calc.code in pending)
+    R.check("Eski e'lon qilingan ro'yxatda", stale_pub.code in pending)
+    R.check("Faol test tegilmaydi", keep_active.code not in pending)
+    R.check("Yopilgan test tegilmaydi", keep_closed.code not in pending)
+    R.check("Arxiv tegilmaydi", keep_archived.code not in pending)
+    R.check("Yangi qoralama tegilmaydi", keep_new.code not in pending)
+
+    removed = delete_stale_exams()
+    removed_codes = {item["code"] for item in removed}
+    R.check("Uchala eski test o'chirildi", {
+        stale_draft.code, stale_calc.code, stale_pub.code
+    } <= removed_codes)
+    R.equal(
+        "Bazada qolmadi",
+        Exam.objects.filter(
+            pk__in=[stale_draft.pk, stale_calc.pk, stale_pub.pk]
+        ).count(),
+        0,
+    )
+    R.equal(
+        "Saqlanishi kerak bo'lganlar joyida",
+        Exam.objects.filter(
+            pk__in=[keep_active.pk, keep_closed.pk, keep_archived.pk, keep_new.pk]
+        ).count(),
+        4,
+    )
+    R.check(
+        "Hisobotda holat nomi bor",
+        all(item["status"] for item in removed),
+    )
+
+    # --- Muddat 0 bo'lsa tozalash o'chadi ---
+    R.equal("Nol muddatda ro'yxat bo'sh", stale_exams(hours=0), [])
+    R.equal("Nol muddatda hech narsa o'chmaydi", delete_stale_exams(hours=0), [])
+
+    # --- Bog'liq ma'lumot ham o'chadi ---
+    linked = make("BOG'LIQ MA'LUMOTLI TEST", Exam.Status.PUBLISHED, old)
+    create_phantoms(linked, 3, seed=1)
+    from apps.attempts.models import PhantomParticipant
+
+    R.equal(
+        "Soxta qatorlar yaratildi",
+        PhantomParticipant.objects.filter(exam=linked).count(),
+        3,
+    )
+    delete_stale_exams()
+    R.equal("Test o'chdi", Exam.objects.filter(pk=linked.pk).count(), 0)
+    R.equal(
+        "Soxta qatorlar ham o'chdi",
+        PhantomParticipant.objects.filter(exam_id=linked.pk).count(),
+        0,
+    )
+    R.equal(
+        "Urinishlar ham qolmadi",
+        Attempt.objects.filter(exam_id=linked.pk).count(),
+        0,
+    )
+    R.equal(
+        "Sertifikatlar ham qolmadi",
+        Certificate.objects.filter(exam_id=linked.pk).count(),
+        0,
+    )
+
+
 def main() -> int:
     print("\033[1m" + "═" * 60)
     print("  RASCH TELEGRAM BOT — O'Z-O'ZINI TEKSHIRUV")
@@ -3940,6 +4190,7 @@ def main() -> int:
         test_keysheet,
         test_broadcast,
         test_essay_and_phantoms,
+        test_autoflow_and_cleanup,
     ]
 
     for step in steps:

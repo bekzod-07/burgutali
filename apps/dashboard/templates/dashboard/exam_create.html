@@ -57,14 +57,11 @@
           {{ form.certificate }}
           <label for="{{ form.certificate.id_for_label }}" style="margin:0">{{ form.certificate.label }}</label>
         </div>
-        <div class="check-row">
-          {{ form.activate }}
-          <label for="{{ form.activate.id_for_label }}" style="margin:0">{{ form.activate.label }}</label>
-        </div>
-
-        <div class="message message-warning small mt">
-          <b>Pullik RASH testi</b> darhol faollashmaydi — avval ID kodlar
-          yaratilishi kerak. Testni yaratgach «ID kodlar» bo‘limiga o‘ting.
+        <div class="message message-info small mt">
+          Test yaratilishi bilan <b>o‘zi faollashadi</b> — javoblar darhol
+          qabul qilinadi. Faqat <b>pullik RASH testi</b> bundan mustasno:
+          unda avval ID kodlar yaratilishi kerak, shuning uchun testni
+          yaratgach «ID kodlar» bo‘limiga o‘ting.
         </div>
       </div>
     </section>

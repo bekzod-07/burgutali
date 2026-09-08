@@ -15,6 +15,10 @@ Ikkita vazifa bajariladi:
   3. **Reklama xabarlarini yuborish** — panelda tayyorlangan ommaviy
      xabar (matn, rasm, tugmalar) foydalanuvchilarga yetkaziladi
      (`bot/tasks/broadcast.py`).
+
+  4. **Muddati o'tgan testlarni tozalash** — qoralama, hisoblangan va
+     e'lon qilingan testlar `EXAM_RETENTION_HOURS` (standart 48) soatdan
+     keyin bazadan butunlay o'chiriladi.
 """
 
 from __future__ import annotations
@@ -35,6 +39,9 @@ logger = logging.getLogger(__name__)
 #: Hisobotlarni tekshirish oralig'i (sekund).
 REPORT_INTERVAL: int = 60
 
+#: Muddati o'tgan testlarni tekshirish oralig'i (sekund).
+CLEANUP_INTERVAL: int = 3600
+
 
 async def auto_close_loop(interval: int) -> None:
     """Belgilangan oraliqda vaqti tugagan testlarni yopadi."""
@@ -50,6 +57,33 @@ async def auto_close_loop(interval: int) -> None:
         except Exception:  # pragma: no cover - fon vazifasi to'xtamasin
             logger.exception("Testlarni avtomatik yopishda xato")
         await asyncio.sleep(max(15, interval))
+
+
+async def cleanup_loop(interval: int) -> None:
+    """
+    Muddati o'tgan testlarni butunlay o'chiradi.
+
+    Qoralama, hisoblangan va e'lon qilingan testlar shu holatda
+    `EXAM_RETENTION_HOURS` (standart 48) soat turgach bazadan o'chiriladi —
+    natijalari va sertifikatlari bilan birga. Har bir o'chirish logga
+    yoziladi (`logs/bot.log`).
+    """
+    from bot.services import exams as exam_service
+
+    while True:
+        try:
+            removed = await exam_service.delete_stale_exams()
+            if removed:
+                logger.info(
+                    "Muddati o'tgan %s ta test tozalandi: %s",
+                    len(removed),
+                    ", ".join(item["code"] for item in removed),
+                )
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception:  # pragma: no cover - fon vazifasi to'xtamasin
+            logger.exception("Muddati o'tgan testlarni o'chirishda xato")
+        await asyncio.sleep(max(300, interval))
 
 
 async def results_report_loop(bot: Bot, interval: int) -> None:
@@ -190,7 +224,10 @@ def start_scheduler(bot: Bot | None = None) -> list[asyncio.Task]:
     from bot.tasks.broadcast import QUEUE_INTERVAL, broadcast_loop
 
     config = get_config()
-    tasks = [asyncio.create_task(auto_close_loop(config.auto_close_interval))]
+    tasks = [
+        asyncio.create_task(auto_close_loop(config.auto_close_interval)),
+        asyncio.create_task(cleanup_loop(CLEANUP_INTERVAL)),
+    ]
     if bot is not None:
         tasks.append(asyncio.create_task(results_report_loop(bot, REPORT_INTERVAL)))
         tasks.append(asyncio.create_task(broadcast_loop(bot, QUEUE_INTERVAL)))
@@ -201,6 +238,8 @@ def start_scheduler(bot: Bot | None = None) -> list[asyncio.Task]:
 __all__ = [
     "start_scheduler",
     "auto_close_loop",
+    "cleanup_loop",
     "results_report_loop",
     "REPORT_INTERVAL",
+    "CLEANUP_INTERVAL",
 ]
