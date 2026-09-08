@@ -4243,6 +4243,46 @@ def test_report_rows_and_self_essay() -> None:
     R.equal("Excelda 25 ta qator", len([n for n in names if n]), 25)
     R.check("Hammasi soxta deb belgilangan", all(flag == "ha" for flag in flags))
 
+    # --- Panelda soxta qatorlar soni alohida ko'rinadi ---
+    from apps.exams.services import exam_summary
+
+    summary = exam_summary(empty)
+    R.equal("Xulosada haqiqiy qatnashchi 0", summary["participants"], 0)
+    R.equal("Xulosada soxta qatorlar 25", summary["phantoms"], 25)
+    R.equal("E'lon ro'yxati uzunligi 25", summary["published_rows"], 25)
+
+    from django.contrib.auth.models import User
+
+    User.objects.filter(username="selftest_rows").delete()
+    User.objects.create_superuser("selftest_rows", "rows@test.local", "SelfTest12345!")
+    panel = Client()
+    R.check(
+        "Admin panelga kirdi",
+        panel.login(username="selftest_rows", password="SelfTest12345!"),
+    )
+
+    listing = panel.get("/panel/testlar/").content.decode("utf-8", "replace")
+    R.check("Ro'yxatda soxta qatorlar soni bor", "25 soxta" in listing)
+
+    detail = panel.get(
+        f"/panel/testlar/{empty.pk}/"
+    ).content.decode("utf-8", "replace")
+    R.check("Tafsilotda «Soxta qatorlar» qatori bor", "Soxta qatorlar" in detail)
+    R.check("Tafsilotda jami ko'rsatilgan", "jami 25" in detail)
+
+    # --- Ilova boshqaruv ekrani ---
+    manage = panel.get(f"/app/api/test/{empty.code}/boshqaruv/")
+    if manage.status_code == 401:
+        # Panel sessiyasi ilova API si uchun yaramaydi — Debug-User bilan.
+        manage = Client().get(
+            f"/app/api/test/{empty.code}/boshqaruv/",
+            HTTP_X_DEBUG_USER=str(owner.telegram_id),
+        )
+    manage_data = manage.json()
+    R.check("Ilova boshqaruvi javob berdi", manage_data.get("ok"))
+    R.equal("Ilovada soxta qatorlar soni", manage_data.get("phantoms"), 25)
+    R.equal("Ilovada e'lon ro'yxati uzunligi", manage_data.get("published_rows"), 25)
+
     # ------------------------------------------------------------------
     #  26.2. Qatnashchi esse ballini o'zi kiritadi (Mini App)
     # ------------------------------------------------------------------

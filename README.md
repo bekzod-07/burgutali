@@ -286,6 +286,18 @@ egallab olmaydi.
 >
 > Olib tashlash uchun e’lon sahifasida sonni `0` qilib qayta e’lon qiling.
 
+Boshqaruv panelida soxta qatorlar **haqiqiy qatnashchilar soniga
+qo‘shilmaydi** — ular alohida ko‘rsatiladi:
+
+| Sahifa | Ko‘rinishi |
+|--------|------------|
+| Testlar ro‘yxati | `0` va ostida `+ 1000 soxta` |
+| Test tafsilotlari | «Qatnashchilar: 0» va «Soxta qatorlar: 1000 · e’lon ro‘yxatida jami 1000» |
+
+Shunday qilingani bejiz emas: «Qatnashchilar» soni statistikada,
+Rasch hisobida va sertifikat qoidalarida ishlatiladi, shuning uchun u
+faqat **haqiqiy** natijalarni bildirishi kerak.
+
 Qo‘shimcha qatorlar **barcha eksportlarda** ko‘rinadi — e’lon PDF sida,
 admin PDF hisobotida va Excel faylida. Admin uchun mo‘ljallangan
 fayllarda ular alohida belgilanadi: PDF da ism yonida `(soxta)`, Excelda

@@ -75,7 +75,14 @@
                 {% else %}<span class="badge badge-gray">{{ exam.get_status_display }}</span>{% endif %}
               </td>
               <td class="num">{{ exam.question_count }}</td>
-              <td class="num">{{ exam.participants }}</td>
+              <td class="num">
+                {{ exam.participants }}
+                {% if exam.phantom_rows %}
+                  <br><span class="small muted" title="E’lon ro‘yxatiga qo‘shilgan soxta qatorlar">
+                    + {{ exam.phantom_rows }} soxta
+                  </span>
+                {% endif %}
+              </td>
               <td class="small">{{ exam.owner.display_name }}</td>
               <td class="num nowrap">
                 <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:exam_results' exam.pk %}" title="Natijalar">

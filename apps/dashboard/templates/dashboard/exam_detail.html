@@ -74,6 +74,15 @@
       <div class="kv"><span class="k">Savollar soni</span><span class="v">{{ exam.question_count }}</span></div>
       <div class="kv"><span class="k">Maksimal xom ball</span><span class="v">{{ summary.max_raw_score }}</span></div>
       <div class="kv"><span class="k">Qatnashchilar</span><span class="v">{{ summary.participants }}</span></div>
+      {% if summary.phantoms %}
+        <div class="kv">
+          <span class="k">Soxta qatorlar</span>
+          <span class="v">
+            <span class="badge badge-gray">{{ summary.phantoms }}</span>
+            <span class="small muted">e’lon ro‘yxatida jami {{ summary.published_rows }}</span>
+          </span>
+        </div>
+      {% endif %}
       <div class="kv"><span class="k">Tugash vaqti</span><span class="v">{% if exam.ends_at %}{{ exam.ends_at|date:"d.m.Y H:i" }}{% else %}cheklanmagan{% endif %}</span></div>
       <div class="kv"><span class="k">Sertifikat</span><span class="v">{% if exam.can_issue_certificate %}<span class="badge badge-gold">Yoqilgan</span>{% else %}<span class="badge badge-gray">Yo‘q</span>{% endif %}</span></div>
       {% if exam.deep_link %}

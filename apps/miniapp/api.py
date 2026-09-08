@@ -738,10 +738,17 @@ def exam_manage(request, user, code: str):
     if exam.requires_access_code:
         codes = code_services.code_statistics(exam)
 
+    from apps.attempts.models import PhantomParticipant
+
+    phantoms = PhantomParticipant.objects.filter(exam=exam).count()
+
     return {
         "exam": S.exam_dict(exam, participants=participants, detailed=True),
         "statistics": S.statistics_dict(statistics),
         "codes": codes,
+        # E'lon ro'yxatiga qo'shilgan soxta qatorlar (haqiqiy natija emas).
+        "phantoms": phantoms,
+        "published_rows": participants + phantoms,
         "missing_keys": exam_services.missing_keys(exam)[:30],
         "certificates": Certificate.objects.filter(exam=exam).count(),
         "exports": {

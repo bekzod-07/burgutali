@@ -165,12 +165,17 @@ def index(request):
 @staff_required
 def exam_list(request):
     """Testlar ro'yxati."""
+    # `participants` — faqat haqiqiy topshirganlar. E'lon ro'yxatiga
+    # qo'shilgan soxta qatorlar alohida sanaladi, shunda ro'yxatdagi son
+    # bilan e'lon qilingan ro'yxat uzunligi orasidagi farq ko'rinib turadi.
     queryset = (
         Exam.objects.select_related("owner")
         .annotate(
             participants=Count(
                 "attempts", filter=Q(attempts__status="submitted"), distinct=True
-            )
+            ),
+            # `phantoms` nomi modeldagi teskari bog'lanish bilan to'qnashadi.
+            phantom_rows=Count("phantoms", distinct=True),
         )
         .order_by("-created_at")
     )

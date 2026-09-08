@@ -841,13 +841,21 @@ def exam_summary(exam: Exam) -> dict:
     """Test haqida qisqacha ma'lumot (botda ko'rsatish uchun)."""
     from apps.attempts.models import Attempt
 
+    from apps.attempts.models import PhantomParticipant
+
     participants = Attempt.objects.filter(
         exam=exam, status=Attempt.Status.SUBMITTED
     ).count()
+    # E'lon ro'yxatiga qo'shilgan soxta qatorlar — alohida son. Ular
+    # `participants` ga qo'shilmaydi: bu ko'rsatkich hisob-kitobda ham
+    # ishlatiladi va faqat haqiqiy natijalarni bildirishi kerak.
+    phantoms = PhantomParticipant.objects.filter(exam=exam).count()
     return {
         "id": exam.id,
         "title": exam.title,
         "code": exam.code,
+        "phantoms": phantoms,
+        "published_rows": participants + phantoms,
         "type": exam.get_exam_type_display(),
         "status": exam.get_status_display(),
         "questions": exam.question_count,
