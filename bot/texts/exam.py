@@ -330,6 +330,22 @@ RESULT_SIMPLE = (
     "Reyting: <b>{rank}</b>"
 )
 
+ESSAY_ASK = (
+    "<b>Esse balli</b>\n\n"
+    "Test qismi yakunlandi. Endi esse (yozma qism) uchun olgan "
+    "ballingizni kiriting — <b>0</b> dan <b>{max_ball}</b> gacha son.\n\n"
+    "Yakuniy ball ikkisining o‘rtachasi bo‘ladi:\n"
+    "<i>(test balli + esse balli) / 2</i>\n\n"
+    "Masalan: esse <b>50</b>, testdan <b>40</b> — yakuniy ball <b>45</b>."
+)
+
+ESSAY_SAVED = "Esse balli qabul qilindi: <b>{value}</b>"
+
+ESSAY_INVALID = (
+    "{error}\n\nFaqat son yozing (masalan: <code>50</code> yoki "
+    "<code>47,5</code>)."
+)
+
 RESULT_HIDDEN = (
     "Bu testda natijalar qatnashchilarga ko‘rsatilmaydi.\n\n"
     "Natijalarni tashkilotchi e’lon qilganda ko‘rishingiz mumkin."

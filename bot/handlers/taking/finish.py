@@ -20,6 +20,7 @@ from bot.services import attempts as attempt_service
 from bot.states import TakingStates
 from bot.texts import common as TC
 from bot.texts import exam as TE
+from core.text_utils import esc
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +91,51 @@ async def back_to_questions(
 @router.callback_query(
     StateFilter(TakingStates.confirming), QuestionCB.filter(F.action == "submit")
 )
-async def submit(callback: CallbackQuery, state: FSMContext, user, is_admin: bool) -> None:
-    """Javoblarni yakuniy yuboradi."""
+async def submit(
+    callback: CallbackQuery,
+    callback_data: QuestionCB,
+    state: FSMContext,
+    user,
+    is_admin: bool,
+) -> None:
+    """
+    Javoblarni yakuniy yuboradi.
+
+    Esse baholanadigan testda avval qatnashchidan esse balli so'raladi —
+    yakuniy ball `(test balli + esse balli) / 2` bo'lgani uchun u
+    yuborishdan oldin ma'lum bo'lishi kerak. «Esse baholanmagan» tugmasi
+    bosilsa (`value == "skip"`) ball so'ralmaydi.
+    """
+    await callback.answer()
+
+    data = await state.get_data()
+    attempt_id = int(data.get("attempt_id", 0) or 0)
+    attempt = await attempt_service.get_attempt(attempt_id)
+    if attempt is None:
+        await state.clear()
+        await callback.message.answer(TC.ERROR_GENERIC)
+        return
+
+    if (callback_data.value or "") != "skip":
+        essay = await attempt_service.essay_settings(attempt_id)
+        if essay["enabled"] and essay["value"] is None:
+            await state.set_state(TakingStates.waiting_essay)
+            await callback.message.answer(
+                TE.ESSAY_ASK.format(max_ball=f"{essay['max_ball']:g}"),
+                reply_markup=inline.essay_skip(),
+            )
+            return
+
+    await _finalize(callback.message, state, attempt, is_admin)
+
+
+@router.callback_query(
+    StateFilter(TakingStates.waiting_essay), QuestionCB.filter(F.action == "submit")
+)
+async def skip_essay(
+    callback: CallbackQuery, state: FSMContext, user, is_admin: bool
+) -> None:
+    """Esse ballini kiritmasdan yuborish."""
     await callback.answer()
 
     data = await state.get_data()
@@ -100,16 +144,47 @@ async def submit(callback: CallbackQuery, state: FSMContext, user, is_admin: boo
         await state.clear()
         await callback.message.answer(TC.ERROR_GENERIC)
         return
+    await _finalize(callback.message, state, attempt, is_admin)
 
+
+@router.message(StateFilter(TakingStates.waiting_essay), F.text)
+async def receive_essay(message: Message, state: FSMContext, user, is_admin: bool) -> None:
+    """Qatnashchi kiritgan esse ballini qabul qiladi."""
+    data = await state.get_data()
+    attempt_id = int(data.get("attempt_id", 0) or 0)
+
+    ok, error, value = await attempt_service.store_essay_ball(
+        attempt_id, message.text or ""
+    )
+    if not ok:
+        await message.answer(
+            TE.ESSAY_INVALID.format(error=esc(error)),
+            reply_markup=inline.essay_skip(),
+        )
+        return
+
+    if value is not None:
+        await message.answer(TE.ESSAY_SAVED.format(value=f"{value:g}"))
+
+    attempt = await attempt_service.get_attempt(attempt_id)
+    if attempt is None:
+        await state.clear()
+        await message.answer(TC.ERROR_GENERIC)
+        return
+    await _finalize(message, state, attempt, is_admin)
+
+
+async def _finalize(message: Message, state: FSMContext, attempt, is_admin: bool) -> None:
+    """Urinishni yakunlaydi va natijani ko'rsatadi."""
     try:
         attempt = await attempt_service.submit_attempt(attempt)
     except Exception:
         logger.exception("Javoblarni yuborishda xato: attempt_id=%s", attempt.id)
-        await callback.message.answer(TC.ERROR_GENERIC)
+        await message.answer(TC.ERROR_GENERIC)
         return
 
     await state.clear()
-    await _show_submission_result(callback.message, attempt, is_admin)
+    await _show_submission_result(message, attempt, is_admin)
 
 
 async def _show_submission_result(message: Message, attempt, is_admin: bool) -> None:

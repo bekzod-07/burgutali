@@ -21,7 +21,7 @@ from openpyxl.utils import get_column_letter
 
 from apps.accesscodes.models import AccessCode, CodeBatch
 from apps.attempts.models import Attempt
-from apps.attempts.services import ranked_attempts
+from apps.attempts.services import public_ranking, ranked_attempts
 from apps.exams.models import Exam, Question
 from django.utils import timezone
 
@@ -164,47 +164,57 @@ def results_workbook(exam: Exam) -> bytes:
         if with_essay:
             headers += ["Esse balli", "Yakuniy ball"]
         headers += ["Daraja"]
-    headers += ["Topshirgan vaqt", "Sarflangan vaqt"]
+    headers += ["Topshirgan vaqt", "Sarflangan vaqt", "Soxta qator"]
 
     for index, header in enumerate(headers, start=1):
         sheet.cell(row=4, column=index, value=header)
     _style_header(sheet, 4, len(headers))
 
-    attempts = ranked_attempts(exam)
-    for row_index, attempt in enumerate(attempts, start=1):
+    # E'lon qilinadigan butun ro'yxat: haqiqiy natijalar va administrator
+    # qo'shgan qatorlar. Oxirgi ustun qaysi qator soxta ekanini ko'rsatadi.
+    for row_index, item in enumerate(public_ranking(exam), start=1):
+        attempt = item.attempt
         row = row_index + 4
         submitted = (
             timezone.localtime(attempt.submitted_at).strftime("%d.%m.%Y %H:%M")
-            if attempt.submitted_at
+            if attempt is not None and attempt.submitted_at
             else ""
         )
-        duration = f"{attempt.duration_seconds // 60} daq {attempt.duration_seconds % 60} s"
+        duration = (
+            f"{attempt.duration_seconds // 60} daq {attempt.duration_seconds % 60} s"
+            if attempt is not None
+            else ""
+        )
         values = [
-            attempt.rank or row_index,
-            attempt.full_name or attempt.user.display_name,
-            attempt.phone or "",
-            attempt.user.telegram_id,
+            item.rank,
+            item.public_label,
+            (attempt.phone or "") if attempt is not None else "",
+            attempt.user.telegram_id if attempt is not None else "",
         ]
         if is_paid:
-            values.append(attempt.access_code_value or "—")
+            values.append(
+                (attempt.access_code_value or "—") if attempt is not None else "—"
+            )
         values += [
-            attempt.raw_score,
-            attempt.wrong_count,
-            attempt.empty_count,
-            round(attempt.percent, 2),
+            item.raw_score,
+            attempt.wrong_count if attempt is not None else "",
+            attempt.empty_count if attempt is not None else "",
+            round(item.percent, 2),
         ]
         if uses_rasch:
             values += [
-                round(attempt.theta, 4) if attempt.theta is not None else "",
-                round(attempt.ball, 2) if attempt.ball is not None else "",
+                round(attempt.theta, 4)
+                if attempt is not None and attempt.theta is not None
+                else "",
+                round(item.test_ball, 2) if item.test_ball is not None else "",
             ]
             if with_essay:
                 values += [
-                    round(attempt.essay_ball, 2) if attempt.essay_ball is not None else "",
-                    round(attempt.result_ball, 2) if attempt.result_ball is not None else "",
+                    round(item.essay_ball, 2) if item.essay_ball is not None else "",
+                    round(item.ball, 2) if item.ball is not None else "",
                 ]
-            values += [attempt.grade or ""]
-        values += [submitted, duration]
+            values += [item.grade or ""]
+        values += [submitted, duration, "ha" if item.is_phantom else ""]
 
         for column, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=column, value=value)
@@ -220,7 +230,7 @@ def results_workbook(exam: Exam) -> bytes:
         if with_essay:
             widths += [11, 12]
         widths += [12]
-    widths += [18, 16]
+    widths += [18, 16, 11]
     _auto_width(sheet, widths)
     sheet.freeze_panes = "A5"
 

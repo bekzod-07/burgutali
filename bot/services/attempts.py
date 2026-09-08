@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from apps.attempts import services as attempt_services
 from apps.attempts.models import Attempt
 from core import constants as C
-from core.db_retry import sync_db_call
+from core.db_retry import retry_on_lock, sync_db_call
 
 # --------------------------------------------------------------------------
 #  Yozuvchi amallar SQLite qulfida qayta bajariladi: bot va web-server
@@ -72,6 +72,53 @@ def answered_orders(attempt_id: int) -> set[int]:
         for answer in answers
         if answer.selected or answer.text_a or answer.text_b
     }
+
+
+@sync_to_async(thread_sensitive=True)
+def essay_settings(attempt_id: int) -> dict:
+    """
+    Urinish tegishli testda esse baholanadimi.
+
+    Qaytaradi: `{"enabled", "max_ball", "value"}` — oxirgisi allaqachon
+    kiritilgan ball (yoki `None`).
+    """
+    attempt = (
+        Attempt.objects.select_related("exam").filter(pk=attempt_id).first()
+    )
+    if attempt is None:
+        return {"enabled": False, "max_ball": 0.0, "value": None}
+    return {
+        "enabled": bool(attempt.exam.essay_enabled),
+        "max_ball": float(attempt.exam.essay_max_ball or 0.0),
+        "value": attempt.essay_ball,
+    }
+
+
+@sync_to_async(thread_sensitive=True)
+@retry_on_lock
+def store_essay_ball(attempt_id: int, raw: str) -> tuple[bool, str, float | None]:
+    """
+    Qatnashchi kiritgan esse ballini saqlaydi.
+
+    Qaytaradi: `(muvaffaqiyat, xabar, saqlangan qiymat)`. Reyting bu yerda
+    qayta chiqarilmaydi — urinish hali yuborilmagan, yakuniy ball
+    `submit_attempt` bosqichida hisoblanadi.
+    """
+    from apps.attempts.services import EssayError, parse_essay_ball, set_essay_ball
+
+    attempt = (
+        Attempt.objects.select_related("exam").filter(pk=attempt_id).first()
+    )
+    if attempt is None:
+        return False, "Urinish topilmadi.", None
+
+    try:
+        value = parse_essay_ball(raw, attempt.exam)
+    except EssayError as error:
+        return False, str(error), None
+
+    set_essay_ball(attempt, value, reassign=False)
+    return True, "", value
 
 
 @sync_to_async(thread_sensitive=True)

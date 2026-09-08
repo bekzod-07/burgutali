@@ -4159,6 +4159,222 @@ def test_autoflow_and_cleanup() -> None:
     )
 
 
+# ==========================================================================
+#  26. Hisobotda soxta qatorlar va qatnashchi kiritadigan esse balli
+# ==========================================================================
+
+
+def test_report_rows_and_self_essay() -> None:
+    import asyncio
+    import io
+    import json as _json
+
+    from django.test import Client
+    from openpyxl import load_workbook
+
+    from apps.attempts.models import Attempt
+    from apps.attempts.services import create_phantoms, public_ranking, save_answer
+    from apps.attempts.services import start_attempt, submit_attempt
+    from apps.exams.models import Exam
+    from apps.exams.services import (
+        activate_exam,
+        apply_single_keys,
+        create_exam,
+        publish_results,
+    )
+    from apps.exports.excel import results_workbook
+    from apps.exports.pdf_report import overall_results_report, results_report
+    from apps.users.models import BotUser
+    from bot.services import attempts as bot_attempts
+    from bot.services import reports as report_service
+    from core import constants as C
+
+    R.head("26. Hisobot qatorlari va qatnashchi kiritadigan esse balli")
+
+    owner, _ = BotUser.objects.get_or_create(
+        telegram_id=6100, defaults={"full_name": "Hisobot Egasi", "is_registered": True}
+    )
+
+    # ------------------------------------------------------------------
+    #  26.1. Haqiqiy qatnashchisiz test — hisobot baribir tayyorlanadi
+    # ------------------------------------------------------------------
+    empty = create_exam(
+        owner=owner,
+        title="FAQAT SOXTA QATORLAR",
+        exam_type=Exam.Type.RASCH_FREE,
+        question_count=5,
+    )
+    apply_single_keys(empty, ["A"] * 5)
+    activate_exam(empty)
+    empty.refresh_from_db()
+    empty.status = Exam.Status.CALCULATED
+    empty.save(update_fields=["status"])
+
+    ok, _message = publish_results(empty, phantom_count=25)
+    empty.refresh_from_db()
+    R.check("Test e'lon qilindi", ok)
+    R.equal("Haqiqiy qatnashchi yo'q", empty.attempts.count(), 0)
+    R.equal("E'lon ro'yxatida 25 ta qator", len(public_ranking(empty)), 25)
+
+    payload = asyncio.run(report_service.prepare_report(empty.id, "published"))
+    R.check("Hisobot tayyorlandi", payload is not None)
+    R.equal("Haqiqiy qatnashchilar 0", payload["participants"], 0)
+    R.equal("Soxta qatorlar 25", payload["phantoms"], 25)
+    R.equal("Jami qator 25", payload["rows_total"], 25)
+    R.check("E'lon PDF si bo'sh emas", len(payload["pdf"]) > 2000)
+    R.check("Admin PDF si bo'sh emas", len(payload["admin_pdf"]) > 2000)
+    R.check(
+        "Diagramma yo'q (haqiqiy javob yo'q)",
+        payload["images"] == [],
+    )
+    R.check("Hisobot 223974403 ga boradi", 223974403 in payload["recipients"])
+
+    # --- Panel eksportlari ham bo'sh emas ---
+    R.check("Admin PDF eksporti to'ldi", len(results_report(empty)) > 2000)
+    R.check("E'lon PDF eksporti to'ldi", len(overall_results_report(empty)) > 2000)
+
+    book = load_workbook(io.BytesIO(results_workbook(empty)))
+    sheet = book.worksheets[0]
+    headers = [cell.value for cell in sheet[4]]
+    R.check("Excelda «Soxta qator» ustuni bor", "Soxta qator" in headers)
+    marker = headers.index("Soxta qator") + 1
+    names = [sheet.cell(row=4 + i, column=2).value for i in range(1, 26)]
+    flags = [sheet.cell(row=4 + i, column=marker).value for i in range(1, 26)]
+    R.equal("Excelda 25 ta qator", len([n for n in names if n]), 25)
+    R.check("Hammasi soxta deb belgilangan", all(flag == "ha" for flag in flags))
+
+    # ------------------------------------------------------------------
+    #  26.2. Qatnashchi esse ballini o'zi kiritadi (Mini App)
+    # ------------------------------------------------------------------
+    exam = create_exam(
+        owner=owner,
+        title="ESSE O'ZI KIRITADI",
+        exam_type=Exam.Type.RASCH_FREE,
+        question_count=10,
+    )
+    apply_single_keys(exam, ["A"] * 10)
+    exam.essay_enabled = True
+    exam.essay_max_ball = C.MAX_BALL
+    exam.save(update_fields=["essay_enabled", "essay_max_ball"])
+    activate_exam(exam)
+    exam.refresh_from_db()
+
+    taker, _ = BotUser.objects.get_or_create(
+        telegram_id=6200,
+        defaults={"full_name": "Esse Kirituvchi", "phone": "+998901234567",
+                  "is_registered": True},
+    )
+    attempt = start_attempt(taker, exam)
+    questions = list(exam.questions.order_by("order"))
+    for position, question in enumerate(questions):
+        save_answer(attempt, question, selected="A" if position < 6 else "B")
+
+    client = Client()
+    response = client.post(
+        f"/app/api/urinish/{attempt.id}/yuborish/",
+        data=_json.dumps({"essay_ball": "50"}),
+        content_type="application/json",
+        HTTP_X_DEBUG_USER=str(taker.telegram_id),
+    )
+    data = response.json()
+    R.check("Javoblar qabul qilindi", data.get("ok"))
+
+    attempt.refresh_from_db()
+    R.equal("Esse balli saqlandi", attempt.essay_ball, 50.0)
+    R.close(
+        "Yakuniy ball = (test + esse) / 2",
+        attempt.final_ball,
+        round((float(attempt.ball) + 50.0) / 2, 2),
+        0.01,
+    )
+    R.equal(
+        "Daraja yakuniy ball bo'yicha",
+        attempt.grade,
+        C.grade_for_ball(attempt.final_ball),
+    )
+
+    # --- Noto'g'ri qiymat rad etiladi ---
+    other, _ = BotUser.objects.get_or_create(
+        telegram_id=6201,
+        defaults={"full_name": "Ikkinchi Kirituvchi", "phone": "+998901234568",
+                  "is_registered": True},
+    )
+    second = start_attempt(other, exam)
+    for question in questions:
+        save_answer(second, question, selected="A")
+
+    bad = client.post(
+        f"/app/api/urinish/{second.id}/yuborish/",
+        data=_json.dumps({"essay_ball": "500"}),
+        content_type="application/json",
+        HTTP_X_DEBUG_USER=str(other.telegram_id),
+    )
+    R.equal("Chegaradan katta ball rad etildi", bad.status_code, 400)
+    second.refresh_from_db()
+    R.equal("Urinish yuborilmadi", second.status, Attempt.Status.DRAFT)
+
+    # --- Bo'sh qoldirilsa esse baholanmagan qoladi ---
+    empty_essay = client.post(
+        f"/app/api/urinish/{second.id}/yuborish/",
+        data=_json.dumps({"essay_ball": ""}),
+        content_type="application/json",
+        HTTP_X_DEBUG_USER=str(other.telegram_id),
+    )
+    R.check("Essesiz ham yuborish mumkin", empty_essay.json().get("ok"))
+    second.refresh_from_db()
+    R.equal("Esse balli bo'sh qoldi", second.essay_ball, None)
+    R.equal("Yakuniy ball test balliga teng", second.final_ball, second.ball)
+
+    # ------------------------------------------------------------------
+    #  26.3. Botdagi esse bosqichi
+    # ------------------------------------------------------------------
+    third, _ = BotUser.objects.get_or_create(
+        telegram_id=6202,
+        defaults={"full_name": "Bot Kirituvchi", "phone": "+998901234569",
+                  "is_registered": True},
+    )
+    bot_attempt = start_attempt(third, exam)
+    for question in questions:
+        save_answer(bot_attempt, question, selected="A")
+
+    settings_row = asyncio.run(bot_attempts.essay_settings(bot_attempt.id))
+    R.check("Botda esse so'raladi", settings_row["enabled"])
+    R.close("Chegara to'g'ri", settings_row["max_ball"], C.MAX_BALL, 0.01)
+    R.equal("Hali kiritilmagan", settings_row["value"], None)
+
+    ok_flag, error, value = asyncio.run(
+        bot_attempts.store_essay_ball(bot_attempt.id, "abc")
+    )
+    R.check("Harf rad etiladi", not ok_flag)
+    R.check("Xato matni bor", bool(error))
+
+    ok_flag, error, value = asyncio.run(
+        bot_attempts.store_essay_ball(bot_attempt.id, "47,5")
+    )
+    R.check("Vergulli son qabul qilindi", ok_flag)
+    R.equal("Qiymat saqlandi", value, 47.5)
+
+    submit_attempt(bot_attempt)
+    bot_attempt.refresh_from_db()
+    R.close(
+        "Botda ham (test + esse) / 2",
+        bot_attempt.final_ball,
+        round((float(bot_attempt.ball) + 47.5) / 2, 2),
+        0.01,
+    )
+
+    settings_row = asyncio.run(bot_attempts.essay_settings(bot_attempt.id))
+    R.equal("Kiritilgan ball ko'rinadi", settings_row["value"], 47.5)
+
+    # --- Matnlar joyida ---
+    from bot.texts import exam as TE
+
+    ask = TE.ESSAY_ASK.format(max_ball="90.14")
+    R.check("So'rov matnida formula bor", "(test balli + esse balli) / 2" in ask)
+    R.check("Misol keltirilgan", "45" in ask)
+    R.check("So'rov matnida emoji yo'q", not _has_emoji(ask))
+
+
 def main() -> int:
     print("\033[1m" + "═" * 60)
     print("  RASCH TELEGRAM BOT — O'Z-O'ZINI TEKSHIRUV")
@@ -4191,6 +4407,7 @@ def main() -> int:
         test_broadcast,
         test_essay_and_phantoms,
         test_autoflow_and_cleanup,
+        test_report_rows_and_self_essay,
     ]
 
     for step in steps:

@@ -329,34 +329,39 @@ def results_report(exam: Exam) -> bytes:
     header += ["Sana"]
     widths += [24 * mm]
 
+    # Hisobotda e'lon qilinadigan **butun** ro'yxat bo'ladi: haqiqiy
+    # natijalar va administrator qo'shgan qatorlar. Soxta qatorlar ism
+    # yonidagi belgi bilan ajratiladi, shunda admin ularni adashtirmaydi.
     data = [header]
-    attempts = ranked_attempts(exam)
-    for index, attempt in enumerate(attempts, start=1):
+    for row_data in public_ranking(exam):
+        attempt = row_data.attempt
+        label = row_data.public_label
+        if row_data.is_phantom:
+            label = f"{label}  (soxta)"
         row = [
-            str(attempt.rank or index),
-            attempt.public_label,
-            f"{attempt.raw_score:g}",
-            f"{attempt.percent:.1f}%",
+            str(row_data.rank),
+            label,
+            f"{row_data.raw_score:g}",
+            f"{row_data.percent:.1f}%",
         ]
         if uses_rasch:
-            final = attempt.result_ball
+            final = row_data.ball
             if with_essay:
                 row += [
-                    attempt.display_test_ball,
-                    attempt.display_essay_ball,
-                    attempt.display_ball,
+                    attempt.display_test_ball if attempt else "—",
+                    attempt.display_essay_ball if attempt else "—",
+                    row_data.display_ball,
                 ]
             else:
-                row += [f"{final:.2f}" if final is not None else "—"]
+                row += [row_data.display_ball]
             row += [
-                f"{C.certificate_percent(final, attempt.grade):.0f}%"
+                f"{C.certificate_percent(final, row_data.grade):.0f}%"
                 if final is not None else "—",
-                grade_label(attempt.grade),
+                grade_label(row_data.grade),
             ]
+        submitted = attempt.submitted_at if attempt else None
         row.append(
-            timezone.localtime(attempt.submitted_at).strftime("%d.%m.%Y")
-            if attempt.submitted_at
-            else "—"
+            timezone.localtime(submitted).strftime("%d.%m.%Y") if submitted else "—"
         )
         data.append(row)
 

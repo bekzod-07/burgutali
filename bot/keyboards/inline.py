@@ -436,6 +436,17 @@ def confirm_submit() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def essay_skip() -> InlineKeyboardMarkup:
+    """Esse ballini kiritmasdan yuborish."""
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="Esse baholanmagan — shundoq yuborilsin",
+        callback_data=QuestionCB(action="submit", order=0, value="skip"),
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 # ==========================================================================
 #  Natijalar
 # ==========================================================================

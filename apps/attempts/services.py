@@ -514,6 +514,8 @@ def _row_from_phantom(phantom) -> RankRow:
         percent=phantom.percent or 0.0,
         id=None,
         is_phantom=True,
+        # Soxta qatorda test va esse alohida ajratilmaydi — yagona ball.
+        test_ball=phantom.ball,
     )
 
 

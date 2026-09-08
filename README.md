@@ -207,10 +207,17 @@ yakuniy ball = (test balli + esse balli) / 2
 
 **Esse balli qayerdan kiritiladi:**
 
-| Joy | Qanday |
-|-----|--------|
-| `Panel → Test → Natijalar` | jadvaldagi «Esse» ustuniga hamma uchun birdaniga |
-| `Panel → Urinish` | bitta qatnashchi uchun alohida |
+| Joy | Kim | Qanday |
+|-----|-----|--------|
+| Bot — javoblarni yuborish oxirida | qatnashchi | test tugagach bot esse ballini so‘raydi |
+| Ilova — «Yakunlash» oynasida | qatnashchi | yuborishdan oldin maydonga yoziladi |
+| `Panel → Test → Natijalar` | admin | jadvaldagi «Esse» ustuniga hamma uchun birdaniga |
+| `Panel → Urinish` | admin | bitta qatnashchi uchun alohida |
+
+Qatnashchi kiritgan ballni admin panelda istalgan vaqtda to‘g‘rilashi
+mumkin — oxirgi saqlangan qiymat kuchda bo‘ladi.
+
+**Misol:** esse **50**, testdan **40** → yakuniy ball **(50 + 40) / 2 = 45**.
 
 Saqlangach **daraja va reyting darhol qayta hisoblanadi** — daraja doim
 yakuniy ball bo‘yicha aniqlanadi. Esse balli kiritilmagan bo‘lsa,
@@ -278,6 +285,12 @@ egallab olmaydi.
 >   admin ularni haqiqiy natijadan doim ajrata oladi.
 >
 > Olib tashlash uchun e’lon sahifasida sonni `0` qilib qayta e’lon qiling.
+
+Qo‘shimcha qatorlar **barcha eksportlarda** ko‘rinadi — e’lon PDF sida,
+admin PDF hisobotida va Excel faylida. Admin uchun mo‘ljallangan
+fayllarda ular alohida belgilanadi: PDF da ism yonida `(soxta)`, Excelda
+esa oxirgi **«Soxta qator»** ustunida `ha`. Shu sababli hamma qator
+soxta bo‘lsa ham hisobot bo‘sh chiqmaydi.
 
 ### Savollar qiyinchiligi diagrammasi — faqat adminga
 

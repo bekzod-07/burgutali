@@ -124,7 +124,7 @@ async def _send_report(bot: Bot, exam_id: int, reason: str) -> None:
         await report_service.mark_report_sent_by_id(exam_id, reason)
         return
 
-    if not payload["participants"]:
+    if not payload.get("rows_total", payload["participants"]):
         text = TA.REPORT_NO_PARTICIPANTS.format(
             title=esc(payload["title"]), code=esc(payload["code"])
         )
@@ -137,7 +137,7 @@ async def _send_report(bot: Bot, exam_id: int, reason: str) -> None:
         title=esc(payload["title"]),
         code=esc(payload["code"]),
         type=esc(payload["type"]),
-        participants=payload["participants"],
+        participants=payload.get("rows_total", payload["participants"]),
     )
     # 1-fayl — e'lon uchun: nechta to'g'ri topgani ko'rinmaydi, uni
     # kanalga qo'yish mumkin.

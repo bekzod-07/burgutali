@@ -47,14 +47,21 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
     if exam is None:
         return None
 
+    from apps.attempts.models import PhantomParticipant
+
     participants = Attempt.objects.filter(
         exam=exam, status=Attempt.Status.SUBMITTED
     ).count()
+    # E'lon ro'yxatiga administrator qo'shgan qatorlar ham kiradi, shuning
+    # uchun hisobot faqat haqiqiy qatnashchilar soniga qarab to'xtatilmaydi:
+    # aks holda hamma qator soxta bo'lganda bo'sh PDF chiqib qolardi.
+    phantoms = PhantomParticipant.objects.filter(exam=exam).count()
+    rows_total = participants + phantoms
 
     pdf = b""
     admin_pdf = b""
     images: list[tuple[str, bytes]] = []
-    if participants:
+    if rows_total:
         # Test yopilgan, lekin hali hisoblanmagan bo'lsa — avval hisoblaymiz,
         # aks holda hisobotda ball va daraja bo'sh chiqadi.
         if reason == "closed" and exam.status == Exam.Status.CLOSED:
@@ -63,7 +70,9 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
         pdf = overall_results_report(exam)
         admin_pdf = results_report(exam)
 
-        # Savollar qiyinchiligi diagrammasi — faqat adminlarga.
+    if participants:
+        # Savollar qiyinchiligi diagrammasi haqiqiy javoblardan quriladi —
+        # soxta qatorlarda javoblar yo'q, shuning uchun bu yerda alohida shart.
         summary = charts.build_summary(exam)
         difficulty = charts.difficulty_png(exam, summary.rows)
         if difficulty:
@@ -79,6 +88,8 @@ def prepare_report(exam_id: int, reason: str) -> dict | None:
         "type": exam.get_exam_type_display(),
         "status": exam.get_status_display(),
         "participants": participants,
+        "phantoms": phantoms,
+        "rows_total": rows_total,
         "pdf": pdf,
         "admin_pdf": admin_pdf,
         "images": images,

@@ -817,6 +817,19 @@
     }
     html += "<br><br>Yuborilgandan keyin javoblarni <b>o‘zgartirib bo‘lmaydi</b>.";
 
+    /* Esse baholanadigan testda yakuniy ball (test + esse) / 2 bo'ladi,
+       shuning uchun esse balli yuborishdan oldin so'raladi. */
+    var exam = state.attempt.exam || {};
+    if (exam.essay_enabled) {
+      var maxBall = exam.essay_max_ball || 0;
+      html += '<div class="form-row" style="margin-top:14px">' +
+        '<label for="essay-input">Esse balli (0 – ' + esc(maxBall) + ")</label>" +
+        '<input class="input" id="essay-input" type="number" inputmode="decimal" ' +
+        'min="0" max="' + esc(maxBall) + '" step="0.01" placeholder="masalan: 50">' +
+        '<div class="small muted">Yakuniy ball — test balli va esse ballining ' +
+        "o‘rtachasi. Bo‘sh qoldirsangiz esse baholanmagan hisoblanadi.</div></div>";
+    }
+
     confirmDialog(
       missing.length ? "Javobsiz savollar bor" : "Javoblarni yuborish",
       html,
@@ -824,9 +837,14 @@
       "btn-green"
     ).then(function (ok) {
       if (!ok) { return; }
+      var essayField = document.getElementById("essay-input");
+      var essayBall = essayField ? essayField.value.trim() : "";
       closeMathPad();
       loading();
-      api("urinish/" + state.attempt.attempt.id + "/yuborish/", { method: "POST" })
+      api("urinish/" + state.attempt.attempt.id + "/yuborish/", {
+        method: "POST",
+        body: { essay_ball: essayBall }
+      })
         .then(function (data) {
           toast("Javoblaringiz qabul qilindi.");
           state.stack = [];

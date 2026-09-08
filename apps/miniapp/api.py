@@ -382,12 +382,27 @@ def attempt_answer(request, user, attempt_id: int):
 
 @api_view("POST")
 def attempt_submit(request, user, attempt_id: int):
-    """Javoblarni yakuniy yuboradi."""
+    """
+    Javoblarni yakuniy yuboradi.
+
+    Esse baholanadigan testda so'rov tanasida `essay_ball` kelishi mumkin —
+    qatnashchi esse uchun olgan ballini o'zi kiritadi va yakuniy ball
+    `(test balli + esse balli) / 2` bo'lib hisoblanadi.
+    """
     attempt = get_own_attempt(attempt_id, user)
     if attempt.status == Attempt.Status.SUBMITTED:
         return {"attempt": S.attempt_dict(attempt), "already": True}
     if not attempt.exam.accepts_answers:
         raise ApiError("Test yopilgan — javob qabul qilinmaydi.")
+
+    if attempt.exam.essay_enabled:
+        raw = body(request).get("essay_ball", "")
+        try:
+            value = attempt_services.parse_essay_ball(raw, attempt.exam)
+        except attempt_services.EssayError as error:
+            raise ApiError(str(error)) from None
+        if value is not None:
+            attempt_services.set_essay_ball(attempt, value, reassign=False)
 
     attempt = attempt_services.submit_attempt(attempt)
     attempt.refresh_from_db()
