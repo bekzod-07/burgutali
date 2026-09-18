@@ -4422,6 +4422,162 @@ def test_report_rows_and_self_essay() -> None:
     R.check("So'rov matnida emoji yo'q", not _has_emoji(ask))
 
 
+# ==========================================================================
+#  27. Eski (45 talik) milliy testni 44 ga moslash
+# ==========================================================================
+
+
+def test_fit_old_national_exam() -> None:
+    import json as _json
+
+    from django.test import Client
+
+    from apps.attempts.models import Answer, Attempt
+    from apps.attempts.services import progress, save_answer, start_attempt, submit_attempt
+    from apps.exams.models import Exam, Question
+    from apps.exams.services import (
+        activate_exam,
+        apply_multi_keys,
+        apply_open_keys,
+        apply_single_keys,
+        create_exam,
+        fit_to_national_template,
+    )
+    from apps.users.models import BotUser
+    from core import constants as C
+
+    R.head("27. Eski (45 talik) milliy testni 44 ga moslash")
+
+    owner, _ = BotUser.objects.get_or_create(
+        telegram_id=7100, defaults={"full_name": "Eski Test Egasi", "is_registered": True}
+    )
+    exam = create_exam(
+        owner=owner,
+        title="ESKI 45 TALIK TEST",
+        exam_type=Exam.Type.RASCH_FREE,
+        national_template=True,
+    )
+    apply_single_keys(exam, ["A"] * 32)
+    apply_multi_keys(exam, ["A", "B", "C"])
+    apply_open_keys(exam, ["ot", "ega", "sifat", "olmosh"] + ["gap||so'z"] * 5)
+
+    # O'zgarishdan oldin yaratilgan testni taqlid qilamiz: 45-savol ham bor.
+    Question.objects.create(
+        exam=exam, order=45, kind=Question.Kind.OPEN, parts=2,
+        answer_a="gap", answer_b="so'z", section="3-qism", choices_count=4,
+    )
+    exam.question_count = 45
+    exam.save(update_fields=["question_count"])
+    ok, message = activate_exam(exam)
+    R.check(f"Eski test faol ({message})", ok)
+    R.equal("Eski testda 45 ta savol", exam.questions.filter(is_active=True).count(), 45)
+    R.equal("Eski testda maksimal ball 51", exam.max_raw_score, 51.0)
+
+    # --- Hamma savolga to'g'ri javob bergan qatnashchi ---
+    def answer_all(attempt, questions):
+        for question in questions:
+            if question.kind == Question.Kind.OPEN:
+                save_answer(
+                    attempt, question,
+                    text_a=question.answer_a,
+                    text_b=question.answer_b if question.parts >= 2 else "",
+                )
+            else:
+                save_answer(attempt, question, selected=question.correct_key)
+
+    questions = list(exam.questions.order_by("order"))
+    done_user, _ = BotUser.objects.get_or_create(
+        telegram_id=7101, defaults={"full_name": "Topshirgan Oquvchi", "is_registered": True}
+    )
+    done = start_attempt(done_user, exam)
+    answer_all(done, questions)
+    submit_attempt(done)
+    done.refresh_from_db()
+    R.equal("Moslashdan oldin xom ball 51", done.raw_score, 51.0)
+
+    # --- Hali ishlayotgan qatnashchi (45-savolga javob bergan) ---
+    draft_user, _ = BotUser.objects.get_or_create(
+        telegram_id=7102, defaults={"full_name": "Jarayondagi Oquvchi", "is_registered": True}
+    )
+    draft = start_attempt(draft_user, exam)
+    q45 = exam.questions.get(order=45)
+    save_answer(draft, q45, text_a="gap", text_b="so'z")
+    R.equal("Moslashdan oldin progress 1/45", progress(draft), (1, 45))
+
+    # ------------------------------------------------------------------
+    #  Moslash
+    # ------------------------------------------------------------------
+    result = fit_to_national_template(exam)
+    exam.refresh_from_db()
+    R.equal("Bitta savol nofaol qilindi", result["deactivated"], 1)
+    R.equal("Savollar soni 44", exam.question_count, 44)
+    R.equal("Natija qayta baholandi", result["rescored"], 1)
+    R.equal("Maksimal ball 49", exam.max_raw_score, float(C.NATIONAL_MAX_RAW_SCORE))
+
+    q45.refresh_from_db()
+    R.check("45-savol o'chirilmadi, faqat nofaol", q45.is_active is False)
+    R.equal(
+        "45-savolga berilgan javoblar saqlanib qoldi",
+        Answer.objects.filter(question=q45).count(),
+        2,
+    )
+
+    done.refresh_from_db()
+    R.equal("Topshirganning maksimumi 49", done.max_raw_score, 49.0)
+    R.equal("Topshirganning xom balli 49", done.raw_score, 49.0)
+    R.close("Foiz 100 ligicha", done.percent, 100.0, 0.01)
+
+    R.equal("Jarayondagida progress 0/44", progress(draft), (0, 44))
+
+    # --- Ilova endi 44 ta savol ko'rsatadi ---
+    response = Client().get(
+        f"/app/api/urinish/{draft.id}/",
+        HTTP_X_DEBUG_USER=str(draft_user.telegram_id),
+    )
+    payload = response.json()
+    R.check("Ilova urinishni ochdi", payload.get("ok"))
+    R.equal("Ilovada 44 ta savol", len(payload["questions"]), 44)
+    R.equal("Oxirgi savol 44", payload["questions"][-1]["order"], 44)
+
+    # --- Bot ham 44 ta savol ko'radi ---
+    import asyncio
+
+    from bot.services import attempts as bot_attempts
+    from bot.services import exams as bot_exams
+
+    orders = asyncio.run(bot_exams.question_orders(exam.id))
+    R.equal("Botda 44 ta savol", len(orders), 44)
+    R.check("Botda 45-savol yo'q", 45 not in orders)
+    R.equal(
+        "Botda 45-savolga javob sanalmaydi",
+        asyncio.run(bot_attempts.answered_orders(draft.id)),
+        set(),
+    )
+    R.equal(
+        "Bot 45-savolni bermaydi",
+        asyncio.run(bot_exams.get_question(exam.id, 45)),
+        None,
+    )
+
+    # --- Qayta chaqirish hech narsani buzmaydi ---
+    again = fit_to_national_template(exam)
+    R.equal("Qayta chaqirilganda o'zgarish yo'q", again["deactivated"], 0)
+
+    # --- Yangi test va oddiy test tegilmaydi ---
+    fresh = create_exam(
+        owner=owner, title="YANGI 44 TALIK", exam_type=Exam.Type.RASCH_FREE,
+        national_template=True,
+    )
+    R.equal("Yangi test allaqachon 44 ta", fit_to_national_template(fresh)["deactivated"], 0)
+    simple = create_exam(
+        owner=owner, title="ODDIY 50 TALIK", exam_type=Exam.Type.SIMPLE,
+        question_count=50,
+    )
+    R.equal("Oddiy testga tegilmaydi", fit_to_national_template(simple)["deactivated"], 0)
+    simple.refresh_from_db()
+    R.equal("Oddiy testda 50 ta savol qoldi", simple.question_count, 50)
+
+
 def main() -> int:
     print("\033[1m" + "═" * 60)
     print("  RASCH TELEGRAM BOT — O'Z-O'ZINI TEKSHIRUV")
@@ -4455,6 +4611,7 @@ def main() -> int:
         test_essay_and_phantoms,
         test_autoflow_and_cleanup,
         test_report_rows_and_self_essay,
+        test_fit_old_national_exam,
     ]
 
     for step in steps:

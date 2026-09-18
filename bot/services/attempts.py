@@ -66,7 +66,11 @@ def answer_values(attempt_id: int, order: int) -> tuple[str, str, str]:
 @sync_to_async(thread_sensitive=True)
 def answered_orders(attempt_id: int) -> set[int]:
     """Javob berilgan savollar tartib raqamlari."""
-    answers = Attempt.objects.get(pk=attempt_id).answers.all()
+    # Faqat faol savollar: nofaol qilingan savolga ilgari berilgan javob
+    # «javob berildi» hisobiga qo'shilmasin.
+    answers = Attempt.objects.get(pk=attempt_id).answers.filter(
+        question__is_active=True
+    )
     return {
         answer.order
         for answer in answers

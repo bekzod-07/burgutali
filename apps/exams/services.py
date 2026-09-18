@@ -300,6 +300,57 @@ def apply_open_keys(exam: Exam, keys: list[str]) -> int:
     return len(updated)
 
 
+@transaction.atomic
+def fit_to_national_template(exam: Exam) -> dict:
+    """
+    Eski tuzilmada yaratilgan milliy testni joriy shablonga moslaydi.
+
+    Shablon 45 savoldan 44 ga tushgach, oldin yaratilgan testlarda ortiqcha
+    savol qolib ketdi. Bu funksiya `NATIONAL_TOTAL_QUESTIONS` dan keyingi
+    savollarni **o'chirmaydi, nofaol qiladi** (`is_active=False`):
+
+      * qatnashchi ularni botda ham, ilovada ham ko'rmaydi;
+      * baholash, Rasch va maksimal ball faqat faol savollardan hisoblanadi;
+      * ularga ilgari berilgan javoblar bazada saqlanib qoladi — kerak
+        bo'lsa savolni qayta faollashtirib, avvalgi holatga qaytish mumkin.
+
+    Topshirilgan urinishlar yangi tuzilma bo'yicha qayta baholanadi.
+    Qaytaradi: `{"deactivated", "question_count", "rescored"}`.
+    """
+    _reload(exam)
+    result = {"deactivated": 0, "question_count": exam.question_count, "rescored": 0}
+    if not exam.is_national_template:
+        return result
+
+    extra = exam.questions.filter(
+        is_active=True, order__gt=C.NATIONAL_TOTAL_QUESTIONS
+    )
+    result["deactivated"] = extra.update(is_active=False)
+    if not result["deactivated"]:
+        return result
+
+    exam.question_count = exam.questions.filter(is_active=True).count()
+    exam.save(update_fields=["question_count", "updated_at"])
+    result["question_count"] = exam.question_count
+
+    # Topshirganlarning bali, xom balli va maksimumi yangi tuzilmaga o'tadi.
+    from apps.attempts.models import Attempt
+    from apps.rasch.services import score_attempt_preliminary
+
+    for attempt in Attempt.objects.filter(
+        exam=exam, status=Attempt.Status.SUBMITTED
+    ).select_related("exam"):
+        score_attempt_preliminary(attempt)
+        result["rescored"] += 1
+
+    logger.info(
+        "Test %s milliy shablonga moslandi: %s ta savol nofaol qilindi, "
+        "%s ta natija qayta baholandi.",
+        exam.code, result["deactivated"], result["rescored"],
+    )
+    return result
+
+
 def missing_keys(exam: Exam) -> list[int]:
     """Kaliti kiritilmagan savollar tartib raqamlari."""
     missing: list[int] = []
@@ -877,6 +928,7 @@ __all__ = [
     "apply_single_keys",
     "apply_multi_keys",
     "apply_open_keys",
+    "fit_to_national_template",
     "missing_keys",
     "keys_ready",
     "activate_exam",

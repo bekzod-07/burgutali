@@ -206,8 +206,12 @@ def answered_map(attempt: Attempt) -> dict[int, Answer]:
 def progress(attempt: Attempt) -> tuple[int, int]:
     """(javob berilgan savollar soni, jami savollar soni)."""
     total = attempt.exam.question_count
+    # Nofaol qilingan savolga (masalan, eski shablonning 45-savoli) ilgari
+    # berilgan javob sanalmaydi — aks holda «45 / 44» chiqib qolardi.
     answered = (
-        attempt.answers.exclude(selected="", text_a="", text_b="").count()
+        attempt.answers.filter(question__is_active=True)
+        .exclude(selected="", text_a="", text_b="")
+        .count()
     )
     return answered, total
 
