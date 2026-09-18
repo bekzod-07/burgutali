@@ -173,7 +173,7 @@ class ExamCreateForm(forms.Form):
 
     STRUCTURE_CHOICES = [
         ("custom", "Savollar sonini o'zim belgilayman"),
-        ("national", "Milliy sertifikat shabloni (45 ta savol)"),
+        ("national", "Milliy sertifikat shabloni (44 ta savol)"),
     ]
 
     DURATION_CHOICES = [
@@ -309,7 +309,7 @@ class ExamCreateForm(forms.Form):
                 self.add_error("multi_keys", " ".join(parsed.errors[:5]))
             data["parsed_multi"] = parsed.keys
         if open_count:
-            # 36–39 bitta javobdan, 40–45 esa a) va b) dan iborat.
+            # 36–39 bitta javobdan, 40–44 esa a) va b) dan iborat.
             parsed = key_parser.parse_open_key(
                 data.get("open_keys", ""), open_count, C.national_open_parts()
             )

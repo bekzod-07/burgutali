@@ -177,12 +177,12 @@ def parse_open_key(
     parts: int | Sequence[int] = 2,
 ) -> KeyParseResult:
     """
-    Ochiq javobli savollar (36–45) uchun kalitni tahlil qiladi.
+    Ochiq javobli savollar (36–44) uchun kalitni tahlil qiladi.
 
     `parts` — nechta javob kutilishi. Bitta son berilsa barcha savollarga
     bir xil qo'llanadi; ro'yxat berilsa har bir savolga o'ziniki
     (milliy shablonda ``(1, 1, 1, 1, 2, 2, 2, 2, 2, 2)`` — 36–39 bitta
-    javobdan, 40–45 a) va b) dan).
+    javobdan, 40–44 a) va b) dan).
 
     Har bir qatorda bitta savolning javoblari bo'ladi:
         ``36) ot | fe'l``   yoki   ``ot | fe'l``

@@ -579,7 +579,7 @@ def exam_create(request, user):
         multi_keys = parsed.keys
     if open_count:
         # Ochiq savollar faqat milliy shablonda bo'ladi: 36–39 bitta
-        # javobdan, 40–45 esa a) va b) dan iborat.
+        # javobdan, 40–44 esa a) va b) dan iborat.
         parsed = key_parser.parse_open_key(
             str(data.get("open_keys", "")), open_count, C.national_open_parts()
         )

@@ -194,10 +194,17 @@ def test_constants() -> None:
     R.equal("70.0 -> A+", C.grade_for_ball(70.0), "A+")
     R.equal("90.14 -> A+", C.grade_for_ball(90.14), "A+")
     R.check("A+ darajasi C dan kuchli", C.grade_rank("A+") > C.grade_rank("C"))
-    R.equal("Milliy shablon 45 ta savol", C.NATIONAL_TOTAL_QUESTIONS, 45)
+    R.equal("Milliy shablon 44 ta savol", C.NATIONAL_TOTAL_QUESTIONS, 44)
     R.equal("1–32 bitta javobli", C.NATIONAL_SINGLE_RANGE, (1, 32))
     R.equal("33–35 ko'p javobli", C.NATIONAL_MULTI_RANGE, (33, 35))
-    R.equal("36–45 ochiq javobli", C.NATIONAL_OPEN_RANGE, (36, 45))
+    R.equal("36–44 ochiq javobli", C.NATIONAL_OPEN_RANGE, (36, 44))
+    R.equal("40–44 a) va b) li", C.NATIONAL_OPEN_DOUBLE_RANGE, (40, 44))
+    R.equal("Milliy shablon 49 ball", C.NATIONAL_MAX_RAW_SCORE, 49)
+    R.equal(
+        "Ochiq qismlar: 4 ta bitta, 5 ta ikkita",
+        C.national_open_parts(),
+        (1, 1, 1, 1, 2, 2, 2, 2, 2),
+    )
     R.equal("Ko'p javobli variantlar A–F", C.MULTI_CHOICES, ("A", "B", "C", "D", "E", "F"))
 
 
@@ -626,7 +633,7 @@ def test_rasch_free_flow() -> dict:
         options = alternatives(key)
         return options[0] if options else ""
 
-    R.head("8. To'liq oqim: milliy shablon (45 savol) + RASH")
+    R.head("8. To'liq oqim: milliy shablon (44 savol) + RASH")
 
     owner, _ = BotUser.objects.get_or_create(
         telegram_id=1000, defaults={"full_name": "Test Yaratuvchi", "is_registered": True}
@@ -639,11 +646,11 @@ def test_rasch_free_flow() -> dict:
         national_template=True,
         show_results=True,
     )
-    R.equal("45 ta savol yaratildi", exam.question_count, 45)
+    R.equal("44 ta savol yaratildi", exam.question_count, 44)
     R.equal("Bitta javobli savollar", exam.questions.filter(kind="single").count(), 32)
     R.equal("Ko'p javobli savollar", exam.questions.filter(kind="multi").count(), 3)
-    R.equal("Ochiq savollar", exam.questions.filter(kind="open").count(), 10)
-    # 36–39 bitta javobdan, 40–45 esa a) va b) dan iborat.
+    R.equal("Ochiq savollar", exam.questions.filter(kind="open").count(), 9)
+    # 36–39 bitta javobdan, 40–44 esa a) va b) dan iborat.
     R.equal(
         "36–39 bitta javobli",
         list(
@@ -654,15 +661,15 @@ def test_rasch_free_flow() -> dict:
         [1, 1, 1, 1],
     )
     R.equal(
-        "40–45 ikkita javobli",
+        "40–44 ikkita javobli",
         list(
             exam.questions.filter(kind="open", order__gte=40)
             .order_by("order")
             .values_list("parts", flat=True)
         ),
-        [2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2],
     )
-    R.equal("Maksimal xom ball 51", exam.max_raw_score, float(C.NATIONAL_MAX_RAW_SCORE))
+    R.equal("Maksimal xom ball 49", exam.max_raw_score, float(C.NATIONAL_MAX_RAW_SCORE))
     # Kod ishtirokchi uchun qulay bo'lishi kerak — oddiy 2–3 xonali son.
     R.check(
         f"Test kodi oddiy son ({exam.code})",
@@ -673,14 +680,14 @@ def test_rasch_free_flow() -> dict:
     single_keys = ["ABCD"[i % 4] for i in range(32)]
     apply_single_keys(exam, single_keys)
     apply_multi_keys(exam, ["A", "C", "E"])
-    # 36–39 — bitta javobdan, 40–45 — a) va b) dan.
-    # 45-savol kaliti ataylab sinonimlar bilan yozilgan — qatnashchi
+    # 36–39 — bitta javobdan, 40–44 — a) va b) dan.
+    # 44-savol kaliti ataylab sinonimlar bilan yozilgan — qatnashchi
     # «o‘zak» ham, «negiz» ham yozsa to'g'ri hisoblanishi kerak.
     open_keys = [
         "ot", "ega", "sifat", "olmosh",
         "bosh kelishik||qaratqich kelishik", "undosh||unli",
         "sodda gap||qo‘shma gap", "ko‘chma ma’no||o‘z ma’nosi",
-        "sinonim||antonim", "o‘zak, negiz||qo‘shimcha, affiks",
+        "o‘zak, negiz||qo‘shimcha, affiks",
     ]
     apply_open_keys(exam, open_keys)
 
@@ -758,7 +765,7 @@ def test_rasch_free_flow() -> dict:
             attempts[0].raw_score >= attempts[-1].raw_score)
     R.check("Darajalar belgilandi", all(a.grade for a in attempts))
 
-    # --- Shkala «C» darajasiga moslashgan: 32% (51 dan 17 ta) -> 46.00 ball ---
+    # --- Shkala «C» darajasiga moslashgan: 32% (49 dan 16 ta) -> 46.00 ball ---
     exam.refresh_from_db()
     R.check("Shkala moslashtirildi", exam.theta_min < C.THETA_MIN,
             f"theta_min = {exam.theta_min}")
@@ -767,19 +774,19 @@ def test_rasch_free_flow() -> dict:
     from apps.rasch.services import build_items as _items
 
     diffs = [i.difficulty for i in _items(exam)]
-    R.equal("51 ta ballanadigan birlik", len(diffs), C.NATIONAL_MAX_RAW_SCORE)
-    ball17 = scoring.theta_to_ball(
-        _est.theta_for_raw_score(17, diffs),
-        max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
-    )
+    R.equal("49 ta ballanadigan birlik", len(diffs), C.NATIONAL_MAX_RAW_SCORE)
     ball16 = scoring.theta_to_ball(
         _est.theta_for_raw_score(16, diffs),
         max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
     )
-    R.close("17 ta to'g'ri javob -> 46.00 ball", ball17, 46.0, 0.05)
-    R.equal("17 ta to'g'ri javob -> C darajasi", C.grade_for_ball(ball17), "C")
-    R.check("16 ta to'g'ri javob -> daraja yo'q",
-            C.grade_for_ball(ball16) == C.NO_GRADE, f"{ball16:.2f} ball")
+    ball15 = scoring.theta_to_ball(
+        _est.theta_for_raw_score(15, diffs),
+        max_ball=exam.max_ball, theta_min=exam.theta_min, theta_max=exam.theta_max,
+    )
+    R.close("16 ta to'g'ri javob -> 46.00 ball", ball16, 46.0, 0.05)
+    R.equal("16 ta to'g'ri javob -> C darajasi", C.grade_for_ball(ball16), "C")
+    R.check("15 ta to'g'ri javob -> daraja yo'q",
+            C.grade_for_ball(ball15) == C.NO_GRADE, f"{ball15:.2f} ball")
 
     # --- Baholash aniqligi: to'liq to'g'ri javob bergan ishtirokchi ---
     perfect_user, _ = BotUser.objects.get_or_create(
@@ -799,7 +806,7 @@ def test_rasch_free_flow() -> dict:
     submit_attempt(perfect)
     perfect.refresh_from_db()
     R.equal(
-        "To'liq to'g'ri javob = 51 ball",
+        "To'liq to'g'ri javob = 49 ball",
         perfect.raw_score,
         float(C.NATIONAL_MAX_RAW_SCORE),
     )
@@ -830,14 +837,14 @@ def test_rasch_free_flow() -> dict:
     R.equal("a) va b) li savol = 2 ball", double_answer.score, 2.0)
 
     # --- Sinonim va apostrofsiz javob amalda ---
-    # 45-savol kaliti: a) «o‘zak, negiz», b) «qo‘shimcha, affiks».
+    # 44-savol kaliti: a) «o‘zak, negiz», b) «qo‘shimcha, affiks».
     # Qatnashchi ikkinchi sinonimni yozsa ham, apostrofni tushirib
     # qoldirsa ham javob to'g'ri hisoblanishi kerak.
     synonym_user, _ = BotUser.objects.get_or_create(
         telegram_id=9997, defaults={"full_name": "Sinonim Ishtirokchi", "is_registered": True}
     )
     synonym = start_attempt(synonym_user, exam)
-    synonym_question = exam.questions.filter(kind="open", order=45).first()
+    synonym_question = exam.questions.filter(kind="open", order=44).first()
     save_answer(synonym, synonym_question, text_a="Negiz", text_b="affiks")
     submit_attempt(synonym)
     synonym_answer = synonym.answers.get(question=synonym_question)
@@ -2574,7 +2581,7 @@ def test_charts() -> None:
 
 
 # ==========================================================================
-#  21. Ochiq javoblar (36-45) — matn sifatida tekshiriladi
+#  21. Ochiq javoblar (36-44) — matn sifatida tekshiriladi
 # ==========================================================================
 
 
@@ -2806,7 +2813,7 @@ def test_keysheet() -> None:
     # --- Reja: milliy shablon va oddiy test ---
     R.check("Milliy reja 33-35 ni ajratadi",
             '"33"' not in js_text and "multi: { from: 33, to: 35 }" in js_text)
-    R.check("Ochiq savollar 36-45", "open: { from: 36, to: 45 }" in js_text)
+    R.check("Ochiq savollar 36-44", "open: { from: 36, to: 44 }" in js_text)
     R.check(
         "36-39 bitta javobli deb belgilangan",
         "openSingle: { from: 36, to: 39 }" in js_text,
@@ -2863,7 +2870,7 @@ def test_keysheet() -> None:
     )
     R.check("Jadvalda A-D tugmalari", 'data-letters="ABCD"' in rows)
     R.check("Jadvalda A-F tugmalari", 'data-letters="ABCDEF"' in rows)
-    R.check("40–45 da ikkita maydon",
+    R.check("40–44 da ikkita maydon",
             f'name="key_{open_q.id}_a"' in rows and f'name="key_{open_q.id}_b"' in rows)
     R.check(
         "36–39 da faqat bitta maydon",

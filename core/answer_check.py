@@ -1,7 +1,7 @@
 """
 Ochiq javoblarni tekshirish (ona tili fani).
 
-36–45-savollarning javobi — so'z, so'z birikmasi yoki qisqa ibora. Shuning
+36–44-savollarning javobi — so'z, so'z birikmasi yoki qisqa ibora. Shuning
 uchun taqqoslash **matn** bo'yicha bajariladi: qatnashchi yozgani va kalit
 bir xil ko'rinishga keltirilib solishtiriladi.
 

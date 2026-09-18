@@ -36,15 +36,15 @@
   var MULTI_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
   /*
-     Milliy sertifikat shabloni — 45 ta savol, 51 ball:
+     Milliy sertifikat shabloni — 44 ta savol, 49 ball:
        1–32  A–D (32 ball) · 33–35 A–F (3 ball)
        36–39 ochiq, bitta javob (4 ball)
-       40–45 ochiq, a) va b) (12 ball)
+       40–44 ochiq, a) va b) (10 ball)
   */
   var NATIONAL = {
     single: { from: 1, to: 32 },
     multi: { from: 33, to: 35 },
-    open: { from: 36, to: 45 },
+    open: { from: 36, to: 44 },
     openSingle: { from: 36, to: 39 }
   };
 
@@ -58,7 +58,7 @@
 
   /*
      Test tuzilmasiga qarab qaysi savol qaysi turda ekanini aniqlaydi.
-       {national: true}          — 1–32 A–D, 33–35 A–F, 36–45 ochiq;
+       {national: true}          — 1–32 A–D, 33–35 A–F, 36–44 ochiq;
        {national: false, count}  — barchasi A–D.
   */
   function plan(options) {
@@ -113,7 +113,7 @@
       '<div class="fx"></div></div>';
   }
 
-  /* Savol nechta javobdan iborat: 36–39 — bitta, 40–45 — a) va b). */
+  /* Savol nechta javobdan iborat: 36–39 — bitta, 40–44 — a) va b). */
   function openParts(plan, order) {
     var single = plan && plan.openSingle;
     if (single && order >= single.from && order <= single.to) { return 1; }

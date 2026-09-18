@@ -402,7 +402,7 @@ def _apply_keys(request, exam: Exam, data: dict) -> None:
 
     if data.get("open_keys") and open_count:
         # Har bir ochiq savol nechta javobdan iboratligi testning o'zidan
-        # olinadi (milliy shablonda 36–39 bitta, 40–45 ikkita).
+        # olinadi (milliy shablonda 36–39 bitta, 40–44 ikkita).
         open_parts = list(
             exam.questions.filter(kind=Question.Kind.OPEN, is_active=True)
             .order_by("order")

@@ -75,7 +75,7 @@ def grade_multi(selected: str, question: Question) -> AnswerScore:
 
 def grade_open(text_a: str, text_b: str, question: Question) -> AnswerScore:
     """
-    Ochiq javobli savolni (36–45) baholaydi.
+    Ochiq javobli savolni (36–44) baholaydi.
 
     Har bir qism (a va b) alohida 1 balldan baholanadi. Javob matn
     sifatida solishtiriladi (`core.answer_check`).

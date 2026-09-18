@@ -61,14 +61,14 @@ imzosi bilan autentifikatsiya qilinadi.
 
 ### Test tuzilmasi
 
-Milliy sertifikat shabloni — **45 ta savol, jami 51 ball**:
+Milliy sertifikat shabloni — **44 ta savol, jami 49 ball**:
 
 | Savollar | Turi | Ball |
 |----------|------|------|
 | **1–32** | A, B, C, D (bitta to‘g‘ri javob) | 32 |
 | **33–35** | A, B, C, D, E, F (moslashtirish: bitta to‘g‘ri javob) | 3 |
 | **36–39** | variantsiz, **bitta** javob | 4 |
-| **40–45** | variantsiz, **a)** va **b)** javob maydoni | 12 |
+| **40–44** | variantsiz, **a)** va **b)** javob maydoni | 10 |
 
 Yoki ixtiyoriy tuzilma: 10, 20, 30, 45, 50, 100 … savol (A/B/C/D).
 
@@ -168,8 +168,8 @@ Maksimal standartlashtirilgan ball — **90.14**.
 **Shkala daraja chegarasiga moslashadi.** Rasch `theta` si ballga chiziqli
 o'tkaziladi, lekin shkalaning quyi uchi har bir test hisoblanganda
 avtomatik sozlanadi: savollarning **32% ini** topgan qatnashchi aynan
-**46.00 ball = «C»** oladi. Milliy shablonda jami 51 ball bor, ya'ni
-**17 ta to'g'ri javob — C darajasi**; undan yuqorisi savollarning
+**46.00 ball = «C»** oladi. Milliy shablonda jami 49 ball bor, ya'ni
+**16 ta to'g'ri javob — C darajasi**; undan yuqorisi savollarning
 qiyinligiga qarab taqsimlanadi. Shkalaning yuqori uchi tegilmaydi
 (`theta_max` -> 90.14). Sozlamani test darajasida o'chirish mumkin —
 «Ball shkalasi darajaga moslansin».
@@ -327,7 +327,7 @@ adminlarga yuboriladigan xabarda (PNG) va «Natijalar (PDF)» hisobotida.
 Botda esa test egasi «Savollar qiyinchiligi» tugmasi orqali istalgan
 paytda oladi.
 
-### Ochiq javoblar (36–45-savollar)
+### Ochiq javoblar (36–44-savollar)
 
 Ona tilida ochiq savolning javobi — so‘z, so‘z birikmasi yoki qisqa ibora.
 Shuning uchun javob maydoni oddiy matn maydoni bo‘lib, telefonning o‘z
@@ -373,14 +373,14 @@ oldindan ko‘radi: `Tekshiruvda: osmon yoki samo yoki fazo · 3 ta sinonim`.
 
 Test yaratuvchi to‘g‘ri javoblarni **qatnashchi ko‘radigan varaqaning aynan
 o‘zida** belgilaydi: har bir savol uchun A–D (33–35 da A–F) tugmalari, ochiq
-savollar uchun esa javob maydonlari — 36–39 da **bitta**, 40–45 da esa
+savollar uchun esa javob maydonlari — 36–39 da **bitta**, 40–44 da esa
 **a)** va **b)**. Yuqorida `belgilangan / jami` hisoblagichi turadi;
 to‘ldirilmagan savollar yuborishdan oldin ro‘yxat qilib ko‘rsatiladi.
 
 Uzun kalitni bir marta joylashtirish uchun **«Matn ko‘rinishida»** rejimi
 qoldirilgan: `ABCDABCD…` yoki `1-A 2-B`, moslashtirish uchun `A, C, E`,
 ochiq javoblar uchun har bir qatorda bitta savol — 36–39 uchun `osmon, samo`,
-40–45 uchun `osmon, samo | fe’l` (a va b `|` bilan, sinonimlar vergul bilan).
+40–44 uchun `osmon, samo | fe’l` (a va b `|` bilan, sinonimlar vergul bilan).
 
 Varaqaning o‘zi **umumiy modulda** (`static/keysheet/`), shuning uchun u
 uchala joyda bir xil ko‘rinadi va bir xil ishlaydi:

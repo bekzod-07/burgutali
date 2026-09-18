@@ -1123,7 +1123,7 @@
       '<div class="field" id="wrap-structure" hidden><label>Tuzilma</label>' +
       '<div class="seg" id="seg-structure">' +
       '<button data-structure="custom" class="is-active">O‘zim belgilayman</button>' +
-      '<button data-structure="national">Milliy shablon (45)</button>' +
+      '<button data-structure="national">Milliy shablon (44)</button>' +
       "</div></div>" +
 
       '<div class="field" id="wrap-count"><label>Savollar soni</label>' +
@@ -1174,7 +1174,7 @@
       '<textarea class="input" id="f-open" rows="6" ' +
       'placeholder="ot&#10;sifat&#10;olmosh&#10;undosh&#10;ega | kesim&#10;sodda gap | qo‘shma gap"></textarea>' +
       '<p class="hint">Har bir savol uchun alohida qator. ' +
-      '<b>36–39</b> bitta javobdan, <b>40–45</b> esa a) va b) dan iborat — ' +
+      '<b>36–39</b> bitta javobdan, <b>40–44</b> esa a) va b) dan iborat — ' +
       'ularni <span class="mono">|</span> bilan ajrating. Bitta javobning ' +
       'sinonimlari vergul bilan yoziladi: ' +
       '<span class="mono">osmon, samo, fazo</span> — qatnashchi qaysi birini ' +
@@ -1193,7 +1193,7 @@
     html += '<div id="create-errors"></div>';
 
     /*
-       Javob kalitlari varaqasi uzun (milliy shablonda 45 qator), shuning
+       Javob kalitlari varaqasi uzun (milliy shablonda 44 qator), shuning
        uchun tugma varaq oxirida qolib ketmasin — u pastda yopishib
        turadi va har doim ko'rinadi.
     */
@@ -1368,7 +1368,7 @@
       title: document.getElementById("f-title").value.trim(),
       type: form.type,
       national: national,
-      question_count: national ? 45 : (parseInt(document.getElementById("f-count").value, 10) || 0),
+      question_count: national ? 44 : (parseInt(document.getElementById("f-count").value, 10) || 0),
       duration_hours: form.hours,
       ends_at: (document.getElementById("f-ends-at") || {}).value || "",
       show_results: document.getElementById("f-show").checked,

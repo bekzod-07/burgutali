@@ -116,7 +116,7 @@ async def receive_open_keys(message: Message, state: FSMContext) -> None:
     count = int(data.get("open_count", 0))
 
     # Ochiq savollar faqat milliy shablonda: 36–39 bitta javobdan,
-    # 40–45 esa a) va b) dan iborat.
+    # 40–44 esa a) va b) dan iborat.
     result = exam_service.parse_open_key(
         message.text or "", count, C.national_open_parts()
     )

@@ -11,12 +11,12 @@ bajarilganini ko‘rsatadi.
 |---|-------|-------------|
 | 1 | Rasch modeli asosida ona tili testlarini Telegram bot orqali baholash | `bot/` + `apps/rasch/` |
 | 2 | Rollar: Administrator va Ishtirokchi | `apps/users/models.BotUser.is_admin`, `bot/middlewares/user_mw.py` |
-| 3 | Jami 45 ta savol | `core/constants.NATIONAL_TOTAL_QUESTIONS`, `apps/exams/structures.national_specs()` |
+| 3 | Jami 44 ta savol | `core/constants.NATIONAL_TOTAL_QUESTIONS`, `apps/exams/structures.national_specs()` |
 | 3 | 1–32: A, B, C, D (bitta javob) | `Question.Kind.SINGLE`, `NATIONAL_SINGLE_RANGE` |
 | 3 | 33–35: A–F (moslashtirish — bitta to‘g‘ri javob) | `Question.Kind.MULTI`, `NATIONAL_MULTI_RANGE` |
 | 3 | 36–39: variantsiz, bitta javob | `Question.Kind.OPEN` + `parts=1`, `NATIONAL_OPEN_SINGLE_RANGE` |
-| 3 | 40–45: variantsiz, a) va b) maydonlar | `Question.Kind.OPEN` + `parts=2`, `NATIONAL_OPEN_DOUBLE_RANGE` |
-| 3 | Jami 51 ball | `core/constants.NATIONAL_MAX_RAW_SCORE`, `national_open_parts()` |
+| 3 | 40–44: variantsiz, a) va b) maydonlar | `Question.Kind.OPEN` + `parts=2`, `NATIONAL_OPEN_DOUBLE_RANGE` |
+| 3 | Jami 49 ball | `core/constants.NATIONAL_MAX_RAW_SCORE`, `national_open_parts()` |
 | 4 | Mini App ochiq javob maydonlari | oddiy matn maydoni — telefonning o‘z klaviaturasi ochiladi; javob varaqasi `static/keysheet/` da (web ilova va panel uchun yagona) |
 | 4 | Javob matn bo‘yicha tekshiriladi: katta-kichik harf, apostrof (va uning yo‘qligi: `orta` = `o‘rta`), tinish belgilari hisobga olinmaydi | `core/answer_check.compare_answer()` |
 | 4 | Kalitda sinonimlar (`osmon, samo, fazo`) — har biri to‘g‘ri javob | `core/answer_check.alternatives()` |
@@ -25,7 +25,7 @@ bajarilganini ko‘rsatadi.
 | 5 | ID ishlatilgach bloklanadi | `apps/accesscodes/services.consume_code()` |
 | 5 | Noto‘g‘ri/ishlatilgan ID bilan boshlab bo‘lmaydi | `apps/accesscodes/services.check_code()` |
 | 6 | Ism, familiya va ID kiritish | `bot/handlers/registration.py`, `bot/handlers/taking/entry.py` |
-| 6 | Ketma-ket 45 ta savol | `bot/handlers/taking/flow.send_question()` |
+| 6 | Ketma-ket 44 ta savol | `bot/handlers/taking/flow.send_question()` |
 | 6 | Javoblar bazaga saqlanadi | `apps/attempts/services.save_answer()` — har bir javob darhol |
 | 6 | «Javoblaringiz qabul qilindi» | `bot/texts/exam.SUBMITTED` |
 | 7 | `P = exp(θ − b) / (1 + exp(θ − b))` | `apps/rasch/estimator.probability()` |

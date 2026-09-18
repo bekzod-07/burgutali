@@ -216,7 +216,7 @@ def create_exam(
     """
     Yangi test yaratadi va savollar tuzilmasini shakllantiradi.
 
-    `national_template=True` bo'lsa — SRS 3-bo'limidagi 45 ta savol tuzilmasi
+    `national_template=True` bo'lsa — milliy shablondagi 44 ta savol tuzilmasi
     yaratiladi, aks holda `question_count` ta A/B/C/D savol.
     """
     exam = Exam.objects.create(

@@ -42,15 +42,15 @@ INVALID_TITLE = "Test nomi kamida 3 ta belgidan iborat bo‘lishi kerak."
 
 ASK_STRUCTURE = (
     "<b>Test tuzilmasini tanlang</b>\n\n"
-    "<b>Milliy sertifikat shabloni</b> — 45 ta savol, jami 51 ball:\n"
+    "<b>Milliy sertifikat shabloni</b> — 44 ta savol, jami 49 ball:\n"
     "• 1–32 — A, B, C, D (bitta javob)\n"
     "• 33–35 — A, B, C, D, E, F (moslashtirish, bitta javob)\n"
     "• 36–39 — variantsiz, bitta javob\n"
-    "• 40–45 — variantsiz, a) va b) javob maydonlari\n\n"
+    "• 40–44 — variantsiz, a) va b) javob maydonlari\n\n"
     "Yoki oddiy tuzilmani tanlab, savollar sonini o‘zingiz belgilang."
 )
 
-BTN_NATIONAL_TEMPLATE = "Milliy sertifikat shabloni (45 ta)"
+BTN_NATIONAL_TEMPLATE = "Milliy sertifikat shabloni (44 ta)"
 BTN_CUSTOM_STRUCTURE = "Savollar sonini o‘zim belgilayman"
 
 ASK_QUESTION_COUNT = (
@@ -81,7 +81,7 @@ ASK_MULTI_KEYS = (
 ASK_OPEN_KEYS = (
     "<b>Ochiq javobli savollar kaliti</b> ({count} ta savol)\n\n"
     "Har bir savol uchun <b>alohida qator</b> yozing.\n"
-    "<b>36–39</b> — bitta javobdan, <b>40–45</b> — a) va b) dan iborat "
+    "<b>36–39</b> — bitta javobdan, <b>40–44</b> — a) va b) dan iborat "
     "(ularni <code>|</code> bilan ajrating):\n\n"
     "<code>ot\n"
     "sifat\n"

@@ -130,7 +130,7 @@ class Exam(TimeStampedModel):
         "Savollar soni", default=0, validators=[MaxValueValidator(500)]
     )
     is_national_template = models.BooleanField(
-        "Milliy sertifikat shabloni (45 ta savol)", default=False
+        "Milliy sertifikat shabloni (44 ta savol)", default=False
     )
 
     # --- Vaqt va kirish ---
@@ -333,7 +333,7 @@ class Question(TimeStampedModel):
     TZ 3-bo'lim (Milliy sertifikat shabloni):
       * 1–32  — SINGLE: A, B, C, D (bitta to'g'ri javob);
       * 33–35 — MULTI : A, B, C, D, E, F (moslashtirish, bitta to'g'ri javob);
-      * 36–45 — OPEN  : variantsiz, a) va b) javob maydonlari.
+      * 36–44 — OPEN  : variantsiz (36–39 bitta javob, 40–44 a) va b)).
     """
 
     class Kind(models.TextChoices):
@@ -359,7 +359,7 @@ class Question(TimeStampedModel):
         help_text="Bitta harf: A. Moslashtirish savollarida ham bitta harf (A–F).",
     )
 
-    # --- Ochiq javoblar (36–45) ---
+    # --- Ochiq javoblar (36–44) ---
     answer_a = models.CharField(
         "a) javob", max_length=255, blank=True, default="",
         help_text="Javob matni. Sinonimlarni vergul bilan sanang "

@@ -218,7 +218,7 @@ def build_rasch_free(owner: BotUser, users: list[BotUser], rng: random.Random) -
         title=f"{DEMO_PREFIX} — MILLIY SERTIFIKAT MOCK №1",
         exam_type=Exam.Type.RASCH_FREE,
         national_template=True,
-        description="45 ta savol: 1–32 (A–D), 33–35 (A–F), 36–45 (ochiq javob).",
+        description="44 ta savol: 1–32 (A–D), 33–35 (A–F), 36–44 (ochiq javob).",
         show_results=True,
     )
     apply_single_keys(exam, ["ABCD"[i % 4] for i in range(32)])
@@ -234,7 +234,7 @@ def build_rasch_free(owner: BotUser, users: list[BotUser], rng: random.Random) -
         ],
     )
     activate_exam(exam)
-    log(f"yaratildi: {exam.code} — 45 ta savol (55 ta ballanadigan birlik)")
+    log(f"yaratildi: {exam.code} — 44 ta savol (49 ta ballanadigan birlik)")
 
     for index, user in enumerate(users[:24]):
         answer_exam(user, exam, 0.30 + index * 0.028, rng)
