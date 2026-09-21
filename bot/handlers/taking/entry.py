@@ -81,7 +81,7 @@ async def callback_open_exam(
 async def show_exam_card(message: Message, state: FSMContext, user, exam) -> None:
     """Test haqidagi ma'lumot va «Boshlash» tugmasi."""
     check = await attempt_service.can_participate(user, exam)
-    participants = await attempt_service.participants_count(exam)
+    # Necha kishi qatnashgani qatnashchiga ko'rsatilmaydi.
     summary = await exam_service.exam_summary(exam)
 
     extra = ""
@@ -98,7 +98,6 @@ async def show_exam_card(message: Message, state: FSMContext, user, exam) -> Non
         questions=exam.question_count,
         max_score=f"{summary['max_raw_score']:g}",
         ends_at=format_datetime(exam.ends_at),
-        participants=participants,
         extra=extra,
     )
 

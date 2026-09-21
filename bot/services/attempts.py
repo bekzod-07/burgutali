@@ -130,9 +130,6 @@ def store_essay_ball(attempt_id: int, raw: str) -> tuple[bool, str, float | None
 def result_snapshot(attempt_id: int) -> dict:
     """Natija haqidagi asosiy ma'lumotlar."""
     attempt = Attempt.objects.select_related("exam").get(pk=attempt_id)
-    total = Attempt.objects.filter(
-        exam=attempt.exam, status=Attempt.Status.SUBMITTED
-    ).count()
     access = attempt_services.result_access(attempt)
     return {
         "id": attempt.id,
@@ -165,7 +162,8 @@ def result_snapshot(attempt_id: int) -> dict:
             "baholanmoqda" if attempt.essay_pending else attempt.display_essay_ball
         ),
         "grade": attempt.grade or "—",
-        "rank": f"{attempt.rank} / {total}" if attempt.rank else "—",
+        # Faqat o'rin: jami qatnashchilar soni qatnashchiga aytilmaydi.
+        "rank": f"{attempt.rank}-o‘rin" if attempt.rank else "—",
         "is_scored": attempt.is_scored,
     }
 

@@ -278,9 +278,13 @@ def exam_detail(request, user, code: str):
     """Test haqidagi to'liq ma'lumot va ishtirok etish imkoniyati."""
     exam = get_exam_or_404(code)
     check = attempt_services.can_participate(user, exam)
-    participants = attempt_services.participants_count(exam)
     my_attempt = attempt_services.get_result(exam, user)
     draft = attempt_services.get_draft_attempt(user, exam)
+    can_manage = exam_services.can_manage(exam, user, is_admin=bool(user.is_admin))
+
+    # Necha kishi qatnashgani qatnashchiga ko'rsatilmaydi — uni faqat test
+    # egasi va admin biladi.
+    participants = attempt_services.participants_count(exam) if can_manage else None
 
     return {
         "exam": S.exam_dict(exam, participants=participants, detailed=True),
@@ -288,7 +292,7 @@ def exam_detail(request, user, code: str):
         "reason": check.message,
         "my_attempt_id": my_attempt.id if my_attempt else None,
         "draft_attempt_id": draft.id if draft else None,
-        "can_manage": exam_services.can_manage(exam, user, is_admin=bool(user.is_admin)),
+        "can_manage": can_manage,
     }
 
 
@@ -429,13 +433,13 @@ def attempt_result(request, user, attempt_id: int):
     """Natija, javoblar tahlili va sertifikat holati."""
     attempt = get_own_attempt(attempt_id, user)
     exam = attempt.exam
-    total = attempt_services.participants_count(exam)
 
     published = exam.results_available
     access = attempt_services.result_access(attempt)
 
     payload = {
-        "attempt": S.attempt_dict(attempt, total_participants=total),
+        # Jami qatnashchilar soni ataylab berilmaydi — faqat o'rin.
+        "attempt": S.attempt_dict(attempt),
         # `visible` — ball, foiz va daraja ko'rinadimi (RASH da e'londan keyin).
         "visible": access.score,
         "pending": access.pending,
@@ -498,7 +502,8 @@ def exam_rating(request, user, code: str):
             attempts, uses_rasch=exam.uses_rasch, me_id=my_attempt.id if my_attempt else None
         ),
         "my_place": my_attempt.rank if my_attempt else None,
-        "total": attempt_services.participants_count(exam),
+        # Jami son faqat test egasi va adminga.
+        "total": attempt_services.participants_count(exam) if is_owner else None,
     }
 
 

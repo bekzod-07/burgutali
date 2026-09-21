@@ -385,7 +385,9 @@
         kv("Turi", esc(exam.type_label)) +
         kv("Savollar", exam.question_count + " ta") +
         kv("Maksimal ball", exam.max_raw_score) +
-        kv("Qatnashganlar", (exam.participants || 0) + " ta") +
+        /* Qatnashchilar soni faqat test egasi va adminga ko'rinadi. */
+        (data.can_manage && exam.participants !== null && exam.participants !== undefined
+          ? kv("Qatnashganlar", exam.participants + " ta") : "") +
         kv("Tugash vaqti", esc(exam.ends_at_human)) +
         (exam.certificate ? kv("Sertifikat", "beriladi") : "") +
         "</div></div>";
@@ -888,7 +890,7 @@
             kv("Daraja", esc(attempt.grade || "—"))
           : kv("Foiz", attempt.percent + "%");
         if (attempt.rank) {
-          rows += kv("Reyting", attempt.rank + " / " + attempt.total_participants);
+          rows += kv("Reyting", attempt.rank + "-o‘rin");
         }
       } else if (attempt.essay_enabled && !attempt.essay_pending) {
         rows += kv("Esse balli", esc(attempt.essay_ball));
@@ -1595,7 +1597,9 @@
       var html = "";
 
       html += '<div class="card"><div class="card-head">' + ic("trophy") +
-        "<h2>" + esc(data.exam.title) + '</h2><span class="sub">' + data.total + " ta</span></div>";
+        "<h2>" + esc(data.exam.title) + "</h2>" +
+        (data.total !== null && data.total !== undefined
+          ? '<span class="sub">' + data.total + " ta</span>" : "") + "</div>";
 
       if (!rows.length) {
         html += '<p class="muted small">Hozircha qatnashchilar yo‘q.</p>';

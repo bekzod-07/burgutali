@@ -198,7 +198,6 @@ EXAM_INFO = (
     "Savollar soni: <b>{questions}</b> ta\n"
     "Maksimal ball: <b>{max_score}</b>\n"
     "Tugash vaqti: {ends_at}\n"
-    "Qatnashganlar: {participants} ta\n"
     "{extra}"
 )
 

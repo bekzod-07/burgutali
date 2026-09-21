@@ -233,7 +233,7 @@ def certificate_dict(certificate) -> dict:
         "exam_date": certificate.exam_date.strftime("%d.%m.%Y"),
         "ball": certificate.display_ball,
         "grade": certificate.grade or "",
-        "rank": certificate.display_rank,
+        "rank": certificate.public_rank,
         "percent": certificate.percent,
         "award_percent": certificate.award_percent,
         "issued_at": certificate.issued_at.strftime("%d.%m.%Y")

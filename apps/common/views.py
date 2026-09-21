@@ -10,12 +10,11 @@ from django.shortcuts import redirect, render
 def home(request):
     """Platformaning ommaviy bosh sahifasi."""
     from apps.exams.models import Exam
-    from apps.attempts.models import Attempt
     from apps.certificates.models import Certificate
 
+    # Necha kishi test topshirgani ommaga ko'rsatilmaydi.
     stats = {
         "exams": Exam.objects.count(),
-        "attempts": Attempt.objects.filter(status=Attempt.Status.SUBMITTED).count(),
         "certificates": Certificate.objects.count(),
     }
     return render(request, "common/home.html", {"stats": stats})

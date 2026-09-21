@@ -112,6 +112,16 @@ class Certificate(TimeStampedModel):
         return f"{self.ball:.2f}"
 
     @property
+    def public_rank(self) -> str:
+        """
+        Qatnashchi va tekshiruv sahifasi uchun o'rin — jami qatnashchilar
+        sonisiz. To'liq ko'rinish (`display_rank`) faqat boshqaruv panelida.
+        """
+        if not self.rank:
+            return "—"
+        return f"{self.rank}-o‘rin"
+
+    @property
     def display_rank(self) -> str:
         if not self.rank or not self.total_participants:
             return "—"

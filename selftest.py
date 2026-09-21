@@ -4800,6 +4800,102 @@ def test_review_after_submit() -> None:
     )
 
 
+# ==========================================================================
+#  29. Qatnashchilar soni qatnashchiga ko'rinmaydi
+# ==========================================================================
+
+
+def test_participant_count_hidden() -> None:
+    import asyncio
+
+    from django.test import Client
+
+    from apps.attempts.services import save_answer, start_attempt, submit_attempt
+    from apps.certificates.models import Certificate
+    from apps.exams.models import Exam
+    from apps.exams.services import activate_exam, apply_single_keys, create_exam
+    from apps.rasch.services import calculate_exam
+    from apps.users.models import BotUser
+    from bot.services import attempts as bot_attempts
+    from bot.texts import exam as TE
+
+    R.head("29. Qatnashchilar soni qatnashchiga ko'rinmaydi")
+
+    owner, _ = BotUser.objects.get_or_create(
+        telegram_id=9100, defaults={"full_name": "Son Egasi", "is_registered": True}
+    )
+    exam = create_exam(
+        owner=owner, title="SON YASHIRIN", exam_type=Exam.Type.SIMPLE,
+        question_count=3, show_results=True,
+    )
+    apply_single_keys(exam, ["A", "B", "C"])
+    activate_exam(exam)
+
+    takers = []
+    for index in range(5):
+        user, _ = BotUser.objects.get_or_create(
+            telegram_id=9110 + index,
+            defaults={"full_name": f"Son Oquvchi {index}", "phone": "+998900000000",
+                      "is_registered": True},
+        )
+        attempt = start_attempt(user, exam)
+        for question in exam.questions.order_by("order"):
+            save_answer(attempt, question, selected="A")
+        submit_attempt(attempt)
+        takers.append((user, attempt))
+    calculate_exam(exam)
+
+    viewer, first = takers[0]
+    client = Client()
+    as_viewer = {"HTTP_X_DEBUG_USER": str(viewer.telegram_id)}
+    as_owner = {"HTTP_X_DEBUG_USER": str(owner.telegram_id)}
+
+    # --- Test ma'lumoti (kod kiritgach) ---
+    detail = client.get(f"/app/api/test/{exam.code}/", **as_viewer).json()
+    R.equal("Qatnashchiga son berilmaydi", detail["exam"]["participants"], None)
+    owner_detail = client.get(f"/app/api/test/{exam.code}/", **as_owner).json()
+    R.equal("Test egasi sonni ko'radi", owner_detail["exam"]["participants"], 5)
+
+    # --- Natija ---
+    result = client.get(f"/app/api/urinish/{first.id}/natija/", **as_viewer).json()
+    R.equal("Natijada jami son yo'q", result["attempt"]["total_participants"], 0)
+
+    # --- Reyting ---
+    rating = client.get(f"/app/api/test/{exam.code}/reyting/", **as_viewer).json()
+    R.equal("Reytingda jami son yo'q", rating.get("total"), None)
+    owner_rating = client.get(f"/app/api/test/{exam.code}/reyting/", **as_owner).json()
+    R.equal("Egasi reytingda jami sonni ko'radi", owner_rating.get("total"), 5)
+
+    # --- Ilova ekranlari ---
+    app_js = (BASE_DIR / "apps/miniapp/static/miniapp/js/app.js").read_text(encoding="utf-8")
+    R.check("Natija ekranida «/ jami» yo'q", "attempt.total_participants" not in app_js)
+    R.check("«Qatnashganlar» faqat egasiga", "data.can_manage && exam.participants" in app_js)
+
+    # --- Bot ---
+    snapshot = asyncio.run(bot_attempts.result_snapshot(first.id))
+    R.check("Botda o'rin jami sonsiz", "/" not in snapshot["rank"], snapshot["rank"])
+    R.check("Botda o'rin ko'rinadi", snapshot["rank"].endswith("-o‘rin"))
+    R.check("Test kartochkasida «Qatnashganlar» yo'q", "Qatnashganlar" not in TE.EXAM_INFO)
+
+    # --- Sertifikat ---
+    cert = Certificate(rank=3, total_participants=45)
+    R.equal("Sertifikatda faqat o'rin", cert.public_rank, "3-o‘rin")
+    R.equal("Panelda to'liq ko'rinish qoladi", cert.display_rank, "3 / 45")
+
+    from apps.certificates.pdf import CertificateData
+
+    data = CertificateData.__new__(CertificateData)
+    data.rank, data.total_participants = 3, 45
+    R.equal("Sertifikat PDF ida faqat o'rin", data.rank_text, "3-o‘rin")
+
+    verify = (BASE_DIR / "apps/certificates/templates/certificates/verify_detail.html").read_text(encoding="utf-8")
+    R.check("Tekshiruv sahifasida faqat o'rin", "certificate.public_rank" in verify)
+
+    # --- Ommaviy bosh sahifa ---
+    home = client.get("/").content.decode("utf-8", "replace")
+    R.check("Bosh sahifada topshirilganlar soni yo'q", "Topshirilgan javoblar" not in home)
+
+
 def main() -> int:
     print("\033[1m" + "═" * 60)
     print("  RASCH TELEGRAM BOT — O'Z-O'ZINI TEKSHIRUV")
@@ -4835,6 +4931,7 @@ def main() -> int:
         test_report_rows_and_self_essay,
         test_fit_old_national_exam,
         test_review_after_submit,
+        test_participant_count_hidden,
     ]
 
     for step in steps:

@@ -72,9 +72,10 @@ class CertificateData:
 
     @property
     def rank_text(self) -> str:
-        if not self.rank or not self.total_participants:
+        """Sertifikatdagi o'rin — jami qatnashchilar sonisiz."""
+        if not self.rank:
             return "—"
-        return f"{self.rank} / {self.total_participants}"
+        return f"{self.rank}-o‘rin"
 
 
 # --------------------------------------------------------------------------
@@ -284,7 +285,7 @@ def draw_certificate(canvas: pdf_canvas.Canvas, data: CertificateData) -> None:
         boxes.append(("FOIZ", f"{data.award_percent:.0f}%", False))
     if data.grade:
         boxes.append(("DARAJA", data.grade, False))
-    if data.rank and data.total_participants:
+    if data.rank:
         boxes.append(("REYTING", data.rank_text, False))
 
     box_height = 20 * mm
