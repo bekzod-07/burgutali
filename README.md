@@ -84,6 +84,26 @@ tugmalar ham yo‘q:
 | **Hisoblangan** | «Natijalarni hisoblash» bosilganda (test hali faol bo‘lsa ham) |
 | **E’lon qilingan** | «Natijalarni e’lon qilish» bosilganda |
 
+### Qatnashchi natijasi
+
+Testga faqat **kod orqali** kiriladi — faol testlar ro‘yxati hech kimga
+(adminga ham) ko‘rsatilmaydi.
+
+Test topshirilishi bilan qatnashchi botda ham, ilovada ham darhol ko‘radi:
+
+* nechta **to‘g‘ri**, nechta **xato**, nechta **javobsiz** (a/b li savolda
+  bittasi to‘g‘ri bo‘lsa — «qisman»);
+* xato qilingan savollar raqamlari;
+* har bir savolda **o‘zi belgilagan javob** va (xato bo‘lsa) **to‘g‘ri javob**.
+
+Bu tahlil sozlamaga bog‘liq emas — doim ochiq. Faqat tugallanmagan
+urinishda yopiq, aks holda to‘g‘ri javoblar test paytida ochilib qolardi.
+**RASH balli va daraja** esa natijalar e’lon qilingach chiqadi, chunki ular
+butun test bo‘yicha hisoblanadi.
+
+Milliy shablonda **esse standart holatda yoqiq**: 44 ta savoldan keyin
+esse balli so‘raladi, so‘ng javoblar tahlili ko‘rsatiladi.
+
 ### Ma’lumotlarni avtomatik tozalash
 
 **Qoralama**, **hisoblangan** va **e’lon qilingan** testlar shu holatda

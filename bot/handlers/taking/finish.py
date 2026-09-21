@@ -188,29 +188,26 @@ async def _finalize(message: Message, state: FSMContext, attempt, is_admin: bool
 
 
 async def _show_submission_result(message: Message, attempt, is_admin: bool) -> None:
-    """Yuborishdan keyingi xabarni ko'rsatadi."""
+    """
+    Yuborishdan keyingi xabarlar.
+
+    Qatnashchi darhol ko'radi: nechta to'g'ri, nechta xato, qaysi savolda
+    qanday javob bergani va to'g'ri javob nima edi. RASH balli esa
+    natijalar e'lon qilingach chiqadi.
+    """
+    from bot.handlers.results import send_answer_review
+
     snapshot = await attempt_service.result_snapshot(attempt.id)
 
     # Klaviaturani asosiy menyuga qaytaramiz.
     await message.answer(TE.SUBMITTED, reply_markup=inline.main_menu(is_admin))
 
-    if not snapshot["show_results"]:
-        await message.answer(TE.RESULT_HIDDEN, reply_markup=inline.back_to_menu())
-        return
+    if snapshot["show_answers"]:
+        await send_answer_review(message, attempt, snapshot["title"])
 
-    if snapshot["uses_rasch"]:
-        # RASH natijasi faqat admin natijalarni e'lon qilgandan keyin ma'lum bo'ladi.
-        await message.answer(
-            TE.SUBMITTED_WITH_RESULT.format(
-                correct=snapshot["correct"],
-                total=f"{snapshot['max_raw_score']:g}",
-                wrong=snapshot["wrong"],
-                empty=snapshot["empty"],
-                percent=snapshot["percent"],
-            )
-            + TE.RESULTS_LATER,
-            reply_markup=inline.back_to_menu(),
-        )
+    if not snapshot["score_visible"]:
+        note = TE.RESULT_SCORE_LATER if snapshot["pending"] else TE.RESULT_SCORE_HIDDEN
+        await message.answer(note.strip(), reply_markup=inline.back_to_menu())
         return
 
     text = TE.SUBMITTED_WITH_RESULT.format(
@@ -224,7 +221,8 @@ async def _show_submission_result(message: Message, attempt, is_admin: bool) -> 
         text,
         reply_markup=inline.result_actions(
             attempt,
-            show_answers=snapshot["show_answers"],
+            # Tahlil yuqorida allaqachon yuborildi.
+            show_answers=False,
             show_rating=snapshot["show_rating"],
             certificate=False,
         ),

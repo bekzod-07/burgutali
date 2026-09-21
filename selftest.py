@@ -4578,6 +4578,228 @@ def test_fit_old_national_exam() -> None:
     R.equal("Oddiy testda 50 ta savol qoldi", simple.question_count, 50)
 
 
+# ==========================================================================
+#  28. Topshirgach javoblar tahlili, faqat kod orqali kirish, milliy testda esse
+# ==========================================================================
+
+
+def test_review_after_submit() -> None:
+    import asyncio
+
+    from django.test import Client
+
+    from apps.attempts.services import (
+        answer_review,
+        result_access,
+        review_summary,
+        save_answer,
+        start_attempt,
+        submit_attempt,
+    )
+    from apps.dashboard.forms import ExamSettingsForm
+    from apps.exams.models import Exam, Question
+    from apps.exams.services import (
+        activate_exam,
+        apply_multi_keys,
+        apply_open_keys,
+        apply_single_keys,
+        create_exam,
+    )
+    from apps.users.models import BotUser
+    from bot.handlers.results import summary_text
+    from bot.utils.formatting import review_rows
+
+    R.head("28. Topshirgach javoblar tahlili va faqat kod orqali kirish")
+
+    owner, _ = BotUser.objects.get_or_create(
+        telegram_id=8100, defaults={"full_name": "Tahlil Egasi", "is_registered": True}
+    )
+
+    # ------------------------------------------------------------------
+    #  28.1. Milliy test: esse standart holatda yoqiq
+    # ------------------------------------------------------------------
+    exam = create_exam(
+        owner=owner, title="TAHLIL SINOVI", exam_type=Exam.Type.RASCH_FREE,
+        national_template=True,
+    )
+    R.check("Milliy testda esse yoqiq", exam.essay_enabled)
+    simple_check = create_exam(
+        owner=owner, title="ODDIY ESSESIZ", exam_type=Exam.Type.SIMPLE, question_count=3,
+    )
+    R.check("Oddiy testda esse o'chiq", not simple_check.essay_enabled)
+
+    apply_single_keys(exam, ["A"] * 32)
+    apply_multi_keys(exam, ["A", "B", "C"])
+    apply_open_keys(exam, ["ot", "ega", "sifat", "olmosh"] + ["gap||so'z"] * 5)
+    activate_exam(exam)
+    exam.refresh_from_db()
+
+    taker, _ = BotUser.objects.get_or_create(
+        telegram_id=8101,
+        defaults={"full_name": "Tahlil Oquvchi", "phone": "+998900000001", "is_registered": True},
+    )
+    attempt = start_attempt(taker, exam)
+    questions = list(exam.questions.filter(is_active=True).order_by("order"))
+    by_order = {q.order: q for q in questions}
+
+    # 1–30 to'g'ri, 31–32 xato, 33 javobsiz, 34–35 to'g'ri,
+    # 36 xato, 37–39 to'g'ri, 40 qisman (a to'g'ri, b xato), 41–44 to'g'ri.
+    # Jami: 39 to'g'ri, 3 xato, 1 qisman, 1 javobsiz = 44.
+    for question in questions:
+        order = question.order
+        if order == 33:
+            continue
+        if question.kind == Question.Kind.OPEN:
+            if order == 36:
+                save_answer(attempt, question, text_a="noto'g'ri")
+            elif order == 40:
+                save_answer(attempt, question, text_a="gap", text_b="xato")
+            elif question.parts >= 2:
+                save_answer(attempt, question, text_a="gap", text_b="so'z")
+            else:
+                save_answer(attempt, question, text_a=question.answer_a)
+        elif order in (31, 32):
+            save_answer(attempt, question, selected="B")
+        else:
+            save_answer(attempt, question, selected=question.correct_key)
+
+    # --- Tugallanmagan urinishda to'g'ri javoblar ochilmaydi ---
+    access = result_access(attempt)
+    R.check("Tugallanmagan urinishda tahlil yopiq", not access.review)
+    client = Client()
+    draft_view = client.get(
+        f"/app/api/urinish/{attempt.id}/natija/",
+        HTTP_X_DEBUG_USER=str(taker.telegram_id),
+    ).json()
+    R.equal("Tugallanmaganda API kalitni bermaydi", draft_view.get("review"), [])
+    R.equal("Tugallanmaganda hisob yo'q", draft_view.get("summary"), None)
+
+    submit_attempt(attempt)
+    attempt.refresh_from_db()
+
+    # ------------------------------------------------------------------
+    #  28.2. Topshirilgach: hisob va har bir savol
+    # ------------------------------------------------------------------
+    access = result_access(attempt)
+    R.check("Topshirilgach tahlil ochiq", access.review)
+    R.check("RASH balli hali yopiq", not access.score)
+    R.check("RASH natijasi kutilmoqda", access.pending)
+
+    rows = answer_review(attempt)
+    summary = review_summary(rows)
+    R.equal("Jami 44 ta savol", summary["total"], 44)
+    R.equal("To'g'ri 39 ta (30 + 2 + 3 + 4)", summary["correct"], 39)
+    R.equal("Xato 3 ta (31, 32, 36)", summary["wrong"], 3)
+    R.equal("Qisman 1 ta (40)", summary["partial"], 1)
+    R.equal("Javobsiz 1 ta (33)", summary["empty"], 1)
+    R.equal("Xato qilingan savollar", summary["wrong_orders"], [31, 32, 36, 40])
+    R.equal("Javobsiz savollar", summary["empty_orders"], [33])
+
+    row31 = next(r for r in rows if r["order"] == 31)
+    R.equal("31-savolda qatnashchi javobi", row31["given"], "B")
+    R.equal("31-savolda to'g'ri javob", row31["correct"], "A")
+    row40 = next(r for r in rows if r["order"] == 40)
+    R.equal("a/b savolda to'g'ri javob ikkala qismi bilan", row40["correct"], "a) gap; b) so'z")
+    row36 = next(r for r in rows if r["order"] == 36)
+    R.equal("Bitta javobli ochiq savolda to'g'ri javob", row36["correct"], by_order[36].answer_a)
+
+    # --- Ilova API si ---
+    view = client.get(
+        f"/app/api/urinish/{attempt.id}/natija/",
+        HTTP_X_DEBUG_USER=str(taker.telegram_id),
+    ).json()
+    R.check("API javob berdi", view.get("ok"))
+    R.equal("API da 44 qator tahlil", len(view["review"]), 44)
+    R.equal("API da to'g'ri soni", view["summary"]["correct"], 39)
+    R.equal("API da ball hali yopiq", view["visible"], False)
+    R.equal("API da RASH kutilmoqda", view["pending"], True)
+    r31 = next(r for r in view["review"] if r["order"] == 31)
+    R.equal("API: 31-savol holati xato", r31["state"], "wrong")
+    R.equal("API: 31-savol to'g'ri javobi", r31["correct"], "A")
+
+    # --- Bot matni ---
+    text = summary_text("TAHLIL SINOVI", summary)
+    R.check("Botda to'g'ri soni", "To‘g‘ri: <b>39</b>" in text)
+    R.check("Botda xato soni", "Xato: <b>3</b>" in text)
+    R.check("Botda qisman soni", "Qisman to‘g‘ri: <b>1</b>" in text)
+    R.check("Botda xato savollar ro'yxati", "31, 32, 36, 40" in text)
+    R.check("Bot matnida emoji yo'q", not _has_emoji(text))
+
+    lines = review_rows(rows, show_correct=True).splitlines()
+    R.equal("Botda 44 qator", len(lines), 44)
+    line1 = next(line for line in lines if "<b>1.</b>" in line)
+    R.check("To'g'ri savolda «to'g'ri:» takrorlanmaydi", "to‘g‘ri:" not in line1)
+    line31 = next(line for line in lines if "<b>31.</b>" in line)
+    R.check("Xato savolda to'g'ri javob ko'rsatiladi", "→ to‘g‘ri: A" in line31)
+
+    # ------------------------------------------------------------------
+    #  28.3. Oddiy test: «natija ko'rinsin» o'chiq bo'lsa ham tahlil ochiq
+    # ------------------------------------------------------------------
+    hidden = create_exam(
+        owner=owner, title="YASHIRIN NATIJALI", exam_type=Exam.Type.SIMPLE,
+        question_count=4, show_results=False, show_correct_answers=False,
+    )
+    apply_single_keys(hidden, ["A", "B", "C", "D"])
+    activate_exam(hidden)
+    h_attempt = start_attempt(taker, hidden)
+    for question in hidden.questions.order_by("order"):
+        save_answer(h_attempt, question, selected="A")
+    submit_attempt(h_attempt)
+    h_attempt.refresh_from_db()
+
+    h_access = result_access(h_attempt)
+    R.check("Yashirin testda ham tahlil ochiq", h_access.review)
+    R.check("Yashirin testda ball yopiq", not h_access.score)
+    h_view = client.get(
+        f"/app/api/urinish/{h_attempt.id}/natija/",
+        HTTP_X_DEBUG_USER=str(taker.telegram_id),
+    ).json()
+    R.equal("Yashirin testda 4 qator tahlil", len(h_view["review"]), 4)
+    R.equal("To'g'ri javob ko'rinadi", h_view["review"][1]["correct"], "B")
+    R.equal("Hisob: 1 to'g'ri, 3 xato",
+            (h_view["summary"]["correct"], h_view["summary"]["wrong"]), (1, 3))
+
+    snap = asyncio.run(__import__("bot.services.attempts", fromlist=["x"]).result_snapshot(h_attempt.id))
+    R.check("Botda «Javoblarim» tugmasi ochiq", snap["show_answers"])
+
+    # ------------------------------------------------------------------
+    #  28.4. Faol testlar ro'yxati hech kimga ko'rinmaydi
+    # ------------------------------------------------------------------
+    admin, _ = BotUser.objects.get_or_create(
+        telegram_id=8102,
+        defaults={"full_name": "Ro'yxat Admin", "is_registered": True, "is_admin": True},
+    )
+    if not admin.is_admin:
+        admin.is_admin = True
+        admin.save(update_fields=["is_admin"])
+
+    boot = client.get("/app/api/boshlash/", HTTP_X_DEBUG_USER=str(admin.telegram_id)).json()
+    R.equal("Adminga ham bosh sahifada ro'yxat yo'q", boot.get("exams"), [])
+    listing = client.get("/app/api/testlar/", HTTP_X_DEBUG_USER=str(admin.telegram_id)).json()
+    R.equal("Testlar API si bo'sh", listing.get("exams"), [])
+    R.equal("Ro'yxat ko'rinmaydi", listing.get("list_visible"), False)
+
+    app_js = (BASE_DIR / "apps/miniapp/static/miniapp/js/app.js").read_text(encoding="utf-8")
+    R.check("Ilovada «Faol testlar (admin)» yo'q", "Faol testlar (admin)" not in app_js)
+    R.check("Ilova testlar ro'yxatini so'ramaydi", 'api("testlar/")' not in app_js)
+    R.check("Ilovada «Sizniki» yorlig'i bor", "Sizniki:" in app_js)
+    R.check("Ilovada «To'g'ri» yorlig'i bor", "To‘g‘ri:</small>" in app_js)
+
+    # --- Kod orqali kirish ishlaydi ---
+    by_code = client.get(
+        f"/app/api/test/{hidden.code}/", HTTP_X_DEBUG_USER=str(admin.telegram_id)
+    ).json()
+    R.check("Kod orqali test topiladi", by_code.get("ok"))
+
+    # ------------------------------------------------------------------
+    #  28.5. Panel sozlamalarida ma'nosiz tugma qolmadi
+    # ------------------------------------------------------------------
+    R.check(
+        "«To'g'ri/xato ko'rsatilsin» sozlamasi olib tashlandi",
+        "show_correct_answers" not in ExamSettingsForm.Meta.fields,
+    )
+
+
 def main() -> int:
     print("\033[1m" + "═" * 60)
     print("  RASCH TELEGRAM BOT — O'Z-O'ZINI TEKSHIRUV")
@@ -4612,6 +4834,7 @@ def main() -> int:
         test_autoflow_and_cleanup,
         test_report_rows_and_self_essay,
         test_fit_old_national_exam,
+        test_review_after_submit,
     ]
 
     for step in steps:

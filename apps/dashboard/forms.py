@@ -19,7 +19,9 @@ class ExamSettingsForm(forms.ModelForm):
         fields = [
             "title", "description", "status",
             "starts_at", "ends_at", "duration_minutes", "is_public",
-            "show_results_to_participants", "show_correct_answers",
+            # «To'g'ri/xato ko'rsatilsin» yo'q: topshirgach javoblar tahlili
+            # qatnashchiga doim ko'rinadi (`attempts.services.result_access`).
+            "show_results_to_participants",
             "show_rating_to_participants",
             "max_ball", "theta_min", "theta_max", "auto_calibrate", "anchor_scale",
             "certificate_enabled", "certificate_scope", "certificate_min_percent",

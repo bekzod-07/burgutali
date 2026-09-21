@@ -116,12 +116,16 @@ def review_rows(rows: list[dict], *, show_correct: bool) -> str:
 
     lines: list[str] = []
     for row in rows:
-        given = esc(shorten(str(row["given"]), 24))
-        if show_correct and row["correct"] and row["correct"] != "—":
-            correct = esc(shorten(str(row["correct"]), 24))
+        given = esc(shorten(str(row["given"]), 32))
+        correct_value = str(row.get("correct") or "")
+        state = row.get("state") or ""
+        # To'g'ri javob faqat xato, qisman yoki javobsiz qolgan savolda
+        # ko'rsatiladi — to'g'ri topilganda u qatnashchi javobining o'zi.
+        if show_correct and correct_value and correct_value != "—" and state != "correct":
+            correct = esc(shorten(correct_value, 32))
             lines.append(
                 f"{row['icon']} <b>{row['order']}.</b> {given}  "
-                f"<i>(to‘g‘ri: {correct})</i>"
+                f"<i>→ to‘g‘ri: {correct}</i>"
             )
         else:
             lines.append(f"{row['icon']} <b>{row['order']}.</b> {given}")

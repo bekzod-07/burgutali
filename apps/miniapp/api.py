@@ -181,9 +181,10 @@ def require_registered(user) -> None:
 @api_view("GET")
 def bootstrap(request, user):
     """Ilova ochilganda kerak bo'ladigan barcha ma'lumotlar."""
-    # Testlar ro'yxati ishtirokchilarga ko'rsatilmaydi — ular testga faqat
-    # tashkilotchi bergan kod orqali kiradi. Ro'yxatni faqat admin ko'radi.
-    available = exam_services.list_available_exams(limit=20) if user.is_admin else []
+    # Faol testlar ro'yxati hech kimga ko'rsatilmaydi — testga faqat
+    # tashkilotchi bergan kod orqali kiriladi. O'z testlarini yaratuvchi
+    # «Mening testlarim» bo'limida boshqaradi.
+    available: list = []
     history = attempt_services.user_history(user, limit=20)
     certificates = Certificate.objects.filter(user=user, is_revoked=False).select_related(
         "exam"
@@ -266,11 +267,10 @@ def exam_list(request, user):
     """
     Ishtirok etish mumkin bo'lgan testlar.
 
-    Ishtirokchilarga bo'sh ro'yxat qaytariladi: testga kirish faqat test
-    kodi orqali. Ro'yxatni ko'rish huquqi faqat adminda.
+    Ro'yxat hech kimga berilmaydi: testga kirish faqat test kodi orqali.
+    Endpoint eski ilova nusxalari buzilmasligi uchun qoldirilgan.
     """
-    exams = exam_services.list_available_exams(limit=40) if user.is_admin else []
-    return {"exams": [S.exam_dict(exam) for exam in exams], "list_visible": bool(user.is_admin)}
+    return {"exams": [], "list_visible": False}
 
 
 @api_view("GET")
@@ -432,23 +432,25 @@ def attempt_result(request, user, attempt_id: int):
     total = attempt_services.participants_count(exam)
 
     published = exam.results_available
-    visible = exam.show_results_to_participants
-    if exam.uses_rasch:
-        visible = visible and published
+    access = attempt_services.result_access(attempt)
 
     payload = {
         "attempt": S.attempt_dict(attempt, total_participants=total),
-        "visible": bool(visible),
-        "pending": bool(exam.uses_rasch and not published),
+        # `visible` — ball, foiz va daraja ko'rinadimi (RASH da e'londan keyin).
+        "visible": access.score,
+        "pending": access.pending,
         "review": [],
+        "summary": None,
         "certificate": None,
         "certificate_reason": "",
     }
 
-    # `answer_review` o'zi `show_correct_answers` sozlamasini hisobga oladi:
-    # kalit yopiq bo'lsa, to'g'ri javob o'rniga «—» qaytariladi.
-    if visible:
-        payload["review"] = S.review_dict(attempt_services.answer_review(attempt))
+    # Javoblar tahlili topshirilishi bilan doim ochiq: nechta to'g'ri/xato,
+    # har bir savolda qatnashchi javobi va to'g'ri javob.
+    if access.review:
+        rows = attempt_services.answer_review(attempt)
+        payload["review"] = S.review_dict(rows)
+        payload["summary"] = attempt_services.review_summary(rows)
 
     if exam.can_issue_certificate and published:
         existing = certificate_services.get_certificate(attempt)

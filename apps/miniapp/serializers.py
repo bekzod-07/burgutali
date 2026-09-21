@@ -186,7 +186,7 @@ def review_dict(rows: list[dict]) -> list[dict]:
                 "correct": row["correct"],
                 "score": row["score"],
                 "max_score": row["max_score"],
-                "state": mapping.get(row["icon"], "empty"),
+                "state": row.get("state") or mapping.get(row["icon"], "empty"),
             }
         )
     return result

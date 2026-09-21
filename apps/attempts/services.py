@@ -325,20 +325,23 @@ def answer_review(attempt: Attempt) -> list[dict]:
     """
     Har bir savol bo'yicha to'g'ri/xato ma'lumoti.
 
-    TZ (1-tur): "Test tugagandan keyin ... to'g'ri va xato qilgan savollarini
-    ham bilishi imkoniyati bo'lishi kerak".
+    Topshirgandan keyin qatnashchi har bir savol bo'yicha o'zi belgilagan
+    javobni va to'g'ri javobni ko'radi — bu doim ochiq (`result_access`).
     """
     questions = list(attempt.exam.questions.filter(is_active=True).order_by("order"))
     answers = {answer.question_id: answer for answer in attempt.answers.all()}
     rows: list[dict] = []
-    show_key = attempt.exam.show_correct_answers
 
     for question in questions:
         answer = answers.get(question.id)
-        if question.kind == Question.Kind.OPEN:
+        if question.kind == Question.Kind.OPEN and int(question.parts or 1) >= 2:
             correct_value = "; ".join(
-                value for value in (question.answer_a, question.answer_b) if value
+                f"{label}) {value}"
+                for label, value in (("a", question.answer_a), ("b", question.answer_b))
+                if value
             )
+        elif question.kind == Question.Kind.OPEN:
+            correct_value = question.answer_a
         else:
             correct_value = question.correct_key
 
@@ -347,13 +350,69 @@ def answer_review(attempt: Attempt) -> list[dict]:
                 "order": question.order,
                 "kind": question.kind,
                 "given": answer.display_value if answer else "—",
-                "correct": correct_value if show_key else "—",
+                "correct": correct_value or "—",
                 "score": answer.score if answer else 0.0,
                 "max_score": question.max_score,
                 "icon": answer.status_icon if answer else "·",
+                "state": answer.status_code if answer else "empty",
             }
         )
     return rows
+
+
+def review_summary(rows: list[dict]) -> dict:
+    """
+    Javoblar tahlilidan qisqa hisob: nechta to'g'ri, xato, javobsiz.
+
+    Sanoq **savollar** bo'yicha (a) va b) li savol bitta savol sanaladi),
+    `wrong_orders` esa xato yoki qisman to'g'ri bo'lgan savollar raqamlari.
+    """
+    counts = {"correct": 0, "partial": 0, "wrong": 0, "empty": 0}
+    for row in rows:
+        counts[row.get("state", "empty")] = counts.get(row.get("state", "empty"), 0) + 1
+    counts["total"] = len(rows)
+    counts["wrong_orders"] = [
+        row["order"] for row in rows if row.get("state") in {"wrong", "partial"}
+    ]
+    counts["empty_orders"] = [row["order"] for row in rows if row.get("state") == "empty"]
+    return counts
+
+
+@dataclass(frozen=True)
+class ResultAccess:
+    """Qatnashchi natijasidan nimani ko'ra olishi."""
+
+    #: Javoblar tahlili: nechta to'g'ri/xato, har bir savolda o'z javobi va
+    #: to'g'ri javob. Test topshirilishi bilan doim ochiq.
+    review: bool
+    #: Ball, foiz, daraja va reyting o'rni.
+    score: bool
+    #: RASH testi: ball natijalar e'lon qilingach chiqadi.
+    pending: bool
+
+
+def result_access(attempt: Attempt) -> ResultAccess:
+    """
+    Natijaning qaysi qismi qatnashchiga ko'rinishini aniqlaydi.
+
+    * **Javoblar tahlili** — topshirilishi bilan doim ko'rinadi. Tugallanmagan
+      urinishda esa yopiq: aks holda to'g'ri javoblar test paytida ochilardi.
+    * **Ball** — oddiy testda «Natija ko'rinsin» sozlamasiga qarab darhol,
+      RASH testida esa (butun test bo'yicha kalibrlash kerak bo'lgani uchun)
+      natijalar e'lon qilingach. E'lon qilingan natija doim ochiq.
+    """
+    exam = attempt.exam
+    submitted = attempt.status == Attempt.Status.SUBMITTED
+    published = exam.results_available
+    if exam.uses_rasch:
+        score = submitted and published
+    else:
+        score = submitted and (published or exam.show_results_to_participants)
+    return ResultAccess(
+        review=submitted,
+        score=score,
+        pending=submitted and exam.uses_rasch and not published,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -685,6 +744,9 @@ __all__ = [
     "rating",
     "participants_count",
     "answer_review",
+    "review_summary",
+    "ResultAccess",
+    "result_access",
     "user_history",
     "EssayError",
     "parse_essay_ball",

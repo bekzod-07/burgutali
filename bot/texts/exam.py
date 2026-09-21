@@ -360,6 +360,31 @@ RATING_TITLE = "<b>{title}</b> — reyting\n\n{rows}"
 
 REVIEW_ANSWERS_TITLE = "<b>{title}</b> — javoblaringiz\n\n{rows}"
 
+#: Topshirilgach darhol chiqadigan qisqa hisob.
+REVIEW_SUMMARY = (
+    "<b>{title}</b> — natijangiz\n\n"
+    "To‘g‘ri: <b>{correct}</b> ta\n"
+    "Xato: <b>{wrong}</b> ta\n"
+    "{partial}"
+    "Javobsiz: <b>{empty}</b> ta\n"
+    "Jami: <b>{total}</b> ta savol"
+)
+
+REVIEW_PARTIAL_LINE = "Qisman to‘g‘ri: <b>{count}</b> ta\n"
+
+REVIEW_WRONG_ORDERS = "\n\nXato javob bergan savollaringiz: <b>{orders}</b>"
+
+REVIEW_ALL_CORRECT = "\n\nBarcha savollarga to‘g‘ri javob berdingiz!"
+
+RESULT_SCORE_LATER = (
+    "\n\nRASH balli va daraja tashkilotchi natijalarni e’lon qilgandan "
+    "so‘ng ma’lum bo‘ladi."
+)
+
+RESULT_SCORE_HIDDEN = (
+    "\n\nUmumiy ball bu testda qatnashchilarga ko‘rsatilmaydi."
+)
+
 BTN_SHOW_ANSWERS = "Javoblarimni ko‘rish"
 BTN_SHOW_RATING = "Reyting"
 BTN_GET_CERTIFICATE = "Sertifikatni olish"

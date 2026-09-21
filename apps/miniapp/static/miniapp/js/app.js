@@ -348,16 +348,8 @@
         "</div><b>Sertifikatlar</b><span>PDF yuklab olish</span></button>" +
         "</div>";
 
-      // Testlar ro'yxati ishtirokchilarga ko'rsatilmaydi — testga faqat
-      // tashkilotchi bergan kod orqali kiriladi. Ro'yxatni faqat admin ko'radi.
-      var exams = data.exams || [];
-      if (exams.length) {
-        html += '<div class="section-title">' + ic("book", "icon-sm") + "Faol testlar (admin)</div>";
-        exams.slice(0, 4).forEach(function (exam) { html += examItem(exam); });
-        if (exams.length > 4) {
-          html += '<button class="btn btn-ghost" data-act="tab" data-tab="exams">Barchasi (' + exams.length + ")</button>";
-        }
-      }
+      // Faol testlar ro'yxati hech kimga ko'rsatilmaydi — testga faqat
+      // tashkilotchi bergan kod orqali kiriladi.
 
       el.screen.innerHTML = html;
     }).catch(function (error) { handleError(error); });
@@ -365,44 +357,16 @@
 
   /* ----------------------------------------------------------- 2. Exams */
 
-  function examItem(exam) {
-    var badge = exam.requires_code
-      ? '<span class="badge badge-gold">' + ic("key", "icon-sm") + "ID kod</span>"
-      : (exam.uses_rasch ? '<span class="badge badge-purple">RASH</span>'
-                         : '<span class="badge badge-accent">Oddiy</span>');
-    return '<button class="item" data-act="open-exam" data-code="' + esc(exam.code) + '">' +
-      '<div class="ico">' + ic("file") + "</div>" +
-      '<div class="body"><b>' + esc(exam.title) + "</b>" +
-      '<small><span class="code-pill">' + esc(exam.code) + "</span> · " + exam.question_count + " ta savol</small>" +
-      '<div class="chips">' + badge +
-      (exam.certificate ? '<span class="badge badge-gold">Sertifikat</span>' : "") +
-      "</div></div>" +
-      '<span class="arrow">' + ic("chevron-right") + "</span></button>";
-  }
-
+  /* Testga faqat kod orqali kiriladi — faol testlar ro'yxati hech kimga
+     ko'rsatilmaydi, shuning uchun serverdan ro'yxat so'ralmaydi ham. */
   function viewExams() {
-    api("testlar/").then(function (data) {
-      var html = "";
-      html += '<div class="card-flat"><div class="card-head">' + ic("hash") +
-        "<h2>Test kodi bo‘yicha kirish</h2></div>" +
-        '<div class="field"><input class="input mono" id="exam-code" inputmode="numeric" ' +
-        'placeholder="32" autocomplete="off"></div>' +
-        '<p class="muted small">Kodni testni o‘tkazayotgan tashkilotchidan oling.</p>' +
-        '<button class="btn" data-act="find-exam">' + ic("search") + "Testni topish</button></div>";
-
-      // Ro'yxat faqat adminga ko'rinadi (`list_visible`).
-      var exams = data.list_visible ? (data.exams || []) : [];
-      if (data.list_visible) {
-        html += '<div class="section-title">' + ic("book", "icon-sm") + "Faol testlar (admin)</div>";
-        if (!exams.length) {
-          html += '<div class="empty">' + ic("book", "icon-xl") +
-            "<b>Faol testlar yo‘q</b></div>";
-        } else {
-          exams.forEach(function (exam) { html += examItem(exam); });
-        }
-      }
-      el.screen.innerHTML = html;
-    }).catch(handleError);
+    el.screen.innerHTML =
+      '<div class="card-flat"><div class="card-head">' + ic("hash") +
+      "<h2>Test kodi bo‘yicha kirish</h2></div>" +
+      '<div class="field"><input class="input mono" id="exam-code" inputmode="numeric" ' +
+      'placeholder="32" autocomplete="off"></div>' +
+      '<p class="muted small">Kodni testni o‘tkazayotgan tashkilotchidan oling.</p>' +
+      '<button class="btn" data-act="find-exam">' + ic("search") + "Testni topish</button></div>";
   }
 
   /* ------------------------------------------------------------ 3. Exam */
@@ -860,47 +824,61 @@
     var id = state.params.id;
     api("urinish/" + id + "/natija/").then(function (data) {
       var attempt = data.attempt;
+      var summary = data.summary;
+      var review = data.review || [];
       setHeader("result", attempt.exam_title);
 
       var html = "";
 
-      if (data.pending) {
-        html += '<div class="alert alert-warn">' + ic("hourglass") +
-          "<div>Natijalar hali e’lon qilinmagan. Tashkilotchi natijalarni " +
-          "tasdiqlagandan so‘ng bu yerda ko‘rinadi.</div></div>";
-      }
-
-      if (!data.visible) {
-        html += '<div class="alert alert-info">' + ic("eye-off") +
-          "<div>Bu testda natijalar qatnashchilarga ko‘rsatilmaydi.</div></div>";
-        html += '<button class="btn btn-ghost" data-act="tab" data-tab="results">Natijalarim</button>';
-        el.screen.innerHTML = html;
-        return;
-      }
-
       /*
-         RASH testida qatnashchi ball, foiz va darajani ko'radi; nechta
-         to'g'ri javob berganini ko'rmaydi — u faqat adminlar hisobotida
-         bo'ladi. Foiz `ball * 100 / 65` formulasi bo'yicha hisoblanadi.
+         Javoblar tahlili test topshirilishi bilan doim ko'rinadi: nechta
+         to'g'ri, nechta xato va har bir savolda o'z javobi hamda to'g'ri
+         javob. RASH balli va daraja esa natijalar e'lon qilingach chiqadi
+         (`data.visible`), chunki ular butun test bo'yicha hisoblanadi.
       */
-      if (attempt.uses_rasch) {
-        /* Esse yoqilgan testda ko'rsatiladigan ball — yakuniy ball,
-           ya'ni test va esse ballining o'rtachasi. */
+      if (data.visible && attempt.uses_rasch) {
         html += '<div class="result-hero">' +
           '<div class="lbl">' + (attempt.essay_enabled ? "Yakuniy ball" : "RASH balli") + "</div>" +
           '<div class="big">' + esc(attempt.ball) + "</div>" +
           (attempt.grade ? '<div class="grade">' + esc(attempt.grade) + "</div>" : "") +
           "</div>";
-      } else {
+      } else if (summary) {
         html += '<div class="result-hero">' +
           '<div class="lbl">To‘g‘ri javoblar</div>' +
-          '<div class="big">' + attempt.correct + " / " + attempt.max_raw_score + "</div>" +
-          '<div class="grade">' + attempt.percent + "%</div></div>";
+          '<div class="big">' + summary.correct + " / " + summary.total + "</div>" +
+          (data.visible ? '<div class="grade">' + attempt.percent + "%</div>" : "") +
+          "</div>";
       }
 
-      html += '<div class="card"><div class="kv-list">' +
-        kv("Test", esc(attempt.exam_title)) +
-        (attempt.uses_rasch
+      if (summary) {
+        html += '<div class="stats">' +
+          '<div class="stat green"><b>' + summary.correct + "</b><span>To‘g‘ri</span></div>" +
+          '<div class="stat red"><b>' + summary.wrong + "</b><span>Xato</span></div>" +
+          '<div class="stat"><b>' + summary.empty + "</b><span>Javobsiz</span></div>" +
+          "</div>";
+        if (summary.partial) {
+          html += '<p class="muted small center">Qisman to‘g‘ri: <b>' + summary.partial +
+            "</b> ta (a/b qismlaridan biri to‘g‘ri)</p>";
+        }
+        if (summary.wrong_orders && summary.wrong_orders.length) {
+          html += '<div class="alert alert-warn">' + ic("x-circle") +
+            "<div>Xato javob bergan savollaringiz: <b>" +
+            summary.wrong_orders.join(", ") + "</b></div></div>";
+        } else if (summary.total && summary.correct === summary.total) {
+          html += '<div class="alert alert-info">' + ic("check-circle") +
+            "<div>Barcha savollarga to‘g‘ri javob berdingiz!</div></div>";
+        }
+      }
+
+      if (data.pending) {
+        html += '<div class="alert alert-info">' + ic("hourglass") +
+          "<div>RASH balli va daraja tashkilotchi natijalarni e’lon qilgandan " +
+          "so‘ng shu yerda chiqadi.</div></div>";
+      }
+
+      var rows = kv("Test", esc(attempt.exam_title));
+      if (data.visible) {
+        rows += attempt.uses_rasch
           ? (attempt.essay_enabled
               ? kv("Test balli", esc(attempt.test_ball)) +
                 kv("Esse balli", esc(attempt.essay_pending ? "baholanmoqda" : attempt.essay_ball)) +
@@ -908,13 +886,15 @@
               : kv("Ball", esc(attempt.ball))) +
             kv("Foiz", attempt.award_percent + "%") +
             kv("Daraja", esc(attempt.grade || "—"))
-          : kv("To‘g‘ri javoblar", attempt.correct + " / " + attempt.max_raw_score) +
-            kv("Xato javoblar", attempt.wrong) +
-            kv("Javobsiz", attempt.empty) +
-            kv("Foiz", attempt.percent + "%")) +
-        (attempt.rank ? kv("Reyting", attempt.rank + " / " + attempt.total_participants) : "") +
-        kv("Topshirgan vaqt", esc(attempt.submitted_at_human)) +
-        "</div></div>";
+          : kv("Foiz", attempt.percent + "%");
+        if (attempt.rank) {
+          rows += kv("Reyting", attempt.rank + " / " + attempt.total_participants);
+        }
+      } else if (attempt.essay_enabled && !attempt.essay_pending) {
+        rows += kv("Esse balli", esc(attempt.essay_ball));
+      }
+      rows += kv("Topshirgan vaqt", esc(attempt.submitted_at_human));
+      html += '<div class="card"><div class="kv-list">' + rows + "</div></div>";
 
       if (data.certificate) {
         html += '<div class="card"><div class="card-head">' + ic("award") + "<h2>Sertifikat</h2></div>" +
@@ -937,9 +917,8 @@
         html += '<div class="alert alert-info">' + ic("info") + "<div>" + esc(data.certificate_reason) + "</div></div>";
       }
 
-      var review = data.review || [];
       if (review.length) {
-        html += '<div class="section-title">' + ic("list", "icon-sm") + "Javoblaringiz</div>";
+        html += '<div class="section-title">' + ic("list", "icon-sm") + "Javoblaringiz tahlili</div>";
         html += '<div class="card"><div class="review-grid">';
         review.forEach(function (row) {
           html += '<div class="review-cell ' + row.state + '">' + row.order +
@@ -948,21 +927,24 @@
         });
         html += "</div></div>";
 
+        /* Har bir savol: qatnashchi belgilagan javob va to'g'ri javob.
+           To'g'ri topilgan savolda to'g'ri javob takrorlanmaydi. */
         html += '<div class="card">';
         review.forEach(function (row) {
+          var given = row.given && row.given !== "—" ? esc(row.given) : '<span class="muted">javob berilmagan</span>';
           html += '<div class="review-row"><span class="no">' + row.order + "</span>" +
             '<span class="st ' + row.state + '">' +
             ic(row.state === "correct" ? "check-circle" : row.state === "wrong" ? "x-circle" :
                row.state === "partial" ? "alert" : "circle") + "</span>" +
-            '<span class="val">' + esc(row.given) + "</span>" +
-            (row.correct && row.correct !== "—"
-              ? '<span class="key">' + esc(row.correct) + "</span>" : "") +
-            "</div>";
+            '<div class="rv"><span class="val"><small>Sizniki:</small>' + given + "</span>" +
+            (row.state !== "correct" && row.correct && row.correct !== "—"
+              ? '<span class="key right"><small>To‘g‘ri:</small>' + esc(row.correct) + "</span>" : "") +
+            "</div></div>";
         });
         html += "</div>";
       }
 
-      if (attempt.show_rating) {
+      if (data.visible && attempt.show_rating) {
         html += '<button class="btn btn-ghost" data-act="open-rating" data-code="' + esc(attempt.exam_code) + '">' +
           ic("trophy") + "Reyting</button>";
       }
@@ -981,7 +963,7 @@
       if (!results.length) {
         html += '<div class="empty">' + ic("chart", "icon-xl") +
           "<b>Natijalar yo‘q</b><p>Biror testda qatnashib ko‘ring.</p>" +
-          '<button class="btn btn-ghost" data-act="tab" data-tab="exams">Testlarni ko‘rish</button></div>';
+          '<button class="btn btn-ghost" data-act="tab" data-tab="exams">Test kodini kiritish</button></div>';
       } else {
         results.forEach(function (attempt) {
           var pending = attempt.uses_rasch && !attempt.results_published;

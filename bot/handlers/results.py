@@ -1,10 +1,10 @@
 """
 Natijalarni ko'rsatish.
 
-TZ:
-  * oddiy testda natija darhol ko'rinadi (agar yaratuvchi ruxsat bergan bo'lsa);
-  * RASH testlarida natija admin tomonidan e'lon qilingandan keyin ochiladi;
-  * ishtirokchi to'g'ri va xato qilgan savollarini ko'ra olishi kerak.
+  * javoblar tahlili — nechta to'g'ri/xato, har bir savolda qatnashchi
+    javobi va to'g'ri javob — test topshirilishi bilan doim ko'rinadi;
+  * ball: oddiy testda «Natija ko'rinsin» sozlamasiga qarab darhol, RASH
+    testida esa natijalar e'lon qilingach (butun test bo'yicha hisoblanadi).
 """
 
 from __future__ import annotations
@@ -52,6 +52,43 @@ async def open_result(
     await _send_result(callback.message, callback_data.attempt_id, user)
 
 
+async def send_answer_review(message: Message, attempt, title: str) -> None:
+    """
+    Javoblar tahlilini yuboradi: qisqa hisob va har bir savol bo'yicha
+    qatnashchi javobi hamda (xato bo'lsa) to'g'ri javob.
+    """
+    rows = await attempt_service.answer_review(attempt)
+    summary = attempt_service.review_summary(rows)
+    await message.answer(summary_text(title, summary))
+
+    body = review_rows(rows, show_correct=True)
+    text = TE.REVIEW_ANSWERS_TITLE.format(title=esc(title), rows=body)
+    for chunk in chunk_text(text, C.TELEGRAM_MESSAGE_LIMIT - 100):
+        await message.answer(chunk)
+
+
+def summary_text(title: str, summary: dict) -> str:
+    """Qisqa hisob matni: to'g'ri, xato, javobsiz va xato qilingan savollar."""
+    partial = (
+        TE.REVIEW_PARTIAL_LINE.format(count=summary["partial"]) if summary["partial"] else ""
+    )
+    text = TE.REVIEW_SUMMARY.format(
+        title=esc(title),
+        correct=summary["correct"],
+        wrong=summary["wrong"],
+        partial=partial,
+        empty=summary["empty"],
+        total=summary["total"],
+    )
+    if summary["wrong_orders"]:
+        text += TE.REVIEW_WRONG_ORDERS.format(
+            orders=", ".join(str(order) for order in summary["wrong_orders"])
+        )
+    elif summary["total"] and summary["correct"] == summary["total"]:
+        text += TE.REVIEW_ALL_CORRECT
+    return text
+
+
 async def _send_result(message: Message, attempt_id: int, user) -> None:
     """Natija kartochkasini yuboradi."""
     attempt = await attempt_service.get_attempt(attempt_id)
@@ -61,12 +98,21 @@ async def _send_result(message: Message, attempt_id: int, user) -> None:
 
     snapshot = await attempt_service.result_snapshot(attempt.id)
 
-    if not snapshot["show_results"] and snapshot["status"] != "published":
-        await message.answer(TE.RESULT_HIDDEN, reply_markup=inline.back_to_menu())
-        return
-
-    if snapshot["uses_rasch"] and snapshot["status"] != "published":
-        await message.answer(TE.RESULT_PENDING, reply_markup=inline.back_to_menu())
+    if not snapshot["score_visible"]:
+        # Ball hali yo'q (RASH natijasi e'lon qilinmagan yoki oddiy testda
+        # yashirilgan), lekin to'g'ri/xato hisobi va javoblar tahlili ochiq.
+        rows = await attempt_service.answer_review(attempt)
+        text = summary_text(snapshot["title"], attempt_service.review_summary(rows))
+        text += TE.RESULT_SCORE_LATER if snapshot["pending"] else TE.RESULT_SCORE_HIDDEN
+        await message.answer(
+            text,
+            reply_markup=inline.result_actions(
+                attempt,
+                show_answers=snapshot["show_answers"],
+                show_rating=False,
+                certificate=False,
+            ),
+        )
         return
 
     if snapshot["uses_rasch"] and snapshot["essay_enabled"]:
@@ -134,19 +180,13 @@ async def show_answers(
         return
 
     snapshot = await attempt_service.result_snapshot(attempt.id)
-    if not snapshot["show_results"]:
-        await callback.message.answer(TE.RESULT_HIDDEN)
-        return
-    if snapshot["uses_rasch"] and snapshot["status"] != "published":
-        await callback.message.answer(TE.RESULT_PENDING)
+    # Tugallanmagan urinishda tahlil yopiq — aks holda to'g'ri javoblar
+    # test paytida ochilib qolardi.
+    if not snapshot["show_answers"]:
+        await callback.message.answer(TC.ERROR_GENERIC)
         return
 
-    rows = await attempt_service.answer_review(attempt)
-    body = review_rows(rows, show_correct=snapshot["show_answers"])
-    text = TE.REVIEW_ANSWERS_TITLE.format(title=esc(snapshot["title"]), rows=body)
-
-    for chunk in chunk_text(text, C.TELEGRAM_MESSAGE_LIMIT - 100):
-        await callback.message.answer(chunk)
+    await send_answer_review(callback.message, attempt, snapshot["title"])
 
 
 # ==========================================================================
@@ -186,4 +226,4 @@ async def show_rating(
     await callback.message.answer(text, reply_markup=inline.back_to_menu())
 
 
-__all__ = ["router", "show_my_results"]
+__all__ = ["router", "show_my_results", "send_answer_review"]

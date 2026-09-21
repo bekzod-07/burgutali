@@ -34,6 +34,7 @@ public_ranking = sync_to_async(
 )
 participants_count = sync_to_async(attempt_services.participants_count, thread_sensitive=True)
 answer_review = sync_to_async(attempt_services.answer_review, thread_sensitive=True)
+review_summary = attempt_services.review_summary
 user_history = sync_to_async(attempt_services.user_history, thread_sensitive=True)
 
 
@@ -132,6 +133,7 @@ def result_snapshot(attempt_id: int) -> dict:
     total = Attempt.objects.filter(
         exam=attempt.exam, status=Attempt.Status.SUBMITTED
     ).count()
+    access = attempt_services.result_access(attempt)
     return {
         "id": attempt.id,
         "exam_id": attempt.exam_id,
@@ -139,7 +141,11 @@ def result_snapshot(attempt_id: int) -> dict:
         "uses_rasch": attempt.exam.uses_rasch,
         "status": attempt.exam.status,
         "show_results": attempt.exam.show_results_to_participants,
-        "show_answers": attempt.exam.show_correct_answers,
+        # Javoblar tahlili topshirilgach doim ochiq, ball esa RASH testida
+        # natijalar e'lon qilingach (`attempt_services.result_access`).
+        "show_answers": access.review,
+        "score_visible": access.score,
+        "pending": access.pending,
         "show_rating": attempt.exam.show_rating_to_participants,
         "certificate": attempt.exam.can_issue_certificate,
         "raw_score": attempt.raw_score,

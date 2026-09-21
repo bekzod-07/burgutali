@@ -740,6 +740,12 @@ body.mpad-open .screen { padding-bottom: calc(var(--mpad-h, 320px) + 28px); }
 .review-row .val { flex: 1; min-width: 0; word-break: break-word; }
 .review-row .key { color: var(--muted); font-size: 12px; text-align: right; }
 
+/* Javoblar tahlili: qatnashchi javobi va (xato bo'lsa) to'g'ri javob ustma-ust. */
+.review-row .rv { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.review-row .rv small { color: var(--muted); font-size: 11px; margin-right: 5px; font-weight: 500; }
+.review-row .rv .key.right { color: #14663a; font-weight: 650; font-size: 13px; text-align: left; }
+.center { text-align: center; }
+
 /* ------------------------------------------------------------- reyting */
 
 .rank-row {

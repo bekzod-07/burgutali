@@ -233,6 +233,9 @@ def create_exam(
         show_correct_answers=bool(show_correct_answers),
         certificate_enabled=bool(certificate_enabled),
         organizer_name=organizer_name or "",
+        # Milliy shablonda 44 ta savoldan keyin esse balli kiritiladi,
+        # yakuniy ball esa (test + esse) / 2.
+        essay_enabled=bool(national_template),
     )
 
     specs: list[QuestionSpec]
