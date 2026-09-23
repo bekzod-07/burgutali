@@ -1290,6 +1290,10 @@ def test_exports() -> None:
     reports_py = (BASE_DIR / "bot/services/reports.py").read_text(encoding="utf-8")
     sched_py = (BASE_DIR / "bot/tasks/scheduler.py").read_text(encoding="utf-8")
 
+    from apps.attempts import services as attempt_services
+    from apps.attempts.services import result_rows as _result_rows
+    from apps.exports import pdf_report as _pdf_report
+
     R.check("E'lon PDF si tayyorlanadi", "overall_results_report(exam)" in reports_py)
     R.check("Admin PDF si tayyorlanadi", "results_report(exam)" in reports_py)
     R.check("Ikkalasi ham yuboriladi",
@@ -1338,11 +1342,96 @@ def test_exports() -> None:
     R.check("E'lon Excelida fan ballari bor",
             all(name in public_headers for name in C.subject_names()))
 
+    # --- Pullik testda ham natijalar F.I.SH bilan e'lon qilinadi ---
+    from apps.exams.models import Exam as _ExamForLabel
+
+    paid = (
+        _ExamForLabel.objects.filter(exam_type=_ExamForLabel.Type.RASCH_PAID)
+        .filter(attempts__status="submitted")
+        .distinct()
+        .first()
+    )
+    if paid is not None:
+        labels = [row.label for row in _result_rows(paid)]
+        R.check("Pullik testda nom F.I.SH bilan chiqadi",
+                all(not label.startswith("ID-") for label in labels),
+                ", ".join(labels[:3]))
+        R.check("Kod ustuni sarlavhasi F.I.SH",
+                _pdf_report.participant_column(paid) == "F.I.SH")
+
+    # --- E'lon uchun soxta qatnashchilar ---
+    from apps.attempts import mock as _mock
+    from apps.attempts.models import MockParticipant as _Mock
+
+    R.equal("Standart taqsimot 2/4/6/8/18/22",
+            [percent for _grade, percent in _mock.DEFAULT_SHARES],
+            [2.0, 4.0, 6.0, 8.0, 18.0, 22.0])
+
+    plan = _mock.plan_counts(1000)
+    R.equal("1000 tadan reja",
+            plan,
+            [("A+", 20), ("A", 40), ("B+", 60), ("B", 80), ("C+", 180),
+             ("C", 220), (C.NO_GRADE, 400)])
+    R.equal("Rejadagi yig'indi jami songa teng",
+            sum(count for _grade, count in plan), 1000)
+    R.equal("Yaxlitlash yo'qotmaydi (777 ta)",
+            sum(count for _grade, count in _mock.plan_counts(777)), 777)
+    R.check("Foizlar 100 dan oshsa kamaytiriladi",
+            sum(value for _g, value in _mock.normalize_shares(
+                [("A+", 80.0), ("A", 80.0)])) <= 100.0)
+
+    before = {a.id: (a.ball, a.grade) for a in _ranked(exam)}
+    real_count = attempt_services.participants_count(exam)
+
+    created = _mock.generate(exam, 1000, seed=11)
+    R.equal("1000 ta soxta qatnashchi yaratildi", created["created"], 1000)
+    R.equal("Bazada ham 1000 ta", _Mock.objects.filter(exam=exam).count(), 1000)
+
+    totals = attempt_services.result_totals(exam)
+    R.equal("Haqiqiy qatnashchilar soni o'zgarmadi", totals["real"], real_count)
+    R.equal("Reytingdagi jami", totals["total"], real_count + 1000)
+
+    merged = _result_rows(exam)
+    R.equal("Birlashtirilgan ro'yxat uzunligi", len(merged), real_count + 1000)
+    R.equal("O'rinlar ketma-ket",
+            [row.place for row in merged], list(range(1, len(merged) + 1)))
+    R.check("Ro'yxat ball bo'yicha kamayadi",
+            all((merged[i].ball or 0) >= (merged[i + 1].ball or 0)
+                for i in range(len(merged) - 1)))
+
+    from collections import Counter as _Counter
+
+    mock_grades = _Counter(row.grade for row in merged if row.is_mock)
+    R.equal("Soxtalardan 20 tasi A+", mock_grades["A+"], 20)
+    R.equal("Soxtalardan 220 tasi C", mock_grades["C"], 220)
+    R.equal("Soxtalardan 400 tasi darajasiz", mock_grades[C.NO_GRADE], 400)
+    R.check("Soxta ismlar takrorlanmaydi",
+            len({row.label for row in merged if row.is_mock}) > 900)
+    R.check("Soxta ballari daraja jadvaliga mos",
+            all(C.grade_for_ball(row.ball) == row.grade
+                for row in merged if row.is_mock))
+
+    after = {a.id: (a.ball, a.grade) for a in _ranked(exam)}
+    R.equal("Haqiqiy natijalar o'zgarmadi", after, before)
+    R.check("Haqiqiy o'rinlar birlashtirilgan ro'yxatdan",
+            all(1 <= (a.rank or 0) <= len(merged) for a in _ranked(exam)))
+
+    # Rasch hisob-kitobi va statistika soxtalarga tegmaydi.
+    R.equal("Statistikada faqat haqiqiy qatnashchilar",
+            exam.statistics.participants, real_count)
+
+    removed = _mock.clear(exam)
+    R.equal("Soxta qatnashchilar tozalandi", removed, 1000)
+    R.equal("Tozalangach reyting qisqardi",
+            len(_result_rows(exam)), real_count)
+    R.equal("O'rinlar tiklandi",
+            [a.rank for a in _ranked(exam)], list(range(1, real_count + 1)))
+
     # Mini App: RASH reytingida xom ball ko'rinmaydi.
     from apps.miniapp import serializers as _S
-    from apps.attempts.services import ranked_attempts as _ranked_for_rating
+    from apps.attempts.services import result_rows as _rating_rows_for_api
 
-    sample = list(_ranked_for_rating(exam)[:3])
+    sample = _rating_rows_for_api(exam, limit=3)
     hidden = _S.rating_dict(sample, uses_rasch=True, show_raw=False)
     shown = _S.rating_dict(sample, uses_rasch=True, show_raw=True)
     R.check("Reytingda xom ball yashiriladi",

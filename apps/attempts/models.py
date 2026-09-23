@@ -152,15 +152,20 @@ class Attempt(TimeStampedModel):
     @property
     def public_label(self) -> str:
         """
-        Umumiy natijalarda ko'rsatiladigan nom.
+        Umumiy natijalarda ko'rsatiladigan nom — har uchala turda ham
+        ism-familiya.
 
-        Talab: 1- va 2-turda ism-familiya, 3-turda (pullik RASH testi) esa
-        ishtirokchining ID raqami e'lon qilinadi. Sertifikatga esa doim
-        ism-familiya yoziladi.
+        Ilgari pullik testda (3-tur) ism o'rniga bir martalik ID kod
+        chiqardi; 2026-09-23 dan natijalar hamma joyda F.I.SH bilan
+        e'lon qilinadi. ID raqami esa panelda alohida ustunda qoladi
+        (`access_code_value`).
         """
-        if self.exam.exam_type == self.exam.Type.RASCH_PAID:
-            return self.access_code_value or f"ID-{self.id}"
-        return self.full_name or (self.user.display_name if self.user_id else "Ishtirokchi")
+        name = (self.full_name or "").strip()
+        if name:
+            return name
+        if self.user_id:
+            return self.user.display_name
+        return self.access_code_value or f"ID-{self.id}"
 
     def mark_submitted(self) -> None:
         """Urinishni yakunlangan deb belgilaydi."""
@@ -311,3 +316,47 @@ class ExamStatistics(TimeStampedModel):
         """Darajalar taqsimotini tartiblangan ro'yxat sifatida qaytaradi."""
         data = self.grade_distribution or {}
         return [(g, int(data.get(g, 0))) for g in reversed(C.GRADE_ORDER)]
+
+
+class MockParticipant(TimeStampedModel):
+    """
+    E'lon uchun qo'shiladigan soxta qatnashchi.
+
+    Mock imtihonni katta auditoriyada o'tkazilgandek ko'rsatish uchun
+    natijalar ro'yxatiga o'ylab topilgan ism-familiyalar qo'shiladi:
+    admin jami sonni (masalan 1000) va darajalar ulushini beradi, tizim
+    esa har bir darajaga tegishli ballni o'sha daraja oralig'idan tasodifiy
+    tanlaydi (`apps.attempts.mock`).
+
+    Soxta qatnashchi **alohida jadvalda** saqlanadi va `Attempt` ga umuman
+    tegmaydi: Rasch hisob-kitobi, statistika, savollar qiyinchiligi va
+    sertifikatlar faqat haqiqiy javoblar bo'yicha qoladi. Soxta qatorlar
+    faqat e'lon qilinadigan reytingda ko'rinadi.
+    """
+
+    exam = models.ForeignKey(
+        "exams.Exam",
+        on_delete=models.CASCADE,
+        related_name="mock_participants",
+        verbose_name="Test",
+    )
+    full_name = models.CharField("Ism va familiya", max_length=120)
+    ball = models.FloatField("Standart ball")
+    grade = models.CharField("Daraja", max_length=16, blank=True, default="")
+    #: Yaratilish tartibi — ballari teng chiqqanda qatorlar joyini
+    #: o'zgartirmasligi uchun.
+    order = models.PositiveIntegerField("Tartib", default=0)
+
+    class Meta:
+        verbose_name = "Soxta qatnashchi"
+        verbose_name_plural = "Soxta qatnashchilar"
+        ordering = ("-ball", "order")
+        indexes = [models.Index(fields=["exam", "-ball"])]
+
+    def __str__(self) -> str:
+        return f"{self.full_name} — {self.ball:.2f}"
+
+    @property
+    def display_ball(self) -> str:
+        """Ballning matnli ko'rinishi (haqiqiy urinishdagidek)."""
+        return f"{self.ball:.2f}"

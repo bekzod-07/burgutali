@@ -191,7 +191,7 @@ def review_dict(rows: list[dict]) -> list[dict]:
 
 
 def rating_dict(
-    attempts,
+    result_rows,
     *,
     uses_rasch: bool,
     me_id: int | None = None,
@@ -200,8 +200,9 @@ def rating_dict(
     """
     Reyting jadvali.
 
-    Nom `Attempt.public_label` dan olinadi: pullik RASH testida ism o'rniga
-    ishtirokchining ID raqami ko'rsatiladi.
+    `result_rows` — `apps.attempts.services.result_rows()` qatorlari:
+    haqiqiy qatnashchilar va e'lon uchun qo'shilgan soxta qatnashchilar
+    birga. Nom har uchala test turida ham ism-familiya.
 
     RASH testida nechta savolni to'g'ri topgani reytingda ko'rsatilmaydi —
     u faqat `show_raw=True` bo'lganda (asosiy admin uchun) qo'shiladi.
@@ -210,21 +211,21 @@ def rating_dict(
     """
     include_raw = show_raw or not uses_rasch
     rows = []
-    for index, attempt in enumerate(attempts, start=1):
+    for item in result_rows:
+        attempt = item.attempt
         row = {
-            "place": attempt.rank or index,
-            "name": attempt.public_label,
-            "ball": attempt.display_ball if uses_rasch else None,
-            "grade": attempt.grade or "",
-            "is_me": attempt.id == me_id,
+            "place": item.place,
+            "name": item.label,
+            "ball": item.display_ball if uses_rasch else None,
+            "grade": item.grade or "",
+            "is_me": attempt is not None and attempt.id == me_id,
+            # RASH testida foiz `ball * 100 / 65` bo'yicha ko'rsatiladi.
+            "percent": round(item.percent, 2),
         }
-        if include_raw:
+        # Xom ball faqat haqiqiy qatnashchida bor va faqat adminga beriladi.
+        if include_raw and attempt is not None:
             row["raw_score"] = attempt.raw_score
             row["max_raw_score"] = attempt.max_raw_score
-            row["percent"] = round(attempt.percent, 1)
-        else:
-            # RASH testida foiz `ball * 100 / 65` bo'yicha ko'rsatiladi.
-            row["percent"] = C.certificate_percent(attempt.ball, attempt.grade)
         rows.append(row)
     return rows
 

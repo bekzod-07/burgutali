@@ -161,7 +161,7 @@ ketishi qat’iy ajratilgan**:
 
 | Fayl | Kimga | Ustunlar |
 |------|-------|----------|
-| `umumiy-natijalar-…pdf` | **test egasi va adminlar** | `№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA · ASOSIY 1-FAN · ASOSIY 2-FAN · MAJBURIY FAN` |
+| `umumiy-natijalar-…pdf` | **test egasi va adminlar** | `№ · F.I.SH · BALL · FOIZ · DARAJA · ASOSIY 1-FAN · ASOSIY 2-FAN · MAJBURIY FAN` |
 | `admin-hisobot-…pdf` | **faqat `.env` dagi asosiy adminlar** | yuqoridagilarga qo‘shimcha `TO‘G‘RI · FOIZ (to‘g‘ri javob) · SERT. % · SANA`, umumiy statistika va savollar qiyinchiligi |
 | Diagrammalar (PNG) | **faqat asosiy adminlar** | savollar qiyinchiligi va ballar taqsimoti |
 
@@ -216,13 +216,42 @@ marta yozilmaydi. Ballari teng chiqqanda testni **oldinroq** topshirgan
 yuqoriroq o‘rinni oladi, kechroq topshirgani esa keyingi o‘ringa tushadi
 (masalan 10 va 11).
 
-Nom test turiga qarab tanlanadi:
+Natijalar **har uchala test turida ham ism-familiya** bilan e’lon
+qilinadi. Ilgari pullik testda (3-tur) ism o’rniga bir martalik ID kod
+chiqardi — 2026-09-23 dan u faqat panelda, alohida ustunda qoladi.
 
-| Tur | Umumiy natijalarda | Sertifikatda |
-|-----|--------------------|--------------|
-| **1-tur — Oddiy test** | ism va familiya | — |
-| **2-tur — Bepul RASH testi** | ism va familiya | — |
-| **3-tur — Pullik RASH testi** | **ID raqami** | ism va familiya |
+### Soxta qatnashchilar — e’lon uchun
+
+Mock imtihon natijasini katta auditoriyadagidek ko’rsatish kerak
+bo’lganda reytingga o’ylab topilgan ism-familiyalar qo’shiladi. Panelning
+natijalar sahifasida jami son va darajalar ulushi kiritiladi, masalan
+1000 ta qatnashchi uchun standart taqsimot:
+
+| Daraja | Ulush | 1000 tadan |
+|--------|-------|------------|
+| A+ | 2% | 20 ta |
+| A | 4% | 40 ta |
+| B+ | 6% | 60 ta |
+| B | 8% | 80 ta |
+| C+ | 18% | 180 ta |
+| C | 22% | 220 ta |
+| Daraja olinmadi | qolgani (40%) | 400 ta |
+
+Ball har bir daraja oralig’idan tasodifiy tanlanadi, shuning uchun foiz
+va fan ballari haqiqiy natijadagidek hisoblanadi. Ismlar takrorlanmaydi.
+
+Soxta qatorlar `attempts_mockparticipant` jadvalida saqlanadi va
+`Attempt` ga umuman tegmaydi — **haqiqiy o’quvchilarning balli, foizi va
+darajasi o’zgarmaydi**, Rasch hisob-kitobi, statistika, savollar
+qiyinchiligi va sertifikat shartlari ham faqat haqiqiy javoblar bo’yicha
+qoladi. O’zgaradigan yagona narsa — reyting o’rni: o’quvchi endi jami
+ro’yxatda nechanchi bo’lsa, shu o’rinni oladi.
+
+Soxta qatnashchilar e’lon qilinadigan hamma joyda ko’rinadi: umumiy
+natijalar PDF va Excel, panel reytingi, botdagi va Mini App dagi reyting.
+Admin hisobotida (`admin-hisobot.pdf`) esa faqat haqiqiy qatnashchilar
+qoladi — u tahlil uchun. Panelda ular «Soxta qatnashchi» belgisi bilan
+ajralib turadi va bir tugma bilan butunlay olib tashlanadi.
 
 ### Savollar qiyinchiligi diagrammasi — faqat adminga
 
@@ -732,7 +761,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 876 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 901 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

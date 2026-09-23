@@ -249,7 +249,7 @@ async def show_rating(
     if exam is None:
         return
 
-    top = await attempt_service.rating(exam, limit=25)
+    top = await attempt_service.result_rows(exam, limit=25)
     body = rating_rows(top, uses_rasch=exam.uses_rasch)
     await callback.message.answer(
         TE.RATING_TITLE.format(title=esc(exam.title), rows=body),

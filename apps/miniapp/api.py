@@ -409,7 +409,7 @@ def attempt_result(request, user, attempt_id: int):
     """Natija, javoblar tahlili va sertifikat holati."""
     attempt = get_own_attempt(attempt_id, user)
     exam = attempt.exam
-    total = attempt_services.participants_count(exam)
+    total = attempt_services.result_totals(exam)["total"]
 
     published = exam.results_available
     visible = exam.show_results_to_participants
@@ -466,19 +466,20 @@ def exam_rating(request, user, code: str):
 
     my_attempt = attempt_services.get_result(exam, user)
     limit = None if is_owner else 30
-    attempts = attempt_services.rating(exam, limit=limit)
+    # Reytingga e'lon uchun qo'shilgan soxta qatnashchilar ham kiradi.
+    rows = attempt_services.result_rows(exam, limit=limit)
 
     return {
         "exam": S.exam_dict(exam),
         "rows": S.rating_dict(
-            attempts,
+            rows,
             uses_rasch=exam.uses_rasch,
             me_id=my_attempt.id if my_attempt else None,
             # Nechta topgani faqat asosiy adminlarga ko'rinadi.
             show_raw=exam_services.is_main_admin(user),
         ),
         "my_place": my_attempt.rank if my_attempt else None,
-        "total": attempt_services.participants_count(exam),
+        "total": attempt_services.result_totals(exam)["total"],
     }
 
 

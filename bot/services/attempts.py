@@ -27,6 +27,9 @@ unanswered_orders = sync_to_async(attempt_services.unanswered_orders, thread_sen
 submit_attempt = sync_db_call(attempt_services.submit_attempt)
 get_result = sync_to_async(attempt_services.get_result, thread_sensitive=True)
 rating = sync_to_async(attempt_services.rating, thread_sensitive=True)
+#: E'lon qilinadigan reyting — haqiqiy va soxta qatnashchilar birga.
+result_rows = sync_to_async(attempt_services.result_rows, thread_sensitive=True)
+result_totals = sync_to_async(attempt_services.result_totals, thread_sensitive=True)
 participants_count = sync_to_async(attempt_services.participants_count, thread_sensitive=True)
 answer_review = sync_to_async(attempt_services.answer_review, thread_sensitive=True)
 user_history = sync_to_async(attempt_services.user_history, thread_sensitive=True)
@@ -73,9 +76,9 @@ def answered_orders(attempt_id: int) -> set[int]:
 def result_snapshot(attempt_id: int) -> dict:
     """Natija haqidagi asosiy ma'lumotlar."""
     attempt = Attempt.objects.select_related("exam").get(pk=attempt_id)
-    total = Attempt.objects.filter(
-        exam=attempt.exam, status=Attempt.Status.SUBMITTED
-    ).count()
+    # Reyting e'lon qilinadigan ro'yxat bo'yicha ko'rsatiladi, shuning
+    # uchun jami songa soxta qatnashchilar ham kiradi.
+    total = attempt_services.result_totals(attempt.exam)["total"]
     return {
         "id": attempt.id,
         "exam_id": attempt.exam_id,

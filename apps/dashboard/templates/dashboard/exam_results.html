@@ -139,10 +139,70 @@
   </div>
 {% endif %}
 
+{% comment %}
+  E'lon uchun soxta qatnashchilar. Ular faqat reytingda ko'rinadi:
+  Rasch hisob-kitobi, statistika va savollar qiyinchiligi faqat haqiqiy
+  javoblar bo'yicha qoladi, haqiqiy o'quvchining balli ham o'zgarmaydi.
+{% endcomment %}
+<section class="card mb">
+  <div class="card-head">
+    <h2><svg class="icon"><use href="#i-users"></use></svg> Soxta qatnashchilar</h2>
+    <span class="sub">Faqat e’lon uchun</span>
+  </div>
+  <div class="card-body">
+    <div class="message mb">
+      Reytingni katta auditoriyadagidek ko‘rsatish uchun o‘ylab topilgan
+      ism-familiyalar qo‘shiladi. Jami sonni va darajalar ulushini kiriting —
+      qolgani daraja olmaganlarga to‘g‘ri keladi.
+      <b>Haqiqiy o‘quvchilarning balli, foizi va darajasi o‘zgarmaydi</b>,
+      faqat o‘rinlar siljiydi.
+    </div>
+
+    <div class="kv"><span class="k">Haqiqiy qatnashchilar</span><span class="v"><b>{{ totals.real }}</b> ta</span></div>
+    <div class="kv"><span class="k">Soxta qatnashchilar</span><span class="v"><b>{{ totals.mock }}</b> ta</span></div>
+    <div class="kv"><span class="k">Reytingda jami</span><span class="v"><b>{{ totals.total }}</b> ta</span></div>
+
+    <form method="post" class="mt">
+      {% csrf_token %}
+      <input type="hidden" name="form" value="mock">
+      {% if mock_form.non_field_errors %}
+        <div class="message message-error mb">{{ mock_form.non_field_errors|striptags }}</div>
+      {% endif %}
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="{{ mock_form.total.id_for_label }}">{{ mock_form.total.label }}</label>
+          {{ mock_form.total }}
+          <div class="help">{{ mock_form.total.help_text }}</div>
+          {% if mock_form.total.errors %}<div class="errors">{{ mock_form.total.errors|striptags }}</div>{% endif %}
+        </div>
+        {% for grade, field in mock_form.share_fields %}
+          <div class="form-row">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <button class="btn btn-primary mt" type="submit">Soxta qatnashchilarni qo‘shish</button>
+    </form>
+
+    {% if totals.mock %}
+      <form method="post" class="mt">
+        {% csrf_token %}
+        <input type="hidden" name="form" value="mock_clear">
+        <button class="btn btn-red" type="submit">Soxta qatnashchilarni olib tashlash</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
 <section class="card">
   <div class="card-head">
     <h2>Reyting</h2>
-    <span class="sub">{{ certificates }} ta sertifikat berilgan</span>
+    <span class="sub">
+      {{ totals.total }} ta qator{% if totals.mock %} · {{ totals.mock }} tasi soxta{% endif %}
+      · {{ certificates }} ta sertifikat berilgan
+    </span>
   </div>
   <div class="card-body tight">
     <div class="table-wrap">
@@ -172,35 +232,40 @@
             <tr>
               <td class="num rank">{{ row.place }}</td>
               <td>
-                <a href="{% url 'dashboard:attempt_detail' attempt.pk %}">
-                  {{ attempt.full_name|default:attempt.user.display_name }}
-                </a><br>
-                {% if exam.requires_access_code %}
-                  {# Pullik testda natijalar ID raqami bilan e'lon qilinadi. #}
-                  <span class="small muted">ID raqami: {{ attempt.access_code_value|default:"—" }}</span><br>
+                {% if attempt %}
+                  <a href="{% url 'dashboard:attempt_detail' attempt.pk %}">{{ row.label }}</a><br>
+                  {% if exam.requires_access_code %}
+                    {# ID raqami faqat panelda ko'rinadi, e'londa — F.I.SH. #}
+                    <span class="small muted">ID raqami: {{ attempt.access_code_value|default:"—" }}</span><br>
+                  {% endif %}
+                  <span class="small muted">Telegram ID {{ attempt.user.telegram_id }}</span>
+                {% else %}
+                  {{ row.label }}<br>
+                  <span class="badge badge-gray">Soxta qatnashchi</span>
                 {% endif %}
-                <span class="small muted">Telegram ID {{ attempt.user.telegram_id }}</span>
               </td>
               <td class="small">{{ attempt.phone|default:"—" }}</td>
-              <td class="num"><b>{{ attempt.raw_score|floatformat:"-2" }}</b> / {{ attempt.max_raw_score|floatformat:"-2" }}</td>
-              <td class="num">{{ attempt.wrong_count }}</td>
-              <td class="num">{{ attempt.empty_count }}</td>
-              <td class="num">{{ attempt.percent|floatformat:1 }}%</td>
+              <td class="num">
+                {% if attempt %}<b>{{ attempt.raw_score|floatformat:"-2" }}</b> / {{ attempt.max_raw_score|floatformat:"-2" }}{% else %}—{% endif %}
+              </td>
+              <td class="num">{% if attempt %}{{ attempt.wrong_count }}{% else %}—{% endif %}</td>
+              <td class="num">{% if attempt %}{{ attempt.empty_count }}{% else %}—{% endif %}</td>
+              <td class="num">{% if attempt %}{{ attempt.percent|floatformat:1 }}%{% else %}—{% endif %}</td>
               {% if exam.uses_rasch %}
-                <td class="num small">{{ attempt.theta|floatformat:3|default:"—" }}</td>
-                <td class="num"><b>{{ attempt.display_ball }}</b></td>
+                <td class="num small">{% if attempt %}{{ attempt.theta|floatformat:3|default:"—" }}{% else %}—{% endif %}</td>
+                <td class="num"><b>{{ row.display_ball }}</b></td>
                 <td class="num">
-                  {% if attempt.grade and attempt.grade != "Daraja olinmadi" %}
-                    <span class="badge badge-gold">{{ attempt.grade }}</span>
+                  {% if row.grade and row.grade != "Daraja olinmadi" %}
+                    <span class="badge badge-gold">{{ row.grade }}</span>
                   {% else %}<span class="badge badge-gray">—</span>{% endif %}
                 </td>
-                <td class="num">{{ row.award_percent|floatformat:2 }}%</td>
+                <td class="num">{{ row.percent|floatformat:2 }}%</td>
                 {# Asosiy fanlar foizga proporsional, majburiy fan doim 11 ball. #}
                 {% for value in row.subjects %}
                   <td class="num"><b>{{ value|floatformat:2 }}</b></td>
                 {% endfor %}
               {% endif %}
-              <td class="small">{{ attempt.submitted_at|date:"d.m.Y H:i"|default:"—" }}</td>
+              <td class="small">{{ row.submitted_at|date:"d.m.Y H:i"|default:"—" }}</td>
             </tr>
             {% endwith %}
           {% empty %}

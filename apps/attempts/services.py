@@ -293,8 +293,9 @@ def ranked_attempts(exam: Exam):
     """
     Test bo'yicha tartiblangan urinishlar so'rovi.
 
-    `access_code` ham birga olinadi — pullik testda natijalar ism o'rniga
-    ID raqami bilan e'lon qilinadi (`Attempt.public_label`).
+    `access_code` ham birga olinadi — panelda ishtirokchining ID raqami
+    alohida ustunda ko'rsatiladi. Natijalarning o'zi esa hamma joyda
+    ism-familiya bilan e'lon qilinadi (`Attempt.public_label`).
     """
     return (
         Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
@@ -304,11 +305,150 @@ def ranked_attempts(exam: Exam):
 
 
 def rating(exam: Exam, limit: int | None = None) -> list[Attempt]:
-    """Test bo'yicha reyting ro'yxati."""
+    """Test bo'yicha reyting ro'yxati (faqat haqiqiy urinishlar)."""
     queryset = ranked_attempts(exam)
     if limit:
         queryset = queryset[:limit]
     return list(queryset)
+
+
+# --------------------------------------------------------------------------
+#  E'lon qilinadigan reyting (haqiqiy + soxta qatnashchilar)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ResultRow:
+    """
+    E'lon qilinadigan reytingning bitta qatori.
+
+    Qator ikki manbadan kelishi mumkin: haqiqiy urinish (`attempt`) yoki
+    e'lon uchun qo'shilgan soxta qatnashchi (`is_mock=True`). Chiqish
+    joylari (PDF, Excel, panel, bot, Mini App) faqat shu qator bilan
+    ishlaydi, shuning uchun ikkalasi bir xil ko'rinadi.
+    """
+
+    place: int
+    label: str
+    ball: float | None
+    grade: str
+    percent: float
+    subjects: list[float]
+    is_mock: bool = False
+    attempt: Attempt | None = None
+    submitted_at: object | None = None
+
+    @property
+    def display_ball(self) -> str:
+        """Ballning matnli ko'rinishi."""
+        if self.ball is None:
+            return "—"
+        return f"{self.ball:.2f}"
+
+
+def _sort_key(row: tuple) -> tuple:
+    """
+    Reyting tartibi: ball kamayishi, keyin haqiqiy qatnashchilar oldinda.
+
+    Uchinchi kalit — o'z manbasidagi tartib: haqiqiy urinishlar uchun
+    `ranked_attempts()` bergan joy (ball teng bo'lsa xom ball va topshirish
+    vaqti hal qiladi), soxta qatnashchilar uchun yaratilish tartibi.
+    """
+    ball, is_mock, tie = row[0], row[1], row[2]
+    return (-(ball if ball is not None else -1e9), is_mock, tie)
+
+
+def result_rows(exam: Exam, limit: int | None = None) -> list[ResultRow]:
+    """
+    E'lon qilinadigan yakuniy reyting.
+
+    Haqiqiy urinishlar va soxta qatnashchilar bitta ro'yxatga
+    birlashtiriladi, ball bo'yicha tartiblanadi va 1 dan boshlab ketma-ket
+    raqamlanadi. Haqiqiy natijalar (ball, daraja, foiz) o'zgarmaydi —
+    faqat qatnashchilar ko'p bo'lgani uchun o'rinlar siljiydi.
+
+    Soxta qatnashchi bo'lmasa, natija oddiy reytingning aynan o'zi.
+    """
+    from apps.attempts.mock import participants as mock_participants
+    from core import constants as C
+
+    uses_rasch = exam.uses_rasch
+    raw: list[tuple] = []
+
+    for index, attempt in enumerate(ranked_attempts(exam)):
+        percent = (
+            C.certificate_percent(attempt.ball, attempt.grade)
+            if uses_rasch
+            else round(attempt.percent or 0.0, 2)
+        )
+        raw.append((
+            attempt.ball,
+            0,
+            index,
+            ResultRow(
+                place=0,
+                label=attempt.public_label,
+                ball=attempt.ball,
+                grade=attempt.grade or "",
+                percent=percent,
+                subjects=C.subject_scores(attempt.ball, attempt.grade),
+                attempt=attempt,
+                submitted_at=attempt.submitted_at,
+            ),
+        ))
+
+    for mock in mock_participants(exam):
+        raw.append((
+            mock.ball,
+            1,
+            mock.order,
+            ResultRow(
+                place=0,
+                label=mock.full_name,
+                ball=mock.ball,
+                grade=mock.grade or "",
+                percent=C.certificate_percent(mock.ball, mock.grade),
+                subjects=C.subject_scores(mock.ball, mock.grade),
+                is_mock=True,
+            ),
+        ))
+
+    raw.sort(key=_sort_key)
+    rows = [
+        ResultRow(**{**item[3].__dict__, "place": index})
+        for index, item in enumerate(raw, start=1)
+    ]
+    return rows[:limit] if limit else rows
+
+
+def assign_ranks(exam: Exam) -> int:
+    """
+    Reyting o'rinlarini haqiqiy urinishlarga yozadi.
+
+    O'rinlar **birlashtirilgan** ro'yxat bo'yicha beriladi: e'lon uchun
+    soxta qatnashchilar qo'shilgan bo'lsa, haqiqiy o'quvchining o'rni
+    ular orasida turadi. Balli va darajasi esa o'zgarmaydi.
+
+    Qaytaradi: o'rni o'zgargan urinishlar soni.
+    """
+    updated: list[Attempt] = []
+    for row in result_rows(exam):
+        attempt = row.attempt
+        if attempt is not None and attempt.rank != row.place:
+            attempt.rank = row.place
+            updated.append(attempt)
+    if updated:
+        Attempt.objects.bulk_update(updated, ["rank"], batch_size=500)
+    return len(updated)
+
+
+def result_totals(exam: Exam) -> dict:
+    """Reytingdagi qatorlar soni: haqiqiy, soxta va jami."""
+    from apps.attempts.mock import count as mock_count
+
+    real = participants_count(exam)
+    mock = mock_count(exam)
+    return {"real": real, "mock": mock, "total": real + mock}
 
 
 def participants_count(exam: Exam) -> int:
@@ -376,6 +516,10 @@ __all__ = [
     "get_result",
     "ranked_attempts",
     "rating",
+    "ResultRow",
+    "result_rows",
+    "assign_ranks",
+    "result_totals",
     "participants_count",
     "answer_review",
     "user_history",

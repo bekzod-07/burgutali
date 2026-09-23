@@ -27,7 +27,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from apps.attempts.services import ranked_attempts
+from apps.attempts.services import ranked_attempts, result_rows
 from apps.certificates.fonts import register_fonts, safe_text
 from apps.exams.models import Exam
 from core import constants as C
@@ -134,11 +134,9 @@ def participant_column(exam: Exam) -> str:
     """
     Ishtirokchi ustunining sarlavhasi.
 
-    1- va 2-turda natijalar ism-familiya bilan, 3-turda (pullik RASH testi)
-    esa ID raqami bilan e'lon qilinadi.
+    Natijalar har uchala test turida ham ism-familiya bilan e'lon
+    qilinadi (`Attempt.public_label`).
     """
-    if exam.exam_type == Exam.Type.RASCH_PAID:
-        return "ID raqami"
     return "F.I.SH"
 
 
@@ -384,7 +382,7 @@ def overall_results_report(exam: Exam) -> bytes:
     """
     Umumiy natijalar e'loni — soddalashtirilgan jadval.
 
-    Ustunlar: ``№ · F.I.SH (yoki ID raqami) · BALL · FOIZ · DARAJA`` va
+    Ustunlar: ``№ · F.I.SH · BALL · FOIZ · DARAJA`` va
     RASH testlarida yana uchta fan balli: ``ASOSIY 1-FAN · ASOSIY 2-FAN ·
     MAJBURIY FAN``. Aynan shu ko'rinish test yakunlangach adminga yuboriladi
     va ishtirokchilarga e'lon qilinadi.
@@ -436,23 +434,19 @@ def overall_results_report(exam: Exam) -> bytes:
         widths = [12 * mm, 92 * mm, 24 * mm, 22 * mm, 28 * mm]
 
     data = [header]
-    for index, attempt in enumerate(ranked_attempts(exam), start=1):
-        if exam.uses_rasch:
-            percent = C.certificate_percent(attempt.ball, attempt.grade)
-        else:
-            percent = attempt.percent or 0.0
+    # Ro'yxatga e'lon uchun qo'shilgan soxta qatnashchilar ham kiradi
+    # (`apps.attempts.services.result_rows`); haqiqiy natijalar o'zgarmaydi.
+    for item in result_rows(exam):
         row = [
-            str(attempt.rank or index),
-            attempt.public_label,
-            attempt.display_ball if exam.uses_rasch else f"{attempt.raw_score:g}",
-            f"{percent:.2f}%",
-            grade_label(attempt.grade),
+            str(item.place),
+            item.label,
+            item.display_ball if exam.uses_rasch
+            else f"{item.attempt.raw_score:g}" if item.attempt else item.display_ball,
+            f"{item.percent:.2f}%",
+            grade_label(item.grade),
         ]
         if exam.uses_rasch:
-            row += [
-                f"{value:.2f}"
-                for value in C.subject_scores(attempt.ball, attempt.grade)
-            ]
+            row += [f"{value:.2f}" for value in item.subjects]
         data.append(row)
 
     if len(data) == 1:

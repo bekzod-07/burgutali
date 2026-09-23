@@ -143,9 +143,11 @@ def issue_certificate(attempt: Attempt, *, force: bool = False) -> tuple[Certifi
         return None, check.reason
 
     exam = attempt.exam
-    from apps.attempts.services import participants_count
+    from apps.attempts.services import result_totals
 
-    total = participants_count(exam)
+    # Reyting e'lon qilinadigan ro'yxat bo'yicha ko'rsatiladi, shuning
+    # uchun jami songa soxta qatnashchilar ham kiradi.
+    total = result_totals(exam)["total"]
     from django.conf import settings
 
     certificate = existing or Certificate(attempt=attempt)

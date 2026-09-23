@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from django.db import models, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from apps.attempts.grading import grade_attempt
@@ -380,20 +380,14 @@ def _assign_ranks(exam: Exam) -> None:
     yozilmaydi. Ballari teng chiqqanda testni **oldinroq** topshirgan
     yuqoriroq o'rinni oladi, kechroq topshirgani esa keyingi o'ringa
     tushadi (masalan 10 va 11).
+
+    Hisob e'lon qilinadigan ro'yxat bo'yicha ketadi, ya'ni testga soxta
+    qatnashchilar qo'shilgan bo'lsa ular ham o'rinlarga ta'sir qiladi
+    (`apps.attempts.services.assign_ranks`).
     """
-    attempts = list(
-        Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED)
-        .order_by(
-            models.F("ball").desc(nulls_last=True),
-            "-raw_score",
-            models.F("submitted_at").asc(nulls_last=True),
-            "id",
-        )
-    )
-    for index, attempt in enumerate(attempts, start=1):
-        attempt.rank = index
-    if attempts:
-        Attempt.objects.bulk_update(attempts, ["rank"], batch_size=500)
+    from apps.attempts.services import assign_ranks
+
+    assign_ranks(exam)
 
 
 def _update_statistics(exam: Exam, matrix: np.ndarray, items: list[Item]) -> None:

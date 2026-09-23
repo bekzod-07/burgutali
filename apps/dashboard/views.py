@@ -30,6 +30,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accesscodes.models import AccessCode, CodeBatch
 from apps.accesscodes.services import code_statistics, create_codes
+from apps.attempts import mock
 from apps.attempts import services as attempt_services
 from apps.attempts.models import Attempt
 from apps.broadcasts import formatting as tg_format
@@ -57,6 +58,7 @@ from .forms import (
     ExamDeleteForm,
     ExamSettingsForm,
     KeyImportForm,
+    MockParticipantsForm,
     QuestionForm,
 )
 
@@ -509,24 +511,47 @@ def exam_results(request, pk: int):
     ko'radi (talab: «FAQAT ADMINGA»).
     """
     exam = get_object_or_404(Exam, pk=pk)
+    mock_form = MockParticipantsForm()
+
+    if request.method == "POST":
+        action = request.POST.get("form")
+        if action == "mock_clear":
+            removed = mock.clear(exam)
+            messages.success(request, f"{removed} ta soxta qatnashchi olib tashlandi.")
+            return redirect("dashboard:exam_results", pk=exam.pk)
+        if action == "mock":
+            mock_form = MockParticipantsForm(request.POST)
+            if mock_form.is_valid():
+                data = mock_form.cleaned_data
+                result = mock.generate(exam, data["total"], data["shares"])
+                if result["created"]:
+                    parts = ", ".join(
+                        f"{grade}: {count} ta" for grade, count in result["plan"]
+                    )
+                    messages.success(
+                        request,
+                        f"{result['created']} ta soxta qatnashchi qo‘shildi ({parts}).",
+                    )
+                else:
+                    messages.success(request, "Soxta qatnashchilar olib tashlandi.")
+                return redirect("dashboard:exam_results", pk=exam.pk)
+            messages.error(request, "Formada xatolar bor — quyida ko‘rsatilgan.")
+
     summary = charts.build_summary(exam)
 
-    # Reyting qatorlariga sertifikat foizi va fan ballari qo'shiladi:
-    # Asosiy fanlar foizga proporsional, majburiy fan esa sertifikat
-    # olganlarning hammasiga to'liq: 11 ball (`core.constants.subject_scores`).
-    rows = []
-    for index, attempt in enumerate(attempt_services.ranked_attempts(exam), start=1):
-        rows.append({
-            "attempt": attempt,
-            "place": attempt.rank or index,
-            "award_percent": C.certificate_percent(attempt.ball, attempt.grade),
-            "subjects": C.subject_scores(attempt.ball, attempt.grade),
-        })
+    # Reyting e'lon qilinadigan ko'rinishda: haqiqiy qatnashchilar va
+    # qo'shilgan soxta qatorlar birga. Fan ballari — asosiy fanlar foizga
+    # proporsional, majburiy fan esa sertifikat olganlarning hammasiga
+    # to'liq 11 ball (`core.constants.subject_scores`).
+    rows = attempt_services.result_rows(exam)
+    totals = attempt_services.result_totals(exam)
 
     context = {
         "section": "exams",
         "exam": exam,
         "rows": rows,
+        "totals": totals,
+        "mock_form": mock_form,
         "subject_names": C.subject_names(),
         "statistics": getattr(exam, "statistics", None),
         "certificates": Certificate.objects.filter(exam=exam).count(),

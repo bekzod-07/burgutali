@@ -76,31 +76,27 @@ def status_label(status: str) -> str:
 # ==========================================================================
 
 
-def rating_rows(attempts, *, uses_rasch: bool, highlight_id: int | None = None) -> str:
+def rating_rows(rows, *, uses_rasch: bool, highlight_id: int | None = None) -> str:
     """
     Reyting jadvalini matn ko'rinishida yig'adi.
 
-    Nom `Attempt.public_label` dan olinadi: 1- va 2-turda ism-familiya,
-    3-turda (pullik RASH testi) — ishtirokchining ID raqami.
+    `rows` — `apps.attempts.services.result_rows()` qatorlari: haqiqiy
+    qatnashchilar va e'lon uchun qo'shilgan soxta qatnashchilar birga.
+    Nom har uchala test turida ham ism-familiya.
     """
-    if not attempts:
+    if not rows:
         return "Hozircha qatnashchilar yo'q."
 
     lines: list[str] = []
-    for index, attempt in enumerate(attempts, start=1):
-        place = attempt.rank or index
-        name = esc(shorten(attempt.public_label or "Ishtirokchi", 26))
+    for item in rows:
+        name = esc(shorten(item.label or "Ishtirokchi", 26))
         if uses_rasch:
-            score = f"{attempt.ball:.2f}" if attempt.ball is not None else "—"
-            grade = f" · {attempt.grade}" if attempt.grade else ""
-            row = f"{place}. <b>{name}</b> — {score}{grade}"
+            grade = f" · {item.grade}" if item.grade else ""
+            row = f"{item.place}. <b>{name}</b> — {item.display_ball}{grade}"
         else:
-            row = (
-                f"{place}. <b>{name}</b> — "
-                f"{attempt.raw_score:g}/{attempt.max_raw_score:g} "
-                f"({attempt.percent:.0f}%)"
-            )
-        if highlight_id and attempt.id == highlight_id:
+            row = f"{item.place}. <b>{name}</b> — {item.percent:.0f}%"
+        attempt = item.attempt
+        if highlight_id and attempt is not None and attempt.id == highlight_id:
             row = f"<b>›</b> {row}"
         lines.append(row)
     return "\n".join(lines)

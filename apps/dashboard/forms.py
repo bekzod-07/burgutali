@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django import forms
 
+from apps.attempts import mock
 from apps.broadcasts import formatting as tg_format
 from apps.broadcasts.models import Broadcast
 from apps.exams import keys as key_parser
@@ -527,3 +528,63 @@ class BroadcastForm(forms.ModelForm):
         if commit:
             broadcast.save()
         return broadcast
+
+
+class MockParticipantsForm(forms.Form):
+    """
+    E'lon uchun soxta qatnashchilar qo'shish formasi.
+
+    Admin jami sonni va darajalar ulushini (foizda) beradi. Yig'indi 100
+    dan kam bo'lsa, qolgani daraja olmaganlarga to'g'ri keladi: masalan
+    1000 ta qatnashchi va 2+4+6+8+18+22 = 60% bo'lsa, 400 tasi darajasiz
+    chiqadi.
+    """
+
+    total = forms.IntegerField(
+        label="Jami qatnashchilar soni",
+        min_value=0,
+        max_value=mock.MAX_MOCK_PARTICIPANTS,
+        initial=1000,
+        widget=forms.NumberInput(attrs={"class": "input", "step": 1}),
+        help_text="0 kiritilsa soxta qatnashchilar butunlay olib tashlanadi.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Har bir daraja uchun alohida foiz maydoni — tartib jadvaldagidek
+        # (yuqoridan pastga: A+, A, B+, B, C+, C).
+        for grade, percent in mock.DEFAULT_SHARES:
+            self.fields[self._field_name(grade)] = forms.FloatField(
+                label=f"{grade} — foiz",
+                required=False,
+                min_value=0.0,
+                max_value=100.0,
+                initial=percent,
+                widget=forms.NumberInput(attrs={"class": "input", "step": "0.1"}),
+            )
+
+    @staticmethod
+    def _field_name(grade: str) -> str:
+        """Daraja nomini maydon nomiga aylantiradi: «A+» -> «share_a_plus»."""
+        return "share_" + grade.lower().replace("+", "_plus")
+
+    @property
+    def share_fields(self):
+        """Shablon uchun: `(daraja, maydon)` juftliklari."""
+        return [
+            (grade, self[self._field_name(grade)])
+            for grade, _percent in mock.DEFAULT_SHARES
+        ]
+
+    def clean(self):
+        data = super().clean()
+        shares: list[tuple[str, float]] = []
+        for grade, _percent in mock.DEFAULT_SHARES:
+            value = data.get(self._field_name(grade))
+            if value:
+                shares.append((grade, float(value)))
+
+        if sum(value for _grade, value in shares) > 100.0:
+            self.add_error(None, "Foizlar yig'indisi 100 dan oshmasligi kerak.")
+        data["shares"] = shares
+        return data

@@ -21,7 +21,7 @@ from openpyxl.utils import get_column_letter
 
 from apps.accesscodes.models import AccessCode, CodeBatch
 from apps.attempts.models import Attempt
-from apps.attempts.services import ranked_attempts
+from apps.attempts.services import ranked_attempts, result_rows
 from apps.exams.models import Exam, Question
 from core import constants as C
 from django.utils import timezone
@@ -138,7 +138,7 @@ def overall_results_workbook(exam: Exam) -> bytes:
     """
     E'lon uchun soddalashtirilgan Excel jadvali.
 
-    Ustunlar: `№ · F.I.SH (yoki ID raqami) · Ball · Foiz · Daraja` va
+    Ustunlar: `№ · F.I.SH · Ball · Foiz · Daraja` va
     RASH testlarida fan ballari. Nechta savolni to'g'ri topgani, javoblar
     matritsasi va savollar statistikasi **bu faylda yo'q** — shu sababli
     uni testni yaratgan foydalanuvchiga ham berish mumkin. To'liq jadval
@@ -170,25 +170,21 @@ def overall_results_workbook(exam: Exam) -> bytes:
         sheet.cell(row=4, column=index, value=header)
     _style_header(sheet, 4, len(headers))
 
-    for row_index, attempt in enumerate(ranked_attempts(exam), start=1):
+    # Ro'yxatga e'lon uchun qo'shilgan soxta qatnashchilar ham kiradi.
+    for row_index, item in enumerate(result_rows(exam), start=1):
         row = row_index + 4
-        percent = (
-            C.certificate_percent(attempt.ball, attempt.grade)
-            if uses_rasch
-            else round(attempt.percent, 2)
-        )
         values = [
-            attempt.rank or row_index,
-            attempt.public_label,
-            round(attempt.ball, 2) if attempt.ball is not None else "",
-            percent,
-            attempt.grade or "",
+            item.place,
+            item.label,
+            round(item.ball, 2) if item.ball is not None else "",
+            round(item.percent, 2),
+            item.grade or "",
         ]
         if uses_rasch:
-            values += C.subject_scores(attempt.ball, attempt.grade)
+            values += item.subjects
         values.append(
-            timezone.localtime(attempt.submitted_at).strftime("%d.%m.%Y %H:%M")
-            if attempt.submitted_at
+            timezone.localtime(item.submitted_at).strftime("%d.%m.%Y %H:%M")
+            if item.submitted_at
             else ""
         )
         for column, value in enumerate(values, start=1):
@@ -221,7 +217,7 @@ def results_workbook(exam: Exam) -> bytes:
     uses_rasch = exam.uses_rasch
     is_paid = exam.exam_type == Exam.Type.RASCH_PAID
     headers = ["O‘rin", "Ism-familiya", "Telefon", "Telegram ID"]
-    # Pullik testda natijalar ID raqami bilan e'lon qilinadi — admin uchun
+    # ID raqami faqat admin jadvalida kerak (e'londa F.I.SH chiqadi) —
     # ikkala ustun ham kerak.
     if is_paid:
         headers.append("ID raqami")

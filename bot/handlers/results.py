@@ -185,7 +185,7 @@ async def show_rating(
         await callback.message.answer(TE.RESULT_PENDING)
         return
 
-    top = await attempt_service.rating(exam, limit=C.TOP_RATING_LIMIT)
+    top = await attempt_service.result_rows(exam, limit=C.TOP_RATING_LIMIT)
     body = rating_rows(top, uses_rasch=exam.uses_rasch, highlight_id=attempt.id)
 
     text = TE.RATING_TITLE.format(title=esc(exam.title), rows=body)
