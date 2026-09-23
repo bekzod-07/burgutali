@@ -650,6 +650,13 @@ def exam_action(request, pk: int, action: str):
 # ==========================================================================
 
 
+def _pdf_response(payload: bytes, filename: str) -> HttpResponse:
+    """PDF faylini javob sifatida qaytaradi."""
+    response = HttpResponse(payload, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 def _xlsx_response(payload: bytes, filename: str) -> HttpResponse:
     """Excel faylini javob sifatida qaytaradi."""
     response = HttpResponse(
@@ -662,10 +669,31 @@ def _xlsx_response(payload: bytes, filename: str) -> HttpResponse:
 
 @staff_required
 def export_results_excel(request, pk: int):
-    """Natijalarni Excel ko'rinishida yuklab berish."""
+    """
+    Natijalarni Excel ko'rinishida yuklab berish — **e'lon ro'yxati**.
+
+    Panelda ko'rinadigan reytingning aynan o'zi: haqiqiy qatnashchilar va
+    e'lon uchun qo'shilgan soxta qatorlar birga. To'liq jadval (nechta
+    topgani, javoblar matritsasi, savollar statistikasi) alohida
+    «To'liq hisobot» tugmasida.
+    """
+    exam = get_object_or_404(Exam, pk=pk)
+    payload = excel_export.overall_results_workbook(exam)
+    return _xlsx_response(payload, excel_export.default_filename("natijalar", exam))
+
+
+@staff_required
+def export_admin_excel(request, pk: int):
+    """
+    To'liq Excel hisoboti — faqat haqiqiy qatnashchilar.
+
+    Nechta savolni to'g'ri topgani, javoblar matritsasi va savollar
+    statistikasi shu faylda. Soxta qatnashchilar bu yerga kirmaydi:
+    hisobot tahlil uchun.
+    """
     exam = get_object_or_404(Exam, pk=pk)
     payload = excel_export.results_workbook(exam)
-    return _xlsx_response(payload, excel_export.default_filename("natijalar", exam))
+    return _xlsx_response(payload, excel_export.default_filename("hisobot", exam))
 
 
 @staff_required
@@ -688,12 +716,29 @@ def export_codes_excel(request, pk: int):
 
 @staff_required
 def export_results_pdf(request, pk: int):
-    """Natijalar bo'yicha PDF hisobot."""
+    """
+    Natijalar PDF ko'rinishida — **e'lon ro'yxati**.
+
+    Panelda ko'rinadigan reytingning aynan o'zi (soxta qatnashchilar ham
+    kiradi), nechta topgani ko'rsatilmaydi — shuning uchun uni kanalga
+    qo'yish mumkin. To'liq hisobot alohida tugmada.
+    """
+    exam = get_object_or_404(Exam, pk=pk)
+    payload = pdf_report.overall_results_report(exam)
+    return _pdf_response(payload, f"natijalar_{exam.code}.pdf")
+
+
+@staff_required
+def export_admin_pdf(request, pk: int):
+    """
+    To'liq PDF hisoboti — faqat haqiqiy qatnashchilar.
+
+    To'g'ri javoblar soni, umumiy statistika va savollar qiyinchiligi
+    diagrammasi bilan. Soxta qatnashchilar bu yerga kirmaydi.
+    """
     exam = get_object_or_404(Exam, pk=pk)
     payload = pdf_report.results_report(exam)
-    response = HttpResponse(payload, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="natijalar_{exam.code}.pdf"'
-    return response
+    return _pdf_response(payload, f"hisobot_{exam.code}.pdf")
 
 
 # ==========================================================================

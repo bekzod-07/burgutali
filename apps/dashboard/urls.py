@@ -40,6 +40,9 @@ urlpatterns = [
     # --- Eksport ---
     path("testlar/<int:pk>/eksport/natijalar.xlsx", views.export_results_excel, name="export_results_excel"),
     path("testlar/<int:pk>/eksport/natijalar.pdf", views.export_results_pdf, name="export_results_pdf"),
+    # To'liq hisobot — faqat haqiqiy qatnashchilar, nechta topgani bilan.
+    path("testlar/<int:pk>/eksport/hisobot.xlsx", views.export_admin_excel, name="export_admin_excel"),
+    path("testlar/<int:pk>/eksport/hisobot.pdf", views.export_admin_pdf, name="export_admin_pdf"),
     path("testlar/<int:pk>/eksport/ishtirokchilar.xlsx", views.export_participants_excel, name="export_participants"),
     path("partiya/<int:pk>/eksport/kodlar.xlsx", views.export_codes_excel, name="export_codes"),
 

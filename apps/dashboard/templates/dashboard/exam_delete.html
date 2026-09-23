@@ -40,6 +40,13 @@
           <a class="btn btn-outline btn-sm" href="{% url 'dashboard:export_results_pdf' exam.pk %}">
             <svg class="icon"><use href="#i-file"></use></svg> Natijalar (PDF)
           </a>
+          {# To'liq hisobot — javoblar matritsasi va statistika bilan. #}
+          <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:export_admin_excel' exam.pk %}">
+            <svg class="icon"><use href="#i-sheet"></use></svg> To‘liq hisobot (Excel)
+          </a>
+          <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:export_admin_pdf' exam.pk %}">
+            <svg class="icon"><use href="#i-file"></use></svg> To‘liq hisobot (PDF)
+          </a>
         </div>
       {% endif %}
     </div>

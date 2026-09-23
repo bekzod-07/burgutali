@@ -8,8 +8,12 @@
 {% endblock %}
 
 {% block actions %}
-  <a class="btn btn-outline" href="{% url 'dashboard:export_results_excel' exam.pk %}"><svg class="icon"><use href="#i-sheet"></use></svg> Excel</a>
-  <a class="btn btn-outline" href="{% url 'dashboard:export_results_pdf' exam.pk %}"><svg class="icon"><use href="#i-file"></use></svg> PDF</a>
+  {# «Natijalar» — quyidagi jadvalning aynan o'zi (soxta qatorlar ham kiradi). #}
+  <a class="btn btn-outline" href="{% url 'dashboard:export_results_excel' exam.pk %}"><svg class="icon"><use href="#i-sheet"></use></svg> Natijalar (Excel)</a>
+  <a class="btn btn-outline" href="{% url 'dashboard:export_results_pdf' exam.pk %}"><svg class="icon"><use href="#i-file"></use></svg> Natijalar (PDF)</a>
+  {# «To'liq hisobot» — faqat haqiqiy qatnashchilar, nechta topgani bilan. #}
+  <a class="btn btn-ghost" href="{% url 'dashboard:export_admin_excel' exam.pk %}"><svg class="icon"><use href="#i-sheet"></use></svg> To‘liq hisobot (Excel)</a>
+  <a class="btn btn-ghost" href="{% url 'dashboard:export_admin_pdf' exam.pk %}"><svg class="icon"><use href="#i-file"></use></svg> To‘liq hisobot (PDF)</a>
   <a class="btn btn-primary" href="{% url 'dashboard:exam_action' exam.pk 'hisoblash' %}">Qayta hisoblash</a>
   {% if exam.status == 'active' %}
     <a class="btn btn-gold" href="{% url 'dashboard:exam_action' exam.pk 'tugatish' %}">Testni tugatish</a>

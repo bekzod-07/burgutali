@@ -258,8 +258,14 @@ ro’yxatda nechanchi bo’lsa, shu o’rinni oladi.
 
 Soxta qatnashchilar e’lon qilinadigan hamma joyda ko’rinadi: umumiy
 natijalar PDF va Excel, panel reytingi, botdagi va Mini App dagi reyting.
-Admin hisobotida (`admin-hisobot.pdf`) esa faqat haqiqiy qatnashchilar
-qoladi — u tahlil uchun. Panelda ular «Soxta qatnashchi» belgisi bilan
+To’liq hisobotda (`admin-hisobot.pdf`, `hisobot_…xlsx`) esa faqat haqiqiy
+qatnashchilar qoladi — u tahlil uchun. Shu sababli panelda eksport
+tugmalari ikki juft:
+
+| Tugma | Nima beradi |
+|-------|-------------|
+| **Natijalar (Excel / PDF)** | paneldagi jadvalning aynan o’zi — haqiqiy va soxta qatnashchilar birga, nechta topgani ko’rsatilmaydi |
+| **To’liq hisobot (Excel / PDF)** | faqat haqiqiy qatnashchilar: to’g’ri javoblar soni, javoblar matritsasi, savollar statistikasi va qiyinchilik diagrammasi | Panelda ular «Soxta qatnashchi» belgisi bilan
 ajralib turadi va bir tugma bilan butunlay olib tashlanadi.
 
 ### Savollar qiyinchiligi diagrammasi — faqat adminga
@@ -770,7 +776,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 918 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 932 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

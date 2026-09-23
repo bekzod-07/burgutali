@@ -1846,9 +1846,50 @@ def test_dashboard() -> None:
     downloads = [
         (f"/panel/testlar/{exam.pk}/eksport/natijalar.xlsx", "Natijalar (Excel)"),
         (f"/panel/testlar/{exam.pk}/eksport/natijalar.pdf", "Natijalar (PDF)"),
+        (f"/panel/testlar/{exam.pk}/eksport/hisobot.xlsx", "To'liq hisobot (Excel)"),
+        (f"/panel/testlar/{exam.pk}/eksport/hisobot.pdf", "To'liq hisobot (PDF)"),
         (f"/panel/testlar/{exam.pk}/eksport/ishtirokchilar.xlsx", "Ishtirokchilar (Excel)"),
         (f"/panel/partiya/{batch.pk}/eksport/kodlar.xlsx", "ID kodlar (Excel)"),
     ]
+
+    # --- «Natijalar» eksporti paneldagi jadval bilan bir xil bo'lishi kerak ---
+    # Soxta qatnashchi qo'shilganda ular ham faylga tushadi, to'liq hisobot esa
+    # faqat haqiqiy qatnashchilar bo'yicha qoladi.
+    from apps.attempts import mock as _mock_export
+    from apps.attempts import services as _attempts_export
+    from openpyxl import load_workbook as _load_export
+    import io as _io_export
+
+    _mock_export.generate(exam, 40, seed=5)
+    real_rows = _attempts_export.participants_count(exam)
+
+    public_xlsx = client.get(f"/panel/testlar/{exam.pk}/eksport/natijalar.xlsx")
+    R.equal("E'lon Exceli 200 qaytaradi", public_xlsx.status_code, 200)
+    book = _load_export(_io_export.BytesIO(public_xlsx.content))
+    R.equal("E'lon Excelida bitta varaq", book.sheetnames, ["Natijalar"])
+    R.equal("E'lon Excelida soxtalar ham bor",
+            book["Natijalar"].max_row - 4, real_rows + 40)
+
+    admin_xlsx = client.get(f"/panel/testlar/{exam.pk}/eksport/hisobot.xlsx")
+    R.equal("To'liq hisobot 200 qaytaradi", admin_xlsx.status_code, 200)
+    admin_book = _load_export(_io_export.BytesIO(admin_xlsx.content))
+    R.check("To'liq hisobotda javoblar matritsasi bor",
+            "Javoblar" in admin_book.sheetnames, str(admin_book.sheetnames))
+    R.equal("To'liq hisobotda faqat haqiqiy qatnashchilar",
+            admin_book["Reyting"].max_row - 4, real_rows)
+
+    public_pdf = client.get(f"/panel/testlar/{exam.pk}/eksport/natijalar.pdf")
+    admin_pdf = client.get(f"/panel/testlar/{exam.pk}/eksport/hisobot.pdf")
+    R.check("E'lon PDF si PDF fayl", public_pdf.content.startswith(b"%PDF"))
+    R.check("To'liq hisobot PDF fayl", admin_pdf.content.startswith(b"%PDF"))
+    R.check("Soxtalar qo'shilgach e'lon PDF si kattaroq",
+            len(public_pdf.content) > len(admin_pdf.content),
+            f"{len(public_pdf.content)} vs {len(admin_pdf.content)}")
+    R.check("Fayl nomlari ajratilgan",
+            'natijalar_' in public_pdf["Content-Disposition"]
+            and 'hisobot_' in admin_pdf["Content-Disposition"])
+
+    _mock_export.clear(exam)
     for url, label in downloads:
         response = client.get(url)
         R.equal(f"{label} yuklab olinadi", response.status_code, 200)
