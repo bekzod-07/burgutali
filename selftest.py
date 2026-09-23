@@ -1380,6 +1380,73 @@ def test_exports() -> None:
             sum(value for _g, value in _mock.normalize_shares(
                 [("A+", 80.0), ("A", 80.0)])) <= 100.0)
 
+    # --- Ulushlar to'liq o'zgaruvchan ---
+    R.equal("Ulushlar tartibi A+ dan darajasizgacha",
+            list(_mock.GRADE_SEQUENCE),
+            ["A+", "A", "B+", "B", "C+", "C", C.NO_GRADE])
+    R.equal("O'z taqsimoti qabul qilinadi",
+            _mock.plan_counts(100, [("A+", 10), ("A", 20), ("B", 30), ("C", 40)]),
+            [("A+", 10), ("A", 20), ("B", 30), ("C", 40)])
+    R.equal("Darajasiz ulushni qo'lda berish mumkin",
+            _mock.plan_counts(100, [("A+", 10), (C.NO_GRADE, 90)]),
+            [("A+", 10), (C.NO_GRADE, 90)])
+    R.equal("Yig'indi kam bo'lsa qolgani darajasizlarga",
+            _mock.plan_counts(200, [("A+", 25)]),
+            [("A+", 50), (C.NO_GRADE, 150)])
+    R.equal("Darajasiz ulush qoldiq bilan qo'shiladi",
+            dict(_mock.plan_counts(100, [("A+", 10), (C.NO_GRADE, 50)]))[C.NO_GRADE],
+            90)
+    R.check("Har qanday taqsimotda yig'indi saqlanadi",
+            all(sum(n for _g, n in _mock.plan_counts(count, shares)) == count
+                for count in (1, 7, 333, 1000)
+                for shares in ([("A+", 100.0)], [("C", 3.0)], _mock.DEFAULT_SHARES)))
+
+    # --- Formadagi 100% cheklovi ---
+    from apps.dashboard.forms import MockParticipantsForm as _MockForm
+
+    def _payload(**shares):
+        data = {"total": "100"}
+        for grade, value in shares.items():
+            data[_MockForm._field_name(grade)] = str(value)  # noqa: SLF001
+        return data
+
+    good = _MockForm(_payload(**{"A+": 30, "A": 30, "C": 40}))
+    R.check("Yig'indi 100% bo'lsa qabul qilinadi", good.is_valid(),
+            str(good.errors))
+    R.equal("Ulushlar to'g'ri o'qildi",
+            dict(good.cleaned_data["shares"]), {"A+": 30.0, "A": 30.0, "C": 40.0})
+
+    partial = _MockForm(_payload(**{"A+": 10}))
+    R.check("Yig'indi 100% dan kam bo'lsa ham qabul qilinadi", partial.is_valid())
+
+    over = _MockForm(_payload(**{"A+": 60, "A": 60}))
+    R.check("100% dan oshsa forma rad etadi", not over.is_valid())
+    R.check("Xato xabari tushunarli",
+            "100%" in " ".join(over.errors.get("__all__", [])),
+            str(over.errors))
+
+    with_no_grade = _MockForm(_payload(**{"A+": 40, C.NO_GRADE: 60}))
+    R.check("Darajasiz maydon ham formada bor", with_no_grade.is_valid(),
+            str(with_no_grade.errors))
+    R.equal("Darajasiz ulush ham o'qiladi",
+            dict(with_no_grade.cleaned_data["shares"])[C.NO_GRADE], 60.0)
+
+    over_with_no_grade = _MockForm(_payload(**{"A+": 50, C.NO_GRADE: 60}))
+    R.check("Darajasiz bilan ham 100% nazorat qilinadi",
+            not over_with_no_grade.is_valid())
+
+    R.equal("Formada barcha darajalar uchun maydon",
+            [grade for grade, _field in _MockForm().share_fields],
+            list(_mock.GRADE_SEQUENCE))
+
+    results_tpl = (BASE_DIR / "apps/dashboard/templates/dashboard/exam_results.html").read_text(
+        encoding="utf-8"
+    )
+    R.check("Formada jonli foiz hisoblagichi bor",
+            'id="mock-summary"' in results_tpl and "data-mock-share" in results_tpl)
+    R.check("Oshib ketganda tugma o'chadi",
+            "submit.disabled = over" in results_tpl)
+
     before = {a.id: (a.ball, a.grade) for a in _ranked(exam)}
     real_count = attempt_services.participants_count(exam)
 

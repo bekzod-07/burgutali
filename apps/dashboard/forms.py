@@ -534,10 +534,13 @@ class MockParticipantsForm(forms.Form):
     """
     E'lon uchun soxta qatnashchilar qo'shish formasi.
 
-    Admin jami sonni va darajalar ulushini (foizda) beradi. Yig'indi 100
-    dan kam bo'lsa, qolgani daraja olmaganlarga to'g'ri keladi: masalan
-    1000 ta qatnashchi va 2+4+6+8+18+22 = 60% bo'lsa, 400 tasi darajasiz
-    chiqadi.
+    Admin jami sonni va **har bir darajaning ulushini** beradi — ulushlar
+    to'liq o'zgaruvchan, standart qiymatlar shunchaki boshlang'ich taklif.
+    «Daraja olinmadi» maydoni bo'sh qoldirilsa, qolgan foiz o'sha yerga
+    tushadi: masalan 2+4+6+8+18+22 = 60% bo'lsa, 1000 tadan 400 tasi
+    darajasiz chiqadi.
+
+    Foizlar yig'indisi 100 dan oshsa forma qabul qilmaydi.
     """
 
     total = forms.IntegerField(
@@ -545,46 +548,73 @@ class MockParticipantsForm(forms.Form):
         min_value=0,
         max_value=mock.MAX_MOCK_PARTICIPANTS,
         initial=1000,
-        widget=forms.NumberInput(attrs={"class": "input", "step": 1}),
+        widget=forms.NumberInput(
+            attrs={"class": "input", "step": 1, "data-mock-total": "1"}
+        ),
         help_text="0 kiritilsa soxta qatnashchilar butunlay olib tashlanadi.",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Har bir daraja uchun alohida foiz maydoni — tartib jadvaldagidek
-        # (yuqoridan pastga: A+, A, B+, B, C+, C).
-        for grade, percent in mock.DEFAULT_SHARES:
+        defaults = dict(mock.DEFAULT_SHARES)
+        # Maydonlar daraja jadvalidagidek tartibda: A+, A, B+, B, C+, C va
+        # oxirida «Daraja olinmadi».
+        for grade in mock.GRADE_SEQUENCE:
+            no_grade = grade == C.NO_GRADE
             self.fields[self._field_name(grade)] = forms.FloatField(
-                label=f"{grade} — foiz",
+                label=("Daraja olinmadi" if no_grade else grade) + " — foiz",
                 required=False,
                 min_value=0.0,
                 max_value=100.0,
-                initial=percent,
-                widget=forms.NumberInput(attrs={"class": "input", "step": "0.1"}),
+                initial=defaults.get(grade),
+                help_text=(
+                    "Bo‘sh qoldirilsa qolgan foiz shu yerga tushadi."
+                    if no_grade else ""
+                ),
+                widget=forms.NumberInput(
+                    attrs={
+                        "class": "input",
+                        "step": "0.1",
+                        "min": 0,
+                        "max": 100,
+                        "data-mock-share": grade,
+                    }
+                ),
             )
 
     @staticmethod
     def _field_name(grade: str) -> str:
-        """Daraja nomini maydon nomiga aylantiradi: «A+» -> «share_a_plus»."""
-        return "share_" + grade.lower().replace("+", "_plus")
+        """
+        Daraja nomini maydon nomiga aylantiradi.
+
+        «A+» -> `share_a_plus`, «Daraja olinmadi» -> `share_daraja_olinmadi`.
+        """
+        slug = grade.lower().replace("+", "_plus").replace(" ", "_")
+        return "share_" + "".join(ch if ch.isalnum() or ch == "_" else "_" for ch in slug)
 
     @property
     def share_fields(self):
         """Shablon uchun: `(daraja, maydon)` juftliklari."""
         return [
-            (grade, self[self._field_name(grade)])
-            for grade, _percent in mock.DEFAULT_SHARES
+            (grade, self[self._field_name(grade)]) for grade in mock.GRADE_SEQUENCE
         ]
 
     def clean(self):
         data = super().clean()
         shares: list[tuple[str, float]] = []
-        for grade, _percent in mock.DEFAULT_SHARES:
+        for grade in mock.GRADE_SEQUENCE:
             value = data.get(self._field_name(grade))
             if value:
                 shares.append((grade, float(value)))
 
-        if sum(value for _grade, value in shares) > 100.0:
-            self.add_error(None, "Foizlar yig'indisi 100 dan oshmasligi kerak.")
+        entered = sum(value for _grade, value in shares)
+        # Kichik kasrlarni yig'ganda 100.00000000000001 chiqib qolmasin.
+        if round(entered, 6) > 100.0:
+            self.add_error(
+                None,
+                f"Foizlar yig‘indisi 100% dan oshmasligi kerak — hozir "
+                f"{entered:g}%. Qiymatlarni kamaytiring.",
+            )
         data["shares"] = shares
+        data["entered_percent"] = entered
         return data

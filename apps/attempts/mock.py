@@ -104,13 +104,23 @@ def _full_name(rng: random.Random) -> str:
     return f"{first} {last}"
 
 
+#: Ulushlar shu tartibda so'raladi va shu tartibda hisoblanadi —
+#: yuqori darajadan pastga, oxirida daraja olmaganlar.
+GRADE_SEQUENCE: tuple[str, ...] = tuple(reversed(C.GRADE_ORDER))
+
+
 def normalize_shares(shares) -> list[tuple[str, float]]:
     """
     Foizlarni tekshiradi va tartibga soladi.
 
     Qabul qiladi `{daraja: foiz}` lug'atini yoki `(daraja, foiz)`
-    juftliklari ro'yxatini. Noma'lum darajalar va manfiy qiymatlar
-    tashlab yuboriladi, yig'indi 100 dan oshsa — mutanosib kamaytiriladi.
+    juftliklari ro'yxatini. Har qanday daraja, shu jumladan «Daraja
+    olinmadi» ham beriladi — ya'ni taqsimotni to'liq qo'lda belgilash
+    mumkin.
+
+    Noma'lum darajalar va manfiy qiymatlar tashlab yuboriladi. Yig'indi
+    100 dan oshsa mutanosib kamaytiriladi: bu oxirgi himoya, chunki
+    panel formasi bunday qiymatni umuman qabul qilmaydi.
     """
     if hasattr(shares, "items"):
         pairs = list(shares.items())
@@ -120,7 +130,7 @@ def normalize_shares(shares) -> list[tuple[str, float]]:
     cleaned: list[tuple[str, float]] = []
     for grade, percent in pairs:
         name = str(grade).strip()
-        if name not in C.GRADE_ORDER or name == C.NO_GRADE:
+        if name not in C.GRADE_ORDER:
             continue
         try:
             value = float(percent)
@@ -132,6 +142,11 @@ def normalize_shares(shares) -> list[tuple[str, float]]:
     total = sum(value for _grade, value in cleaned)
     if total > 100.0:
         cleaned = [(grade, value * 100.0 / total) for grade, value in cleaned]
+
+    # Hisob doim yuqori darajadan boshlanadi, darajasizlar esa oxirida —
+    # yaxlitlash qoldig'i o'shalarga qo'shiladi.
+    order = {grade: index for index, grade in enumerate(GRADE_SEQUENCE)}
+    cleaned.sort(key=lambda item: order.get(item[0], len(order)))
     return cleaned
 
 
@@ -139,9 +154,10 @@ def plan_counts(total: int, shares=None) -> list[tuple[str, int]]:
     """
     Har bir darajaga nechta qatnashchi to'g'ri kelishini hisoblaydi.
 
-    Qaytaradi `(daraja, soni)` juftliklari; oxirgi element — daraja
-    olmaganlar. Yaxlitlash tufayli yo'qolgan qatorlar darajasizlarga
-    qo'shiladi, shuning uchun yig'indi doim `total` ga teng.
+    Qaytaradi `(daraja, soni)` juftliklari. Yaxlitlash tufayli yoki
+    foizlar yig'indisi 100 dan kam bo'lgani uchun ortib qolgan qatorlar
+    daraja olmaganlarga qo'shiladi, shuning uchun yig'indi doim `total`
+    ga teng bo'ladi.
     """
     total = max(0, int(total))
     if not total:
@@ -157,8 +173,14 @@ def plan_counts(total: int, shares=None) -> list[tuple[str, int]]:
             plan.append((grade, count))
             assigned += count
 
-    if assigned < total:
-        plan.append((C.NO_GRADE, total - assigned))
+    rest = total - assigned
+    if rest > 0:
+        for index, (grade, count) in enumerate(plan):
+            if grade == C.NO_GRADE:
+                plan[index] = (grade, count + rest)
+                break
+        else:
+            plan.append((C.NO_GRADE, rest))
     return plan
 
 
@@ -278,6 +300,7 @@ def participants(exam):
 
 __all__ = [
     "DEFAULT_SHARES",
+    "GRADE_SEQUENCE",
     "MAX_MOCK_PARTICIPANTS",
     "FIRST_NAMES",
     "LAST_NAMES",

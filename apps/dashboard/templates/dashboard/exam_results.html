@@ -168,7 +168,7 @@
       {% if mock_form.non_field_errors %}
         <div class="message message-error mb">{{ mock_form.non_field_errors|striptags }}</div>
       {% endif %}
-      <div class="form-grid">
+      <div class="form-grid" id="mock-grid">
         <div class="form-row">
           <label for="{{ mock_form.total.id_for_label }}">{{ mock_form.total.label }}</label>
           {{ mock_form.total }}
@@ -179,11 +179,17 @@
           <div class="form-row">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
             {{ field }}
+            {# Kiritilgan foizga nechta odam to'g'ri kelishi shu yerda ko'rinadi. #}
+            <div class="help" data-mock-count="{{ grade }}">{{ field.help_text }}</div>
             {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
           </div>
         {% endfor %}
       </div>
-      <button class="btn btn-primary mt" type="submit">Soxta qatnashchilarni qo‘shish</button>
+
+      {# Foizlar yig'indisi jonli hisoblanadi — 100 dan oshsa tugma o'chadi. #}
+      <div class="message mt" id="mock-summary" role="status" aria-live="polite"></div>
+
+      <button class="btn btn-primary mt" type="submit" id="mock-submit">Soxta qatnashchilarni qo‘shish</button>
     </form>
 
     {% if totals.mock %}
@@ -277,4 +283,89 @@
   </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+/*
+   Soxta qatnashchilar formasi — foizlarni kiritishda yordam.
+
+   Yig'indi jonli hisoblanadi: 100% dan oshsa yuborish tugmasi o'chadi
+   (server ham buni tekshiradi, bu shunchaki xatoni darhol ko'rsatish
+   uchun). 100 dan kam bo'lsa, qolgan foiz «Daraja olinmadi» ga tushadi.
+   Har bir maydon ostida esa o'sha darajaga nechta qatnashchi to'g'ri
+   kelishi yoziladi.
+*/
+(function () {
+  var grid = document.getElementById("mock-grid");
+  var summary = document.getElementById("mock-summary");
+  var submit = document.getElementById("mock-submit");
+  if (!grid || !summary || !submit) { return; }
+
+  var NO_GRADE = "Daraja olinmadi";
+  var totalInput = grid.querySelector("[data-mock-total]");
+  var shareInputs = Array.prototype.slice.call(
+    grid.querySelectorAll("[data-mock-share]")
+  );
+
+  function percent(input) {
+    var parsed = parseFloat(String(input.value).replace(",", "."));
+    return isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  function round2(number) { return Math.round(number * 100) / 100; }
+
+  function hintFor(grade) {
+    return grid.querySelector('[data-mock-count="' + grade + '"]');
+  }
+
+  function refresh() {
+    var people = Math.max(0, parseInt(totalInput.value, 10) || 0);
+    var entered = round2(shareInputs.reduce(function (sum, input) {
+      return sum + percent(input);
+    }, 0));
+    var over = entered > 100;
+    var rest = round2(100 - entered);
+
+    /* Darajalar bo'yicha sonlar; qoldiq esa darajasizlarga tushadi. */
+    var assigned = 0;
+    shareInputs.forEach(function (input) {
+      var grade = input.getAttribute("data-mock-share");
+      if (grade === NO_GRADE) { return; }
+      var count = over ? 0 : Math.round(people * percent(input) / 100);
+      count = Math.max(0, Math.min(count, people - assigned));
+      assigned += count;
+      var hint = hintFor(grade);
+      if (hint) { hint.textContent = count ? count + " ta qatnashchi" : ""; }
+    });
+
+    var noGradeHint = hintFor(NO_GRADE);
+    if (noGradeHint) {
+      var leftover = over ? 0 : Math.max(0, people - assigned);
+      noGradeHint.textContent = leftover
+        ? leftover + " ta qatnashchi (qolgan foiz shu yerga tushadi)"
+        : "Bo\u2018sh qoldirilsa qolgan foiz shu yerga tushadi.";
+    }
+
+    summary.classList.remove("message-success", "message-error", "message-warning");
+    if (over) {
+      summary.classList.add("message-error");
+      summary.textContent = "Foizlar yig\u2018indisi " + entered +
+        "% \u2014 100% dan " + round2(entered - 100) + "% ga oshib ketdi.";
+    } else if (rest > 0) {
+      summary.classList.add("message-warning");
+      summary.textContent = "Kiritilgan: " + entered + "% \u00b7 qolgan " +
+        rest + "% daraja olmaganlarga tushadi.";
+    } else {
+      summary.classList.add("message-success");
+      summary.textContent = "Foizlar yig\u2018indisi \u2014 100%. Taqsimot to\u2018liq.";
+    }
+
+    submit.disabled = over;
+  }
+
+  grid.addEventListener("input", refresh);
+  refresh();
+})();
+</script>
 {% endblock %}

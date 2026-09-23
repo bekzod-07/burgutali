@@ -224,11 +224,11 @@ chiqardi — 2026-09-23 dan u faqat panelda, alohida ustunda qoladi.
 
 Mock imtihon natijasini katta auditoriyadagidek ko’rsatish kerak
 bo’lganda reytingga o’ylab topilgan ism-familiyalar qo’shiladi. Panelning
-natijalar sahifasida jami son va darajalar ulushi kiritiladi, masalan
-1000 ta qatnashchi uchun standart taqsimot:
+natijalar sahifasida jami son va **har bir darajaning ulushi** kiritiladi
+— ulushlar to’liq o’zgaruvchan, quyidagilar shunchaki boshlang’ich taklif:
 
-| Daraja | Ulush | 1000 tadan |
-|--------|-------|------------|
+| Daraja | Standart ulush | 1000 tadan |
+|--------|----------------|------------|
 | A+ | 2% | 20 ta |
 | A | 4% | 40 ta |
 | B+ | 6% | 60 ta |
@@ -236,6 +236,15 @@ natijalar sahifasida jami son va darajalar ulushi kiritiladi, masalan
 | C+ | 18% | 180 ta |
 | C | 22% | 220 ta |
 | Daraja olinmadi | qolgani (40%) | 400 ta |
+
+«Daraja olinmadi» maydoni ham bor: bo’sh qoldirilsa qolgan foiz o’sha
+yerga tushadi, kerak bo’lsa uni ham qo’lda berish mumkin.
+
+**Foizlar yig’indisi 100% dan oshmaydi.** Kiritish paytida yig’indi jonli
+hisoblanadi: har bir maydon ostida o’sha darajaga nechta qatnashchi
+to’g’ri kelishi yoziladi, yig’indi 100% dan oshsa xabar qizaradi va
+yuborish tugmasi o’chadi. Server tomoni ham buni qayta tekshiradi, ya’ni
+bot yoki API orqali ham noto’g’ri taqsimot o’tmaydi.
 
 Ball har bir daraja oralig’idan tasodifiy tanlanadi, shuning uchun foiz
 va fan ballari haqiqiy natijadagidek hisoblanadi. Ismlar takrorlanmaydi.
@@ -761,7 +770,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 901 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 918 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```
