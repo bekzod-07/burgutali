@@ -370,6 +370,8 @@ def result_rows(exam: Exam, limit: int | None = None) -> list[ResultRow]:
     Soxta qatnashchi bo'lmasa, natija oddiy reytingning aynan o'zi.
     """
     from apps.attempts.mock import participants as mock_participants
+    from apps.attempts.mock import submitted_at as mock_submitted_at
+    from apps.attempts.mock import submitted_window as mock_window
     from core import constants as C
 
     uses_rasch = exam.uses_rasch
@@ -397,6 +399,8 @@ def result_rows(exam: Exam, limit: int | None = None) -> list[ResultRow]:
             ),
         ))
 
+    # Vaqt oralig'i bir marta hisoblanadi — har bir qator uchun emas.
+    window = mock_window(exam)
     for mock in mock_participants(exam):
         raw.append((
             mock.ball,
@@ -410,6 +414,9 @@ def result_rows(exam: Exam, limit: int | None = None) -> list[ResultRow]:
                 percent=C.certificate_percent(mock.ball, mock.grade),
                 subjects=C.subject_scores(mock.ball, mock.grade),
                 is_mock=True,
+                # Vaqt ustuni bo'sh qolmasin — aks holda qaysi qator soxta
+                # ekani darrov bilinib qoladi (`apps.attempts.mock`).
+                submitted_at=mock_submitted_at(mock.id, window),
             ),
         ))
 

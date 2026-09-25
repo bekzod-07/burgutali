@@ -1362,6 +1362,9 @@ def test_exports() -> None:
     # --- E'lon uchun soxta qatnashchilar ---
     from apps.attempts import mock as _mock
     from apps.attempts.models import MockParticipant as _Mock
+    from apps.exports.excel import overall_results_workbook as _overall_xlsx
+    from openpyxl import load_workbook as _load_export
+    import io as _io_export
 
     R.equal("Standart taqsimot 2/4/6/8/18/22",
             [percent for _grade, percent in _mock.DEFAULT_SHARES],
@@ -1477,6 +1480,47 @@ def test_exports() -> None:
     R.check("Soxta ballari daraja jadvaliga mos",
             all(C.grade_for_ball(row.ball) == row.grade
                 for row in merged if row.is_mock))
+
+    # --- Soxta qator qolganlaridan ajralib turmaydi ---
+    mock_row = next(row for row in merged if row.is_mock)
+    real_row = next(row for row in merged if not row.is_mock)
+    R.check("Soxta qatorda ham topshirgan vaqt bor",
+            mock_row.submitted_at is not None)
+    R.check("Nomi oddiy ism-familiya",
+            len(mock_row.label.split()) == 2 and mock_row.label[0].isupper(),
+            mock_row.label)
+    R.equal("Ball ikki xonagacha yaxlitlangan",
+            round(mock_row.ball, 2), mock_row.ball)
+    R.check("Daraja jadvalga mos", C.grade_for_ball(mock_row.ball) == mock_row.grade)
+
+    # E'lon fayllarida soxta qatorni ajratib turadigan belgi bo'lmasligi kerak.
+    for key in ("place", "label", "ball", "grade", "percent", "subjects"):
+        R.check(f"Soxta qatorda «{key}» to'ldirilgan",
+                getattr(mock_row, key) not in (None, ""),
+                f"{key} = {getattr(mock_row, key)!r}")
+
+    public_book = _load_export(_io_export.BytesIO(_overall_xlsx(exam)))
+    sheet = public_book["Natijalar"]
+    empty_time = [
+        row[0] for row in sheet.iter_rows(min_row=5, values_only=True)
+        if not row[-1]
+    ]
+    R.check("E'lon Excelida bo'sh vaqt ustuni yo'q", not empty_time,
+            f"{len(empty_time)} ta qatorda vaqt yo'q")
+
+    results_page = client.get(f"/panel/testlar/{exam.pk}/natijalar/").content.decode(
+        "utf-8", "replace"
+    )
+    R.check("Reyting jadvalida «Soxta qatnashchi» yorlig'i yo'q",
+            "Soxta qatnashchi</span>" not in results_page)
+    R.check("Sarlavhada soxtalar soni ko'rsatilmaydi",
+            "tasi soxta" not in results_page)
+
+    from apps.miniapp import serializers as _S_mock
+
+    api_rows = _S_mock.rating_dict(merged[:5], uses_rasch=True, show_raw=True)
+    R.check("Mini App javobida soxtalik belgisi yo'q",
+            all("is_mock" not in row for row in api_rows), str(api_rows[:1]))
 
     after = {a.id: (a.ball, a.grade) for a in _ranked(exam)}
     R.equal("Haqiqiy natijalar o'zgarmadi", after, before)

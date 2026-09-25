@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import Avg
@@ -311,6 +312,56 @@ def balls(exam) -> list[float]:
     ]
 
 
+def submitted_window(exam):
+    """
+    Soxta qatorlar uchun «topshirgan vaqt» oralig'i.
+
+    Oraliq haqiqiy qatnashchilarning birinchi va oxirgi javobidan olinadi —
+    shunda soxta qatorlar ular bilan bir vaqtda topshirilgandek ko'rinadi.
+    Haqiqiy javob bo'lmasa (yoki hammasi bir lahzada kelgan bo'lsa), test
+    yakunlangan paytdan oldingi olti soat olinadi.
+
+    Qaytaradi `(boshlanish, tugash)` yoki vaqtni aniqlab bo'lmasa `None`.
+    """
+    from django.db.models import Max, Min
+
+    from apps.attempts.models import Attempt
+
+    bounds = Attempt.objects.filter(
+        exam=exam,
+        status=Attempt.Status.SUBMITTED,
+        submitted_at__isnull=False,
+    ).aggregate(first=Min("submitted_at"), last=Max("submitted_at"))
+
+    first, last = bounds["first"], bounds["last"]
+    if first and last and last > first:
+        return first, last
+
+    end = last or first or (
+        getattr(exam, "closed_at", None)
+        or getattr(exam, "published_at", None)
+        or getattr(exam, "created_at", None)
+    )
+    if end is None:
+        return None
+    return end - timedelta(hours=6), end
+
+
+def submitted_at(mock_id: int, window):
+    """
+    Bitta soxta qator uchun «topshirgan vaqt».
+
+    Vaqt ustuni bo'sh qolsa, qaysi qator soxta ekani darrov bilinib
+    qoladi — shuning uchun u ham to'ldiriladi. Natija barqaror: urug'
+    sifatida qatnashchining `id` si ishlatiladi.
+    """
+    if not window:
+        return None
+    first, last = window
+    span = max(1, int((last - first).total_seconds()))
+    return first + timedelta(seconds=random.Random(mock_id).randint(0, span))
+
+
 def _logit(value: float) -> float:
     """`ln(p / (1 - p))` — chekka qiymatlar biroz ichkariga suriladi."""
     value = min(max(float(value), 0.02), 0.98)
@@ -395,5 +446,7 @@ __all__ = [
     "participants",
     "balls",
     "theta_for_ball",
+    "submitted_window",
+    "submitted_at",
     "item_hit_counts",
 ]

@@ -256,6 +256,13 @@ qiyinchiligi va sertifikat shartlari ham faqat haqiqiy javoblar bo’yicha
 qoladi. O’zgaradigan yagona narsa — reyting o’rni: o’quvchi endi jami
 ro’yxatda nechanchi bo’lsa, shu o’rinni oladi.
 
+Soxta qator e’lon qilinadigan fayllarda haqiqiy qatnashchidan **hech
+narsa bilan farq qilmaydi**: ism-familiya, ball, foiz, daraja, fan
+ballari va topshirgan vaqti — hammasi to’ldirilgan (vaqt haqiqiy
+o’quvchilar topshirgan oraliqdan olinadi). Reyting jadvalida ham, Mini
+App javobida ham qatorni soxta deb belgilaydigan maydon yo’q; nechta
+soxta qo’shilgani faqat panelning boshqaruv kartochkasida ko’rinadi.
+
 Soxta qatnashchilar e’lon qilinadigan hamma joyda ko’rinadi: umumiy
 natijalar PDF va Excel, panel reytingi, botdagi va Mini App dagi reyting,
 shuningdek **savollar qiyinchiligi va ballar taqsimoti diagrammalari**.
@@ -782,7 +789,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 943 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 957 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

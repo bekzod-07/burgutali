@@ -210,8 +210,7 @@
   <div class="card-head">
     <h2>Reyting</h2>
     <span class="sub">
-      {{ totals.total }} ta qator{% if totals.mock %} · {{ totals.mock }} tasi soxta{% endif %}
-      · {{ certificates }} ta sertifikat berilgan
+      {{ totals.total }} ta qator · {{ certificates }} ta sertifikat berilgan
     </span>
   </div>
   <div class="card-body tight">
@@ -250,8 +249,9 @@
                   {% endif %}
                   <span class="small muted">Telegram ID {{ attempt.user.telegram_id }}</span>
                 {% else %}
-                  {{ row.label }}<br>
-                  <span class="badge badge-gray">Soxta qatnashchi</span>
+                  {# E'lon uchun qo'shilgan qator — qolganlaridan ajralib
+                     turmasligi kerak, shuning uchun hech qanday belgi yo'q. #}
+                  {{ row.label }}
                 {% endif %}
               </td>
               <td class="small">{{ attempt.phone|default:"—" }}</td>
