@@ -27,9 +27,11 @@ haqiqiy o'quvchilarning balli, darajasi va foizi o'zgarmaydi.
 from __future__ import annotations
 
 import logging
+import math
 import random
 
 from django.db import transaction
+from django.db.models import Avg
 
 from core import constants as C
 
@@ -298,6 +300,87 @@ def participants(exam):
     return MockParticipant.objects.filter(exam=exam).order_by("-ball", "order")
 
 
+def balls(exam) -> list[float]:
+    """Soxta qatnashchilarning ballari (ballar taqsimoti diagrammasi uchun)."""
+    return [
+        float(ball)
+        for ball in MockParticipant.objects.filter(exam=exam).values_list(
+            "ball", flat=True
+        )
+        if ball is not None
+    ]
+
+
+def _logit(value: float) -> float:
+    """`ln(p / (1 - p))` — chekka qiymatlar biroz ichkariga suriladi."""
+    value = min(max(float(value), 0.02), 0.98)
+    return math.log(value / (1.0 - value))
+
+
+def theta_for_ball(exam, ball: float) -> float:
+    """
+    Balldan qobiliyatni (`theta`) tiklaydi.
+
+    Ball shkalasi chiziqli (`apps.rasch.scoring.theta_to_ball`), shuning
+    uchun teskari hisob ham chiziqli.
+    """
+    theta_min = float(getattr(exam, "theta_min", None) or C.THETA_MIN)
+    theta_max = float(getattr(exam, "theta_max", None) or C.THETA_MAX)
+    max_ball = float(getattr(exam, "max_ball", None) or C.MAX_BALL)
+    if max_ball <= 0:
+        return theta_min
+    return theta_min + float(ball or 0.0) * (theta_max - theta_min) / max_ball
+
+
+def item_hit_counts(exam, item_statistics) -> list[int]:
+    """
+    Soxta qatnashchilardan har bir savolni nechtasi «topgani».
+
+    Soxta qatnashchida javoblar yo'q — faqat ball bor. Shuning uchun
+    javoblar Rasch modeli bo'yicha tiklanadi: savolning qiyinligi haqiqiy
+    qatnashchilarning natijasidan (`p_value`) chiqariladi, soxta
+    qatnashchining qobiliyati esa ballidan. So'ng har bir savol uchun
+    `P = 1 / (1 + exp(-(theta - b)))` ehtimoli bilan tanlov qilinadi.
+
+    Natija **barqaror**: tasodifiy sonlar generatori har bir qatnashchining
+    `id` si bilan urug'lantiriladi, shuning uchun diagramma har safar
+    bir xil chiqadi. Haqiqiy javoblarga, Rasch kalibrlashga va
+    qatnashchilarning balliga bu hisob umuman ta'sir qilmaydi.
+    """
+    from apps.attempts.models import Attempt
+
+    items = list(item_statistics or [])
+    if not items:
+        return []
+
+    rows = list(
+        MockParticipant.objects.filter(exam=exam).values_list("id", "ball")
+    )
+    if not rows:
+        return [0] * len(items)
+
+    # Savol qiyinligi: o'rtacha qobiliyatli haqiqiy qatnashchi uchun
+    # ehtimol aynan `p_value` chiqadigan qilib tanlanadi.
+    mean_theta = Attempt.objects.filter(
+        exam=exam, status=Attempt.Status.SUBMITTED, theta__isnull=False
+    ).aggregate(value=Avg("theta"))["value"]
+    mean_theta = float(mean_theta) if mean_theta is not None else 0.0
+
+    difficulties = [
+        mean_theta - _logit(float(item.get("p_value") or 0.0)) for item in items
+    ]
+
+    counts = [0] * len(items)
+    for mock_id, ball in rows:
+        theta = theta_for_ball(exam, ball)
+        rng = random.Random(mock_id)
+        for index, difficulty in enumerate(difficulties):
+            probability = 1.0 / (1.0 + math.exp(-(theta - difficulty)))
+            if rng.random() < probability:
+                counts[index] += 1
+    return counts
+
+
 __all__ = [
     "DEFAULT_SHARES",
     "GRADE_SEQUENCE",
@@ -310,4 +393,7 @@ __all__ = [
     "clear",
     "count",
     "participants",
+    "balls",
+    "theta_for_ball",
+    "item_hit_counts",
 ]

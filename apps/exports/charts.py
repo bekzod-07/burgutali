@@ -166,9 +166,19 @@ def difficulty_rows(exam) -> list[DifficultyRow]:
         return []
 
     participants = int(getattr(statistics, "participants", 0) or 0)
+
+    # E'lon uchun qo'shilgan soxta qatnashchilar ham diagrammaga kiradi:
+    # ularning javoblari ballidan Rasch modeli bo'yicha tiklanadi
+    # (`apps.attempts.mock.item_hit_counts`). Haqiqiy javoblarga va
+    # kalibrlashga bu ta'sir qilmaydi.
+    from apps.attempts import mock as mock_service
+
+    mock_hits = mock_service.item_hit_counts(exam, raw)
+    mock_total = mock_service.count(exam)
+
     counts = Counter(int(item.get("order") or 0) for item in raw)
     rows: list[DifficultyRow] = []
-    for item in raw:
+    for position, item in enumerate(raw):
         order = int(item.get("order") or 0)
         part = str(item.get("part") or "a")
         # Ikki qismli (ochiq) savol ustunlari «36(a)», «36(b)» deb belgilanadi.
@@ -186,6 +196,13 @@ def difficulty_rows(exam) -> list[DifficultyRow]:
         else:
             correct = int(item.get("correct") or 0)
         correct = max(0, min(total, correct))
+
+        # Soxta qatnashchilar qo'shiladi va foiz jami bo'yicha qayta hisoblanadi.
+        if mock_total:
+            correct += mock_hits[position] if position < len(mock_hits) else 0
+            total += mock_total
+            percent = max(0.0, min(100.0, (1.0 - correct / max(1, total)) * 100.0))
+            level, color = difficulty_level(percent)
 
         rows.append(
             DifficultyRow(
@@ -208,6 +225,8 @@ def ball_distribution(exam, step: float = BALL_BIN_STEP) -> list[DistributionBin
     """Ishtirokchilar ballarining oraliqlar bo'yicha taqsimoti."""
     from apps.attempts.models import Attempt
 
+    from apps.attempts import mock as mock_service
+
     values = [
         float(ball)
         for ball in Attempt.objects.filter(
@@ -215,6 +234,8 @@ def ball_distribution(exam, step: float = BALL_BIN_STEP) -> list[DistributionBin
         ).values_list("ball", flat=True)
         if ball is not None
     ]
+    # Taqsimot ham e'lon qilinadigan ro'yxat bo'yicha chiziladi.
+    values += mock_service.balls(exam)
     if not values:
         return []
 

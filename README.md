@@ -257,7 +257,13 @@ qoladi. O’zgaradigan yagona narsa — reyting o’rni: o’quvchi endi jami
 ro’yxatda nechanchi bo’lsa, shu o’rinni oladi.
 
 Soxta qatnashchilar e’lon qilinadigan hamma joyda ko’rinadi: umumiy
-natijalar PDF va Excel, panel reytingi, botdagi va Mini App dagi reyting.
+natijalar PDF va Excel, panel reytingi, botdagi va Mini App dagi reyting,
+shuningdek **savollar qiyinchiligi va ballar taqsimoti diagrammalari**.
+Soxta qatnashchida javoblar yo’q — faqat ball bor, shuning uchun uning
+har bir savolga javobi Rasch modeli bo’yicha tiklanadi: savol qiyinligi
+haqiqiy natijalardan (`p_value`) chiqariladi, qobiliyat esa balldan.
+Tasodifiy sonlar qatnashchining `id` si bilan urug’lantirilgani uchun
+diagramma har safar bir xil chiqadi.
 To’liq hisobotda (`admin-hisobot.pdf`, `hisobot_…xlsx`) esa faqat haqiqiy
 qatnashchilar qoladi — u tahlil uchun. Shu sababli panelda eksport
 tugmalari ikki juft:
@@ -776,7 +782,7 @@ rashmodel_matematikabot/
 ## Tekshirish
 
 ```bash
-python selftest.py      # 932 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
+python selftest.py      # 943 ta tekshiruv: modullar, Rasch, oqimlar, web, panel, Mini App API, diagrammalar
 python simulate.py      # 156 ta tekshiruv: botning to'liq foydalanuvchi oqimi
 python manage.py check  # Django tizim tekshiruvi
 ```

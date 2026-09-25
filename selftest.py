@@ -2791,6 +2791,47 @@ def test_charts() -> None:
     people = Attempt.objects.filter(
         exam=exam, status=Attempt.Status.SUBMITTED
     ).count()
+
+    # --- Soxta qatnashchilar diagrammaga ham qo'shiladi ---
+    from apps.attempts import mock as _mock_charts
+
+    R.equal("Soxtasiz diagrammada faqat haqiqiylar",
+            _mock_charts.count(exam), 0)
+
+    _mock_charts.generate(exam, 300, seed=13)
+    with_mock = charts.build_summary(exam)
+    R.equal("Ustun balandligi soxtalar bilan",
+            max(row.total_count for row in with_mock.rows), people + 300)
+    R.check("Har bir ustun jami songa teng",
+            all(row.total_count == people + 300 for row in with_mock.rows))
+    R.check("Topganlar soni oshdi",
+            all(new.correct_count >= old.correct_count
+                for old, new in zip(summary.rows, with_mock.rows)))
+    R.check("Savollar orasidagi farq saqlandi",
+            len({row.correct_count for row in with_mock.rows}) > 1)
+
+    # Tasodifiy javoblar urug'lantirilgan — diagramma har safar bir xil.
+    repeated = charts.build_summary(exam)
+    R.equal("Diagramma barqaror (qayta hisoblaganda o'zgarmaydi)",
+            [row.correct_count for row in repeated.rows],
+            [row.correct_count for row in with_mock.rows])
+
+    R.equal("Ballar taqsimotiga ham qo'shildi",
+            sum(item.count for item in with_mock.bins), people + 300)
+
+    # Rasch hisob-kitobi va haqiqiy natijalar tegilmaydi.
+    R.equal("Statistikada faqat haqiqiy qatnashchilar",
+            exam.statistics.participants, people)
+    R.equal("Urinishlar soni o'zgarmadi",
+            Attempt.objects.filter(exam=exam, status=Attempt.Status.SUBMITTED).count(),
+            people)
+
+    png_with_mock = charts.difficulty_png(exam, with_mock.rows)
+    R.check("Soxtalar bilan PNG yasaladi", png_with_mock.startswith(b"\x89PNG"))
+
+    _mock_charts.clear(exam)
+    R.equal("Tozalangach diagramma tiklandi",
+            max(row.total_count for row in charts.build_summary(exam).rows), people)
     R.check(
         "Har bir ustun to'liq qatnashchilar soniga teng",
         all(row.total_count == people for row in summary.rows),
