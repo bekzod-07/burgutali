@@ -178,6 +178,11 @@ class ExamCreateForm(forms.Form):
         ("national", "Milliy sertifikat shabloni (44 ta savol)"),
     ]
 
+    ANSWER_FORMAT_CHOICES = [
+        ("single", "Variantli (A/B/C/D)"),
+        ("open", "Qo'lda yoziladigan (ochiq javob)"),
+    ]
+
     DURATION_CHOICES = [
         (0, "Cheklovsiz"),
         (1, "1 soat"),
@@ -205,6 +210,15 @@ class ExamCreateForm(forms.Form):
         choices=STRUCTURE_CHOICES,
         initial="custom",
         widget=forms.Select(attrs={"class": "input"}),
+    )
+    answer_format = forms.ChoiceField(
+        label="Javob turi",
+        choices=ANSWER_FORMAT_CHOICES,
+        initial="single",
+        required=False,
+        widget=forms.Select(attrs={"class": "input"}),
+        help_text="Variantli — A/B/C/D tanlanadi. Qo‘lda yoziladigan — "
+                  "javob matn ko‘rinishida yoziladi.",
     )
     question_count = forms.IntegerField(
         label="Savollar soni",
@@ -287,17 +301,26 @@ class ExamCreateForm(forms.Form):
         national = structure == "national" and exam_type != Exam.Type.SIMPLE
         data["is_national"] = national
 
+        answer_format = data.get("answer_format") or "single"
+
         if national:
             data["question_count"] = C.NATIONAL_TOTAL_QUESTIONS
             single_count = C.NATIONAL_SINGLE_RANGE[1] - C.NATIONAL_SINGLE_RANGE[0] + 1
             multi_count = C.NATIONAL_MULTI_RANGE[1] - C.NATIONAL_MULTI_RANGE[0] + 1
             open_count = C.NATIONAL_OPEN_RANGE[1] - C.NATIONAL_OPEN_RANGE[0] + 1
+            data["question_kind"] = "single"
         else:
             count = data.get("question_count")
             if not count:
                 self.add_error("question_count", "Savollar sonini kiriting.")
                 return data
-            single_count, multi_count, open_count = count, 0, 0
+            if answer_format == "open":
+                # Qo'lda yoziladigan test: barcha savollar ochiq javobli.
+                single_count, multi_count, open_count = 0, 0, count
+                data["question_kind"] = "open"
+            else:
+                single_count, multi_count, open_count = count, 0, 0
+                data["question_kind"] = "single"
 
         # --- Javob kalitlarini tekshiramiz ---
         if single_count:
@@ -311,9 +334,11 @@ class ExamCreateForm(forms.Form):
                 self.add_error("multi_keys", " ".join(parsed.errors[:5]))
             data["parsed_multi"] = parsed.keys
         if open_count:
-            # 36–39 bitta javobdan, 40–44 esa a) va b) dan iborat.
+            # Milliy shablonda 36–39 bitta javobdan, 40–44 a) va b) dan.
+            # Qo'lda yoziladigan oddiy testda esa hammasi bitta javobdan.
+            open_parts = C.national_open_parts() if national else 1
             parsed = key_parser.parse_open_key(
-                data.get("open_keys", ""), open_count, C.national_open_parts()
+                data.get("open_keys", ""), open_count, open_parts
             )
             if not parsed.ok:
                 self.add_error("open_keys", " ".join(parsed.errors[:5]))

@@ -74,6 +74,14 @@
     }
     var count = parseInt(options.count, 10) || 0;
     count = Math.max(1, Math.min(count, 500));
+    if (options.kind === "open") {
+      // Qo'lda yoziladigan test — barcha savollar ochiq javobli, har biri
+      // bitta javobdan iborat (variant yo'q).
+      return {
+        national: false, single: null, multi: null,
+        open: { from: 1, to: count }, openAll: true
+      };
+    }
     return { national: false, single: { from: 1, to: count }, multi: null, open: null };
   }
 
@@ -115,6 +123,7 @@
 
   /* Savol nechta javobdan iborat: 36–39 — bitta, 40–44 — a) va b). */
   function openParts(plan, order) {
+    if (plan && plan.openAll) { return 1; }  // qo'lda yoziladigan: hammasi bitta javob
     var single = plan && plan.openSingle;
     if (single && order >= single.from && order <= single.to) { return 1; }
     return 2;
@@ -141,13 +150,15 @@
     var order;
     var html = '<div class="ksheet">';
 
-    html += head(
-      (p.national ? "1–32" : p.single.from + "–" + p.single.to) + " · Yopiq savollar",
-      "A–D variantlardan to‘g‘ri javobni belgilang",
-      "single"
-    );
-    for (order = p.single.from; order <= p.single.to; order += 1) {
-      html += letterRow(order, SINGLE_LETTERS, "single", keys.letters[order] || "");
+    if (p.single) {
+      html += head(
+        (p.national ? "1–32" : p.single.from + "–" + p.single.to) + " · Yopiq savollar",
+        "A–D variantlardan to‘g‘ri javobni belgilang",
+        "single"
+      );
+      for (order = p.single.from; order <= p.single.to; order += 1) {
+        html += letterRow(order, SINGLE_LETTERS, "single", keys.letters[order] || "");
+      }
     }
 
     if (p.multi) {
@@ -166,8 +177,14 @@
       if (p.openSingle) {
         note = p.openSingle.from + "–" + p.openSingle.to + " bitta javobdan, " +
           (p.openSingle.to + 1) + "–" + p.open.to + " esa a) va b) dan. " + note;
+      } else if (p.openAll) {
+        note = "Har bir savol javobini yozing. " + note;
       }
-      html += head(p.open.from + "–" + p.open.to + " · Ochiq javob", note, "open");
+      var openRange = p.open.from === p.open.to ? String(p.open.from)
+        : p.open.from + "–" + p.open.to;
+      var openTitle = openRange + " · Ochiq javob" +
+        (p.openAll ? " (qo‘lda yoziladigan)" : "");
+      html += head(openTitle, note, "open");
       for (order = p.open.from; order <= p.open.to; order += 1) {
         html += openRow(
           handle.uid, order, keys.open[order] || { a: "", b: "" }, openParts(p, order)
@@ -193,7 +210,7 @@
       }
     }
 
-    letters(p.single.from, p.single.to);
+    if (p.single) { letters(p.single.from, p.single.to); }
     if (p.multi) { letters(p.multi.from, p.multi.to); }
     if (p.open) {
       for (order = p.open.from; order <= p.open.to; order += 1) {
@@ -219,8 +236,10 @@
     var single = [], multi = [], open = [];
     var order;
 
-    for (order = p.single.from; order <= p.single.to; order += 1) {
-      single.push(keys.letters[order] || "");
+    if (p.single) {
+      for (order = p.single.from; order <= p.single.to; order += 1) {
+        single.push(keys.letters[order] || "");
+      }
     }
     if (p.multi) {
       for (order = p.multi.from; order <= p.multi.to; order += 1) {

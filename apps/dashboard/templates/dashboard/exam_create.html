@@ -25,10 +25,11 @@
       </div>
       <div class="card-body">
         {% for field in form %}
-          {% if field.name in "title,exam_type,structure,question_count,duration_hours,description" %}
+          {% if field.name in "title,exam_type,structure,answer_format,question_count,duration_hours,description" %}
             <div class="form-row">
               <label for="{{ field.id_for_label }}">{{ field.label }}</label>
               {{ field }}
+              {% if field.help_text %}<div class="small" style="color:var(--muted);margin-top:4px">{{ field.help_text }}</div>{% endif %}
               {% if field.errors %}<div class="errors">{{ field.errors|striptags }}</div>{% endif %}
             </div>
           {% endif %}
@@ -145,31 +146,37 @@
   (function () {
     var type = document.getElementById("id_exam_type");
     var structure = document.getElementById("id_structure");
+    var format = document.getElementById("id_answer_format");
     var count = document.getElementById("id_question_count");
+    var single = document.getElementById("id_single_keys");
     var multi = document.getElementById("id_multi_keys");
     var open = document.getElementById("id_open_keys");
 
     function rowOf(field) { return field ? field.closest(".form-row") : null; }
+    function show(field, visible) {
+      var row = rowOf(field);
+      if (row) { row.style.display = visible ? "" : "none"; }
+    }
 
     function sync() {
       var isSimple = type.value === "simple";
       var national = structure.value === "national" && !isSimple;
+      var isOpen = !national && format && format.value === "open";
 
-      var structureRow = rowOf(structure);
-      if (structureRow) { structureRow.style.display = isSimple ? "none" : ""; }
+      show(structure, !isSimple);
+      show(format, !national);          // javob turi faqat milliy bo'lmaganda
+      show(count, !national);
 
-      var countRow = rowOf(count);
-      if (countRow) { countRow.style.display = national ? "none" : ""; }
-
-      var multiRow = rowOf(multi);
-      var openRow = rowOf(open);
-      if (multiRow) { multiRow.style.display = national ? "" : "none"; }
-      if (openRow) { openRow.style.display = national ? "" : "none"; }
+      // Matn ko'rinishidagi kalit maydonlari:
+      show(single, !isOpen);            // qo'lda yoziladiganda A–D kaliti yashirin
+      show(multi, national);
+      show(open, national || isOpen);   // ochiq kaliti milliyda yoki qo'lda rejimida
     }
 
     if (type && structure) {
       type.addEventListener("change", sync);
       structure.addEventListener("change", sync);
+      if (format) { format.addEventListener("change", sync); }
       sync();
     }
   })();

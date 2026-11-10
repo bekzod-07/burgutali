@@ -223,6 +223,7 @@ def exam_create(request):
                 exam_type=data["exam_type"],
                 question_count=int(data.get("question_count") or 0),
                 national_template=bool(data.get("is_national")),
+                question_kind=data.get("question_kind", "single"),
                 description=data.get("description", ""),
                 duration_minutes=hours * 60,
                 ends_at=ends_at,

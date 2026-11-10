@@ -50,6 +50,7 @@
 
     var type = document.getElementById("id_exam_type");
     var structure = document.getElementById("id_structure");
+    var format = document.getElementById("id_answer_format");
     var count = document.getElementById("id_question_count");
     var single = document.getElementById("id_single_keys");
     var multi = document.getElementById("id_multi_keys");
@@ -67,18 +68,21 @@
     function planNow() {
       var national = structure && structure.value === "national" &&
         type && type.value !== "simple";
-      return window.KeySheet.plan({
-        national: national,
-        count: count ? parseInt(count.value, 10) : 0
-      });
+      if (national) { return window.KeySheet.plan({ national: true }); }
+      var cnt = count ? parseInt(count.value, 10) : 0;
+      if (format && format.value === "open") {
+        return window.KeySheet.plan({ kind: "open", count: cnt });
+      }
+      return window.KeySheet.plan({ count: cnt });
     }
 
     function onChange(handle) {
       var keys = handle.serialize();
-      var national = handle.plan.national;
-      single.value = keys.single_keys;
-      if (multi) { multi.value = national ? keys.multi_keys : ""; }
-      if (open) { open.value = national ? keys.open_keys : ""; }
+      /* Qaysi maydon to'ldirilishi varaqa rejasidan kelib chiqadi:
+         single — A–D bo'lsa, open — ochiq (milliy yoki qo'lda) bo'lsa. */
+      single.value = handle.plan.single ? keys.single_keys : "";
+      if (multi) { multi.value = handle.plan.multi ? keys.multi_keys : ""; }
+      if (open) { open.value = handle.plan.open ? keys.open_keys : ""; }
 
       if (progress) {
         var counters = handle.progress();
@@ -96,7 +100,7 @@
 
     function syncPlan() { sheet.setPlan(planNow()); onChange(sheet); }
 
-    [type, structure, count].forEach(function (field) {
+    [type, structure, format, count].forEach(function (field) {
       if (!field) { return; }
       field.addEventListener("change", syncPlan);
       field.addEventListener("input", syncPlan);
