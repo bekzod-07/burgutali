@@ -69,6 +69,21 @@ def simple_specs(count: int, choices_count: int = 4) -> list[QuestionSpec]:
     ]
 
 
+def open_specs(count: int) -> list[QuestionSpec]:
+    """
+    `count` ta qo'lda yoziladigan (ochiq javobli) savol tavsifi.
+
+    Har bir savol variantsiz — javobi qo'lda yoziladi va matn bo'yicha
+    tekshiriladi. Milliy shablondan farqli ravishda bu yerda barcha
+    savollar bitta javobdan iborat (``parts=1``).
+    """
+    count = max(1, min(int(count), 500))
+    return [
+        QuestionSpec(order, Question.Kind.OPEN, 0, 1)
+        for order in range(1, count + 1)
+    ]
+
+
 def build_questions(exam: Exam, specs: list[QuestionSpec]) -> list[Question]:
     """
     Test uchun savollarni yaratadi (mavjudlarini almashtiradi).
@@ -103,7 +118,7 @@ def describe_structure(exam: Exam) -> str:
     labels = {
         Question.Kind.SINGLE: "bitta javobli (A–D)",
         Question.Kind.MULTI: "moslashtirish (A–F, bitta javob)",
-        Question.Kind.OPEN: "ochiq javobli (a, b)",
+        Question.Kind.OPEN: "ochiq javobli (qo'lda yoziladigan)",
     }
     for kind, label in labels.items():
         if counts.get(kind):
@@ -115,6 +130,7 @@ __all__ = [
     "QuestionSpec",
     "national_specs",
     "simple_specs",
+    "open_specs",
     "build_questions",
     "describe_structure",
 ]

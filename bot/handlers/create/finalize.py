@@ -47,6 +47,7 @@ async def finish_creation(message: Message, state: FSMContext, user) -> None:
             exam_type=exam_type,
             question_count=int(data.get("question_count", 0) or 0),
             national_template=bool(data.get("national")),
+            question_kind=data.get("question_kind", "single"),
             duration_minutes=hours * 60,
             ends_at=ends_at,
             show_results=bool(data.get("show_results", True)),

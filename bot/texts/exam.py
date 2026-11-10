@@ -53,6 +53,21 @@ ASK_STRUCTURE = (
 BTN_NATIONAL_TEMPLATE = "Milliy sertifikat shabloni (44 ta)"
 BTN_CUSTOM_STRUCTURE = "Savollar sonini o‘zim belgilayman"
 
+# --- Javob turini tanlash (variantli / qo'lda yoziladigan) ---
+
+ASK_ANSWER_FORMAT = (
+    "<b>Javob turini tanlang</b>\n\n"
+    "<b>Variantli</b> — har bir savolda A, B, C, D variantlari bo‘ladi, "
+    "qatnashchi bittasini tanlaydi.\n\n"
+    "<b>Qo‘lda yoziladigan</b> — variant yo‘q, qatnashchi javobni o‘zi "
+    "yozadi. Javob matn bo‘yicha tekshiriladi: katta-kichik harf, apostrof "
+    "ko‘rinishi (<code>o‘</code> = <code>o`</code> = <code>ö</code>) va "
+    "tinish belgilari e’tiborga olinmaydi."
+)
+
+BTN_FORMAT_SINGLE = "Variantli (A/B/C/D)"
+BTN_FORMAT_OPEN = "Qo‘lda yoziladigan (ochiq javob)"
+
 ASK_QUESTION_COUNT = (
     "Test nechta savoldan iborat bo‘lsin?\n\n"
     "Tayyor variantlardan birini tanlang yoki sonni yozib yuboring "
@@ -96,6 +111,25 @@ ASK_OPEN_KEYS = (
     "Tekshiruvda katta-kichik harf, apostrof ko‘rinishi va hatto uning "
     "yo‘qligi (<code>orta</code> = <code>o‘rta</code>) hamda tinish "
     "belgilari e’tiborga olinmaydi."
+)
+
+ASK_OPEN_KEYS_SIMPLE = (
+    "<b>To‘g‘ri javoblarni kiriting</b> ({count} ta savol)\n\n"
+    "Har bir savol uchun <b>alohida qator</b> yozing — tartib bo‘yicha "
+    "1-savol, 2-savol, ...:\n\n"
+    "<code>ot\n"
+    "sifat\n"
+    "olmosh\n"
+    "...</code>\n\n"
+    "Istasangiz boshida savol raqamini ham yozishingiz mumkin "
+    "(<code>1) ot</code>).\n\n"
+    "<b>Sinonimlarni vergul bilan sanang</b> — har biri to‘g‘ri javob "
+    "hisoblanadi:\n"
+    "<code>osmon, samo, fazo</code>\n\n"
+    "Tekshiruvda katta-kichik harf, apostrof ko‘rinishi "
+    "(<code>o‘</code> = <code>o`</code> = <code>ö</code>) va hatto uning "
+    "yo‘qligi (<code>orta</code> = <code>o‘rta</code>), tinish belgilari "
+    "e’tiborga olinmaydi."
 )
 
 KEYS_SAVED = "Javob kaliti saqlandi."

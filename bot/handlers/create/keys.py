@@ -51,8 +51,11 @@ async def ask_next_key_step(message: Message, state: FSMContext) -> None:
 
     if data.get("open_count", 0) and data.get("open_keys") is None:
         await state.set_state(CreateExamStates.waiting_open_keys)
+        # Milliy shablonda ochiq savollar a) va b) qismli bo'ladi; qo'lda
+        # yoziladigan oddiy testda esa har bir savol bitta javobdan iborat.
+        prompt = TE.ASK_OPEN_KEYS if data.get("national") else TE.ASK_OPEN_KEYS_SIMPLE
         await message.answer(
-            TE.ASK_OPEN_KEYS.format(count=data["open_count"]),
+            prompt.format(count=data["open_count"]),
             reply_markup=inline.cancel(),
         )
         return
@@ -115,11 +118,11 @@ async def receive_open_keys(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     count = int(data.get("open_count", 0))
 
-    # Ochiq savollar faqat milliy shablonda: 36–39 bitta javobdan,
-    # 40–44 esa a) va b) dan iborat.
-    result = exam_service.parse_open_key(
-        message.text or "", count, C.national_open_parts()
-    )
+    # Milliy shablonda ochiq savollar har xil: 36–39 bitta javobdan,
+    # 40–44 a) va b) dan. Qo'lda yoziladigan oddiy testda esa barcha
+    # savollar bitta javobdan iborat (parts=1).
+    parts = C.national_open_parts() if data.get("national") else 1
+    result = exam_service.parse_open_key(message.text or "", count, parts)
     if not result.ok:
         await message.answer(TE.KEY_ERRORS.format(errors=_format_errors(result.errors)))
         return

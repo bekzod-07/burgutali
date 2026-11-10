@@ -75,9 +75,10 @@ async def receive_title(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
 
     if data.get("exam_type") == "simple":
-        # Oddiy testda tuzilma doim bir xil: A/B/C/D savollari.
+        # Oddiy testda milliy shablon yo'q — faqat javob turi tanlanadi
+        # (variantli A/B/C/D yoki qo'lda yoziladigan ochiq javob).
         await state.update_data(national=False)
-        await _ask_question_count(message, state)
+        await _ask_answer_format(message, state)
         return
 
     await state.set_state(CreateExamStates.choosing_structure)
@@ -116,6 +117,26 @@ async def choose_structure(
         return
 
     await state.update_data(national=False)
+    await _ask_answer_format(callback.message, state)
+
+
+async def _ask_answer_format(message: Message, state: FSMContext) -> None:
+    """Javob turini so'raydi: variantli (A/B/C/D) yoki qo'lda yoziladigan."""
+    await state.set_state(CreateExamStates.choosing_answer_format)
+    await message.answer(TE.ASK_ANSWER_FORMAT, reply_markup=inline.answer_format())
+
+
+@router.callback_query(
+    StateFilter(CreateExamStates.choosing_answer_format),
+    CreateCB.filter(F.action == "format"),
+)
+async def choose_answer_format(
+    callback: CallbackQuery, callback_data: CreateCB, state: FSMContext
+) -> None:
+    """Javob turi tanlandi."""
+    await callback.answer()
+    kind = "open" if callback_data.value == "open" else "single"
+    await state.update_data(question_kind=kind)
     await _ask_question_count(callback.message, state)
 
 
@@ -158,12 +179,22 @@ async def receive_count(message: Message, state: FSMContext) -> None:
 
 async def _save_count(message: Message, state: FSMContext, count: int) -> None:
     """Savollar sonini saqlaydi va kalitlar bosqichiga o'tadi."""
-    await state.update_data(
-        question_count=count,
-        single_count=count,
-        multi_count=0,
-        open_count=0,
-    )
+    data = await state.get_data()
+    if data.get("question_kind") == "open":
+        # Qo'lda yoziladigan test: barcha savollar ochiq javobli.
+        await state.update_data(
+            question_count=count,
+            single_count=0,
+            multi_count=0,
+            open_count=count,
+        )
+    else:
+        await state.update_data(
+            question_count=count,
+            single_count=count,
+            multi_count=0,
+            open_count=0,
+        )
     from .keys import ask_next_key_step
 
     await ask_next_key_step(message, state)

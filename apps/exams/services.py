@@ -21,7 +21,13 @@ from core.text_utils import shorten
 
 from .keys import split_open_key
 from .models import Exam, Question, ReservedExamCode
-from .structures import QuestionSpec, build_questions, national_specs, simple_specs
+from .structures import (
+    QuestionSpec,
+    build_questions,
+    national_specs,
+    open_specs,
+    simple_specs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +211,7 @@ def create_exam(
     exam_type: str,
     question_count: int = 0,
     national_template: bool = False,
+    question_kind: str = "single",
     description: str = "",
     duration_minutes: int = 0,
     ends_at=None,
@@ -217,7 +224,10 @@ def create_exam(
     Yangi test yaratadi va savollar tuzilmasini shakllantiradi.
 
     `national_template=True` bo'lsa — milliy shablondagi 44 ta savol tuzilmasi
-    yaratiladi, aks holda `question_count` ta A/B/C/D savol.
+    yaratiladi. Aks holda `question_kind` ga qarab:
+
+      * ``"single"`` — `question_count` ta A/B/C/D variantli savol;
+      * ``"open"``   — `question_count` ta qo'lda yoziladigan (ochiq) savol.
     """
     exam = Exam.objects.create(
         title=shorten(title.strip(), 150) or "Nomsiz test",
@@ -241,6 +251,8 @@ def create_exam(
     specs: list[QuestionSpec]
     if national_template:
         specs = national_specs()
+    elif question_kind == "open":
+        specs = open_specs(question_count)
     else:
         specs = simple_specs(question_count)
     build_questions(exam, specs)

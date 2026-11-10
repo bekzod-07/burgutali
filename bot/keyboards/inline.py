@@ -199,6 +199,20 @@ def exam_structure() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def answer_format() -> InlineKeyboardMarkup:
+    """Javob turini tanlash: variantli (A/B/C/D) yoki qo'lda yoziladigan."""
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=TE.BTN_FORMAT_SINGLE, callback_data=CreateCB(action="format", value="single")
+    )
+    builder.button(
+        text=TE.BTN_FORMAT_OPEN, callback_data=CreateCB(action="format", value="open")
+    )
+    builder.button(text=TC.BTN_CANCEL, callback_data=MenuCB(action="cancel"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def question_counts() -> InlineKeyboardMarkup:
     """Savollar sonini tanlash."""
     builder = InlineKeyboardBuilder()

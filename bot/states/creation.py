@@ -14,6 +14,7 @@ class CreateExamStates(StatesGroup):
     choosing_type = State()
     waiting_title = State()
     choosing_structure = State()
+    choosing_answer_format = State()
     waiting_question_count = State()
     waiting_single_keys = State()
     waiting_multi_keys = State()

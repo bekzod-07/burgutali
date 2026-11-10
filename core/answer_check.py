@@ -53,6 +53,29 @@ _ALTERNATIVE_RE = re.compile(r"[;,/\n]+")
 _APOSTROPHES = "ʻʼ‘’‛`´ʹ′'"
 _APOSTROPHE_RE = re.compile("[" + re.escape(_APOSTROPHES) + "]")
 
+#: «o'» va «g'» harflarining muqobil yozilishi. Telefon klaviaturasida
+#: apostrofli harfni terish qiyin bo'lgani uchun ko'pchilik ularni umlaut
+#: yoki diakritik bilan yozadi: «ö» = «o'», «ğ» = «g'». Taqqoslashdan oldin
+#: barchasi standart apostrofli ko'rinishga keltiriladi (keyin apostrof
+#: baribir hisobga olinmaydi, shuning uchun «özbek» = «o'zbek» = «ozbek»).
+_LETTER_VARIANTS = {
+    "ö": "o'", "Ö": "O'",
+    "ŏ": "o'", "Ŏ": "O'",
+    "ô": "o'", "Ô": "O'",
+    "ğ": "g'", "Ğ": "G'",
+    "ǵ": "g'", "Ǵ": "G'",
+    "ḡ": "g'", "Ḡ": "G'",
+    "ğ": "g'",  # NFKC dan keyin ham ehtiyot uchun
+}
+_LETTER_VARIANTS_RE = re.compile("|".join(re.escape(ch) for ch in _LETTER_VARIANTS))
+
+
+def _apply_letter_variants(text: str) -> str:
+    """«ö», «ğ» kabi muqobil harflarni «o'», «g'» ga keltiradi."""
+    if not text:
+        return text
+    return _LETTER_VARIANTS_RE.sub(lambda m: _LETTER_VARIANTS[m.group(0)], text)
+
 #: Tekshiruvda e'tiborga olinmaydigan tinish belgilari.
 _PUNCTUATION_RE = re.compile(r"[.,!?:;\"«»„“”()\[\]{}…]+")
 
@@ -67,6 +90,7 @@ def normalize_answer(raw: str) -> str:
     if not raw:
         return ""
     text = unicodedata.normalize("NFKC", str(raw))
+    text = _apply_letter_variants(text)
     text = _APOSTROPHE_RE.sub("'", text)
     text = _DASH_RE.sub("-", text)
     text = _PUNCTUATION_RE.sub(" ", text)
@@ -92,6 +116,7 @@ def display_answer(raw: str) -> str:
     if not raw:
         return ""
     text = unicodedata.normalize("NFKC", str(raw))
+    text = _apply_letter_variants(text)
     text = _APOSTROPHE_RE.sub("'", text)
     text = _DASH_RE.sub("-", text)
     return _SPACES_RE.sub(" ", text).strip()
